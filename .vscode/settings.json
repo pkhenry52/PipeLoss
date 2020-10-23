@@ -1,0 +1,8 @@
+{
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+    // whitelist numpy to remove lint errors
+    "python.linting.pylintArgs": [
+        "--extension-pkg-whitelist=wx"
+    ]
+}
