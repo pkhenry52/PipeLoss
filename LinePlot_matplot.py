@@ -7,8 +7,10 @@ import string
 import wx
 import wx.grid as gridlib
 import wx.lib.mixins.gridlabelrenderer as glr
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-from matplotlib.backends.backend_wx import NavigationToolbar2Wx as NavigationToolbar
+from matplotlib.backends.backend_wxagg import \
+    FigureCanvasWxAgg as FigureCanvas
+from matplotlib.backends.backend_wx import \
+    NavigationToolbar2Wx as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
@@ -351,7 +353,8 @@ class InputForm(wx.Frame):
         pol_dc = {}
         data_sql = 'SELECT * FROM loops'
         tbl_data = Dbase().Dsqldata(data_sql)
-        self.Loops = {i[0]:[[i[1], i[2], i[3]], literal_eval(i[4])] for i in tbl_data} 
+        self.Loops = {i[0]:[[i[1], i[2], i[3]], literal_eval(i[4])]
+                       for i in tbl_data} 
         for k,v in self.Loops.items():
             self.Ln_Select = v[1]
             self.AddLoop(k)
@@ -513,7 +516,7 @@ class InputForm(wx.Frame):
             alpha_pts.append(nd_pt2)
 
             self.runs[LnLbl] = [alpha_pts, New_EndPt]
-
+            print(self.runs)
             return points, LnLbl, New_EndPt
 
     def DrawLine(self, points, LnLbl, New_EndPt):
@@ -544,78 +547,110 @@ class InputForm(wx.Frame):
 
         self.canvas.draw()
 
-    def RemoveLine(self, lbl, ln_chg=False):
+    def RemoveLine(self, set_lns):
+        # reset the delete warning flag
         self.dlt_line = False
-
+        '''
         # Remove the label and the line from graphic
         self.plt_lines.pop(lbl)[0].remove()
         self.plt_Txt.pop(lbl).remove()
 
         # delete values in grid
-        if ln_chg is False:
-            row = ord(lbl) - 65
-            self.grd.SetCellValue(row, 1, '')
-            self.grd.SetCellValue(row, 2, '')
-            if row != 0:
-                self.grd.SetCellValue(row, 0, '')
+        row = ord(lbl) - 65
+        self.grd.SetCellValue(row, 1, '')
+        self.grd.SetCellValue(row, 2, '')
+        if row != 0:
+            self.grd.SetCellValue(row, 0, '')'''
+        for  lbl in set_lns:
+            for ln in set_lns:
+                # remove the lines and its label from the graphic
+                if ln in self.plt_lines.keys():
+                    self.plt_lines.pop(ln)[0].remove()
+                if ln in self.plt_Txt.keys():
+                    self.plt_Txt.pop(ln).remove()
+                # remove the points for the line from the grid
+                row = ord(ln) - 65
+                self.grd.SetCellValue(row, 1, '')
+                self.grd.SetCellValue(row, 2, '')
+                if row != 0:
+                    self.grd.SetCellValue(row, 0, '')
 
-        # remove the line node from the graphic if it is the only line present
-        if len(self.runs) == 1:
-            nd1, nd2 = self.runs.pop(lbl)[0]
-            self.plt_txt[lbl.lower()].remove()
-            for nd in [nd1, nd2]:
-                if nd != 'origin':
-                    self.pts.pop(nd)
-        else:
-            # remove the line from the runs dictionary
-            # and save the line end points
-            nd1, nd2 = self.runs.pop(lbl)[0]
-
-            # turn dictionary into tuple of items
-            # [('A', [('origin', 'a'), True]), ('B',[('origin','b'), True])]
-            run_tpl = list(self.runs.items())
-            # get just the end points for each line
-            # [('origin','a'),('origin','b')]
-            nd_pts = [item[1][0] for item in run_tpl]
-            # make a set of just the point labels {'a','origin','b'}
-            lst_nds = set(item for l in nd_pts for item in l)
-
-            for nd in [nd1, nd2]:
-                if nd not in lst_nds:
-                    # remove the node from the list of displayed
-                    # nodes if it is not used anywhere else
-                    self.plt_txt[nd].remove()
-                    # delete point from dictionary of points
-                    # if it is not origin
+            # remove the line node from the graphic if it is the only line present
+            if len(self.runs) == 1:
+                nd1, nd2 = self.runs.pop(lbl)[0]
+                
+                for nd in [nd1, nd2]:
                     if nd != 'origin':
                         self.pts.pop(nd)
-                # check to see if the line has been defined in
-                # the nodes dictionary if so delete the line tuple from
-                # the dictionary
-                if nd in self.nodes:
-                    if len(self.nodes[nd]) == 1:
-                        self.nodes.pop(nd)
-                    else:
-                        n = 0
-                        for v in self.nodes[nd]:
-                            if lbl == v[0]:
-                                self.nodes[nd].pop(n)
-                            n += 1
+                        self.plt_txt.pop(nd).remove()
+            else:
+                # remove the line from the runs dictionary
+                # and save the line end points
+                nd1, nd2 = self.runs.pop(lbl)[0]
 
+                # turn runs dictionary into tuple of items
+                # [('A', [('origin', 'a'), True]), ('B',[('origin','b'), True])]
+                # get just the end points for each line
+                # [('origin','a'),('origin','b')]
+                nd_pts = [item[1][0] for item in list(self.runs.items())]
+                # make a set of just the point labels {'a','origin','b'}
+                lst_nds = set(item for l in nd_pts for item in l)
+
+                for nd in [nd1, nd2]:
+                    if nd not in lst_nds:
+                        # remove the node from the list of displayed
+                        # nodes if it is not used anywhere else
+                        self.plt_txt.pop(nd).remove()
+                        # delete point from dictionary of points
+                        # if it is not origin
+                        if nd != 'origin':
+                            del self.pts[nd]
+                    # check to see if the line has been defined in
+                    # the nodes dictionary if so delete the line tuple from
+                    # the dictionary
+                    if nd in self.nodes:
+                        if len(self.nodes[nd][0]) == 1:
+                            del self.nodes[nd]
+                        else:
+                            n = 0
+                            for v in self.nodes[nd][0]:
+                                if lbl == v[0]:
+                                    self.nodes[nd][0].pop(n)
+                                n += 1
+
+                    # retrieve all the values from the loops dictionary
+            set_loop = list(self.Loops.items())
+            # get list of loops which are bordered by any of the lines
+            for loup in set_loop:
+                # find the common lines between the loops dictionary
+                # line list and the lines intersection the node
+                # if there are any lines common to both then they
+                # represent a node associated with a loop
+                loop_lns = set_lns.intersection(loup[1][1])
+                if len(loop_lns) > 0:
+                    self.RemoveLoop(loup[0])
+        '''
+        set_loop = list(self.Loops.items())
         # if the line is part of a loop then remove the loop
-        for key, value in self.Loops.items():
-            if lbl in value[1]:
-                self.RemoveLoop(key)
+        for grp in set_loop:
+            if lbl in grp[1][1]:
+                self.RemoveLoop(grp[0])'''
 
         self.canvas.draw()
 
     def RemoveNode(self, lbl):
+        # reset the delete warning flag
         self.dlt_node = False
+
         effect_loops = []
         # build a list of all the lines at this node
         lns = [k for k, v in self.runs.items() if lbl in v[0]]
         # remove any duplicates found in the line list
         set_lns = set(lns)
+
+        self.RemoveLine(set_lns)
+
+        '''
         # retrieve all the values from the loops dictionary
         set_loop = list(self.Loops.items())
         # get list of loops which are bordered by any of the lines
@@ -633,7 +668,7 @@ class InputForm(wx.Frame):
             # remove the lines and its label from the graphic
             self.plt_lines.pop(ln)[0].remove()
             self.plt_Txt.pop(ln).remove()
-            # remove the lines from the grid
+            # remove the points for the line from the grid
             row = ord(ln) - 65
             self.grd.SetCellValue(row, 1, '')
             self.grd.SetCellValue(row, 2, '')
@@ -643,12 +678,12 @@ class InputForm(wx.Frame):
             del self.runs[ln]
 
         # remove the node label from the graphic
-        self.plt_txt[lbl].remove()
+        self.plt_txt.pop(lbl).remove()
         # remove the node from the self.pts dictionary
         del self.pts[lbl]
         self.nodes.pop(lbl, None)
 
-        self.canvas.draw()
+        self.canvas.draw()'''
 
     def MoveNode(self, nd, ln):
         effect_loops = []
@@ -703,7 +738,9 @@ class InputForm(wx.Frame):
         self.canvas.draw()
 
     def RemoveLoop(self, num):
+        # reset the delete warning flag
         self.dlt_loop = False
+
         # remove the graphics from the form
         self.plt_lpnum.pop(num, None).remove()
         self.arrw.pop(num, None)[0].remove()
@@ -726,7 +763,7 @@ class InputForm(wx.Frame):
                     # take line lbl and go to Loop function
                      self.Loop(lbl)
                 elif self.dlt_line:
-                    self.RemoveLine(lbl)
+                    self.RemoveLine(set(lbl))
                 else:
                     PipeFrm(self, lbl)
             # if node label is selected do one of two things;
@@ -1044,7 +1081,8 @@ class InputForm(wx.Frame):
         self.plt_Txt = {}
         # generate a list of all the node points excluding the origin
         redraw_pts = [*self.pts]
-        # redraw_pts.remove('origin')
+        redraw_pts.remove('origin')
+
         # draw the origin location on the chart
         txt = self.ax.text(0, 0, 'origin', picker=True,
                            color=self.colours['purple'])
@@ -1073,7 +1111,7 @@ class InputForm(wx.Frame):
             if pt1 in redraw_pts:
                 txt = self.ax.text(x1, y1, pt1, picker=True,
                                    color=self.colours[color_name])
-                self.plt_txt = txt
+                self.plt_txt[pt1] = txt
                 redraw_pts.remove(pt1)
 
         # draw the loop arcs and label
@@ -1119,7 +1157,8 @@ class InputForm(wx.Frame):
         # build sql to add rows to table
         Insql = 'INSERT INTO lines (lineID, ends, new_pt) VALUES(?,?,?);'
         # convert the tuple inside the dictionary to a string
-        Indata = [(i[0], str(i[1][0]), i[1][1]) for i in list(self.runs.items())]
+        Indata = [(i[0], str(i[1][0]), i[1][1])
+                   for i in list(self.runs.items())]
         Dbase().Daddrows(Insql, Indata)
 
     def loopsDB(self):
@@ -1130,7 +1169,8 @@ class InputForm(wx.Frame):
         Insql = '''INSERT INTO loops (loop_num, Cx, Cy, Rad, lines)
          VALUES(?,?,?,?,?);'''
         # convert the tuple inside the dictionary to a string
-        Indata = [(i[0], i[1][0][0], i[1][0][1], i[1][0][2], str(i[1][1])) for i in list(self.Loops.items())]
+        Indata = [(i[0], i[1][0][0], i[1][0][1], i[1][0][2], str(i[1][1]))
+                   for i in list(self.Loops.items())]
         Dbase().Daddrows(Insql, Indata)
 
     def OnExit(self, evt):
@@ -1304,7 +1344,7 @@ class Node_Frm(wx.Frame):
         self.txt_bxs = []
         self.cord = tuple(cord)
         self.nodes = node_dict
-        self.node_lst = node_lst
+        self.node_lst = set(node_lst)
         self.node = node
         self.saved = False
         self.type = 0
@@ -1337,30 +1377,34 @@ class Node_Frm(wx.Frame):
         hdrsizer.Add(hdr3, 1, wx.LEFT, 40)
 
         self.sizer.Add(hdrsizer, 1, wx.BOTTOM, 10)
-        new_data = True
-        n = 7
         id_num = 0
         rbsizers = []
 
+        ln_lst = set()
         if self.node in self.nodes.keys():
-            lst = self.nodes[self.node][0]
-            new_data = False
-        else:
-            lst = self.node_lst
+            d = {}
+            for k , v1, v2 in self.nodes[self.node][0]:
+                d.setdefault(k, []).append(v1)
+                d.setdefault(k, []).append(v2)
+            ln_lst = set(d.keys())
 
-        for n in range(len(lst)):
-            rdbtn = 0
-            txtbx = 0
-            if new_data:
-                ln = lst[n]
+        n = 0
+        for ln in self.node_lst:
+            if ln in self.node_lst.difference(ln_lst):
+                rdbtn = 0
+                txtbx = 0
+                new_data = True
             else:
-                ln, rdbtn, txtbx = lst[n]
+                rdbtn, txtbx = d[ln]
+                new_data = False
+
             rb_sizer = wx.BoxSizer(wx.HORIZONTAL)
             pos_rb = wx.RadioButton(self, id_num,
                                     label=('\t\tline "' + ln + '"'),
                                     pos=(20, 10*n),
                                     style=wx.RB_GROUP)
             neg_rb = wx.RadioButton(self, id_num+1, label='', pos=(180, 10*n))
+            neg_rb.SetValue(bool(rdbtn))
 
             flow_chk = wx.CheckBox(self, id_num+2, label='', pos=(280, 10*n))
 
@@ -1369,9 +1413,6 @@ class Node_Frm(wx.Frame):
                                  size=(-1, 30))
             txt_bx.Enable(False)
 
-            if new_data is False:
-                neg_rb.SetValue(bool(rdbtn))
-            
             if txtbx != 0:
                 txt_bx.Enable()
                 txt_bx.ChangeValue(str(txtbx))
