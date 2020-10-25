@@ -252,7 +252,7 @@ class InputForm(wx.Frame):
         self.grd.SetColLabelValue(0, "Start\nPoint")
         self.grd.SetColLabelValue(1, "End\nX")
         self.grd.SetColLabelValue(2, "End\nY")
-
+        self.default_color = self.grd.GetLabelBackgroundColour()
         # set the left column lables alphabetic
         rowNum = 0
         for c in string.ascii_uppercase:
@@ -516,7 +516,6 @@ class InputForm(wx.Frame):
             alpha_pts.append(nd_pt2)
 
             self.runs[LnLbl] = [alpha_pts, New_EndPt]
-            print(self.runs)
             return points, LnLbl, New_EndPt
 
     def DrawLine(self, points, LnLbl, New_EndPt):
@@ -551,28 +550,26 @@ class InputForm(wx.Frame):
         # reset the delete warning flag
         self.dlt_line = False
         for  lbl in set_lns:
-            for ln in set_lns:
-                # remove the lines and its label from the graphic
-                if ln in self.plt_lines.keys():
-                    self.plt_lines.pop(ln)[0].remove()
-                if ln in self.plt_Txt.keys():
-                    self.plt_Txt.pop(ln).remove()
-                # get row location based on row label
-                row = ord(ln) - 65
-                # remove the points for the line from the grid
-                self.grd.SetCellValue(row, 1, '')
-                self.grd.SetCellValue(row, 2, '')
-                # reset the effected cell colors
-                self.grd.SetRowLabelRenderer(row, RowLblRndr(
-                    'purple'))
-                self.grd.SetCellBackgroundColour(row, 1,
+            # remove the lines and its label from the graphic
+            if lbl in self.plt_lines.keys():
+                self.plt_lines.pop(lbl)[0].remove()
+            if lbl in self.plt_Txt.keys():
+                self.plt_Txt.pop(lbl).remove()
+            # get row location based on row label
+            row = ord(lbl) - 65
+            # remove the points for the line from the grid
+            self.grd.SetCellValue(row, 1, '')
+            self.grd.SetCellValue(row, 2, '')
+            # reset the effected cell colors
+
+            self.grd.SetCellBackgroundColour(row, 1,
+            self.grd.GetDefaultCellBackgroundColour())
+            self.grd.SetCellBackgroundColour(row, 2,
+            self.grd.GetDefaultCellBackgroundColour())
+            if row != 0:
+                self.grd.SetCellValue(row, 0, '')
+                self.grd.SetCellBackgroundColour(row, 0,
                 self.grd.GetDefaultCellBackgroundColour())
-                self.grd.SetCellBackgroundColour(row, 2,
-                self.grd.GetDefaultCellBackgroundColour())
-                if row != 0:
-                    self.grd.SetCellValue(row, 0, '')
-                    self.grd.SetCellBackgroundColour(row, 0,
-                    self.grd.GetDefaultCellBackgroundColour())
 
             # remove the line node from the graphic if it is the only line present
             if len(self.runs) == 1:
@@ -628,8 +625,11 @@ class InputForm(wx.Frame):
                 loop_lns = set_lns.intersection(loup[1][1])
                 if len(loop_lns) > 0:
                     self.RemoveLoop(loup[0])
-
+            self.grd.SetRowLabelRenderer(row, RowLblRndr(
+                self.default_color))
         self.canvas.draw()
+        self.Refresh()
+        self.Update()
 
     def RemoveNode(self, lbl):
         # reset the delete warning flag
