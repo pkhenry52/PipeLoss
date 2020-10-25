@@ -550,17 +550,6 @@ class InputForm(wx.Frame):
     def RemoveLine(self, set_lns):
         # reset the delete warning flag
         self.dlt_line = False
-        '''
-        # Remove the label and the line from graphic
-        self.plt_lines.pop(lbl)[0].remove()
-        self.plt_Txt.pop(lbl).remove()
-
-        # delete values in grid
-        row = ord(lbl) - 65
-        self.grd.SetCellValue(row, 1, '')
-        self.grd.SetCellValue(row, 2, '')
-        if row != 0:
-            self.grd.SetCellValue(row, 0, '')'''
         for  lbl in set_lns:
             for ln in set_lns:
                 # remove the lines and its label from the graphic
@@ -568,12 +557,22 @@ class InputForm(wx.Frame):
                     self.plt_lines.pop(ln)[0].remove()
                 if ln in self.plt_Txt.keys():
                     self.plt_Txt.pop(ln).remove()
-                # remove the points for the line from the grid
+                # get row location based on row label
                 row = ord(ln) - 65
+                # remove the points for the line from the grid
                 self.grd.SetCellValue(row, 1, '')
                 self.grd.SetCellValue(row, 2, '')
+                # reset the effected cell colors
+                self.grd.SetRowLabelRenderer(row, RowLblRndr(
+                    'purple'))
+                self.grd.SetCellBackgroundColour(row, 1,
+                self.grd.GetDefaultCellBackgroundColour())
+                self.grd.SetCellBackgroundColour(row, 2,
+                self.grd.GetDefaultCellBackgroundColour())
                 if row != 0:
                     self.grd.SetCellValue(row, 0, '')
+                    self.grd.SetCellBackgroundColour(row, 0,
+                    self.grd.GetDefaultCellBackgroundColour())
 
             # remove the line node from the graphic if it is the only line present
             if len(self.runs) == 1:
@@ -629,12 +628,6 @@ class InputForm(wx.Frame):
                 loop_lns = set_lns.intersection(loup[1][1])
                 if len(loop_lns) > 0:
                     self.RemoveLoop(loup[0])
-        '''
-        set_loop = list(self.Loops.items())
-        # if the line is part of a loop then remove the loop
-        for grp in set_loop:
-            if lbl in grp[1][1]:
-                self.RemoveLoop(grp[0])'''
 
         self.canvas.draw()
 
@@ -642,48 +635,12 @@ class InputForm(wx.Frame):
         # reset the delete warning flag
         self.dlt_node = False
 
-        effect_loops = []
         # build a list of all the lines at this node
         lns = [k for k, v in self.runs.items() if lbl in v[0]]
         # remove any duplicates found in the line list
         set_lns = set(lns)
 
         self.RemoveLine(set_lns)
-
-        '''
-        # retrieve all the values from the loops dictionary
-        set_loop = list(self.Loops.items())
-        # get list of loops which are bordered by any of the lines
-        for loup in set_loop:
-            # find the common lines between the loops dictionary
-            # line list and the lines intersection the node
-            # if there are any lines common to both then they
-            # represent a node associated with a loop
-            loop_lns = set_lns.intersection(loup[1][1])
-            if len(loop_lns) > 0:
-
-                self.RemoveLoop(loup[0])
-
-        for ln in set_lns:
-            # remove the lines and its label from the graphic
-            self.plt_lines.pop(ln)[0].remove()
-            self.plt_Txt.pop(ln).remove()
-            # remove the points for the line from the grid
-            row = ord(ln) - 65
-            self.grd.SetCellValue(row, 1, '')
-            self.grd.SetCellValue(row, 2, '')
-            if row != 0:
-                self.grd.SetCellValue(row, 0, '')
-            # delete the line from the self.runs dictionary
-            del self.runs[ln]
-
-        # remove the node label from the graphic
-        self.plt_txt.pop(lbl).remove()
-        # remove the node from the self.pts dictionary
-        del self.pts[lbl]
-        self.nodes.pop(lbl, None)
-
-        self.canvas.draw()'''
 
     def MoveNode(self, nd, ln):
         effect_loops = []
