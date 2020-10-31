@@ -48,8 +48,9 @@ class InputForm(wx.Frame):
     plot area for the piping configuration'''
     def __init__(self):
 
-        super(InputForm, self).__init__(None, wx.ID_ANY, title='Plot Lines',
-                                        size=(1300, 830))
+        super().__init__(None, wx.ID_ANY,
+                         title='Plot Lines',
+                         size=(1300, 830))
 
         # set up a list of dark colors suitable for the graph
         self.clrs = ['rosybrown', 'indianred', 'brown', 'darkred', 'red',
@@ -443,6 +444,8 @@ class InputForm(wx.Frame):
             return points, LnLbl, New_EndPt
 
     def DrawLine(self, points, LnLbl, New_EndPt):
+        # draw the plot lines and related label
+
         rnd = np.random.randint(len(self.clrs))
         color_name = self.clrs[rnd]
 
@@ -595,7 +598,7 @@ class InputForm(wx.Frame):
             Cx, Cy, r = self.centroid(self.AddLoop(loop_id))
             self.poly_pts[loop_id] = self.SetRotation(Cx, Cy, loop_id)
             self.Loops[loop_id] = [[Cx, Cy, r], self.Ln_Select]
-        
+
         # redraw the loops lines and node labels
         self.ReDraw()
 
@@ -681,6 +684,7 @@ class InputForm(wx.Frame):
             self.dlt_line = True
 
     def OnDeleteNode(self, evt):
+        import DltWrng
         # this only calls up the warning dialog the actual deletion
         # is handled in teh OnLeftSelect function call and RemoveNode
         if self.show_node is False:
@@ -692,6 +696,7 @@ class InputForm(wx.Frame):
             self.dlt_node = True
 
     def OnDeleteLoop(self, evt):
+        import DltWrng
         # this only calls up the warning dialog the actual deletion
         # is handled in teh OnLeftSelect function call and RemoveLoop
         if self.show_loop is False:

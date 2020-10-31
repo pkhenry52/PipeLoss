@@ -16,10 +16,10 @@ class NodeFrm(wx.Frame):
 
         ttl = 'Node "' + node + ' ' + str(cord) + '" Flow Information.'
 
-        super(NodeFrm, self).__init__(parent, title=ttl,
-                                       style=wx.DEFAULT_FRAME_STYLE &
-                                       ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX |
-                                         wx.MINIMIZE_BOX))
+        super().__init__(parent, title=ttl,
+                         style=wx.DEFAULT_FRAME_STYLE &
+                         ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX |
+                           wx.MINIMIZE_BOX) | wx.STAY_ON_TOP)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.parent = parent

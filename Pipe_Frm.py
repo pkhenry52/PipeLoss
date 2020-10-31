@@ -103,7 +103,7 @@ class PipeFrm(wx.Frame):
         self.lbl = lbl
         ttl = 'Pipe & Fittings for ' + self.lbl
 
-        super(PipeFrm, self).__init__(parent, title=ttl, size=(850, 930))
+        super().__init__(parent, title=ttl, size=(850, 930))
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.parent = parent
