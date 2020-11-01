@@ -447,7 +447,7 @@ class InputForm(wx.Frame):
         # draw the plot lines and related label
 
         rnd = np.random.randint(len(self.clrs))
-        color_name = self.clrs[rnd]
+        color_name = self.clrs[int(rnd)]
 
         # draw the line based on points supplied
         # and populate the dictionay with the control information
