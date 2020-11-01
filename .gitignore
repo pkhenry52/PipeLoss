@@ -3,9 +3,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+<<<<<<< HEAD
 # specific files not used
 pipeID.csv
 PipeDimension.db
+=======
+#visual studio code
+.vscode/
+>>>>>>> clean_up
 
 # C extensions
 *.so
@@ -31,9 +36,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-#VisualStudio Code stuff
-.vscode/
-
+=======
+>>>>>>> clean_up
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
