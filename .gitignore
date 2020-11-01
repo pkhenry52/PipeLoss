@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# specific files not used
+pipeID.csv
+PipeDimension.db
+
 # C extensions
 *.so
 
@@ -26,6 +30,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+#VisualStudio Code stuff
+.vscode/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
