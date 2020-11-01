@@ -235,7 +235,7 @@ class InputForm(wx.Frame):
         dlg = OpenFile(self)
         dlg.ShowModal()
         file_name = dlg.filename
-        '''
+        ''' DELETE QUOTES AFTER DEBUGGING IS FINISHED
         if file_name.split(os.path.sep)[-1] != 'mt.db' and \
             file_name.split(os.path.sep)[-1] != "":
             self.DataLoad()'''
@@ -645,7 +645,7 @@ class InputForm(wx.Frame):
             if lbl.isupper():
                 if self.Loop_Select:
                     # take line lbl and go to Loop function
-                     self.Loop(lbl)
+                    self.Loop(lbl)
                 elif self.dlt_line:
                     self.RemoveLine(set(lbl))
                 else:
@@ -1140,7 +1140,7 @@ class OpenFile(wx.Dialog):
         if dlg.ShowModal() == wx.ID_OK:
             self.filename = dlg.GetPaths()[0]
         if self.filename[-3:] != '.db':
-                self.filename = self.filename + '.db'
+            self.filename = self.filename + '.db'
         
         dlg.Destroy()
         connect_db(self.filename)
