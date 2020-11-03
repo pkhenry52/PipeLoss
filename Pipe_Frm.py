@@ -149,13 +149,14 @@ class PipeFrm(wx.Frame):
             self.nb.GetPage(0).info2.SetValue(str(data[2]))
             self.nb.GetPage(0).info3.SetValue(str(data[3]))
             self.nb.GetPage(0).info4.SetValue(str(data[4]))
+            self.data_good = data[5]
 
         self.SetMenuBar(menubar)
         self.Centre()
         self.Show(True)
 
-    def menuhandler(self, event):
-        menu_id = event.GetId()
+    def menuhandler(self, evt):
+        menu_id = evt.GetId()
         if menu_id == wx.ID_EXIT:
             self.OnClose(None)
         elif menu_id == wx.ID_SAVE:
@@ -163,7 +164,7 @@ class PipeFrm(wx.Frame):
             self.OnClose(None)
 
     def OnBeforePgChg(self, evt):
-        old = evt.GetOldSelection()
+        # this called prior to a page change
         current = evt.GetSelection()
         self.Data_Load(current)
 
@@ -182,23 +183,35 @@ class PipeFrm(wx.Frame):
         self.K_calc(old)
 
     def Data_Load(self, current):
+        # load the database data when the page is first called
         qry = ('SELECT * FROM ' + self.nb.GetPage(current).Name +
                ' WHERE ID = "' + self.lbl + '"')
         data = DBase.Dbase().Dsqldata(qry)
         if data != []:
-            data = list(data[0])       
+            # data is a list containing the tuple of the form's information
+            # so change the tuple to just a list
+            data = list(data[0])
+            # remove the ID value from the list
             del data[0]
+            # make list of the table column names and remove the ID name
             col_names = [name[1] for name in DBase.Dbase().Dcolinfo(
                         self.nb.GetPage(current).Name)]
             del col_names[0]
+
+            # database counter
             n = 0
+            # checkbox counter
+            cb = 0
+            # radio button1 counter
             a = 0
+            # radio button2 counter
             b = 0
+            # text box counter
             t = 0
             for item in col_names:
                 if item[0] == 'c':
-                    self.nb.GetPage(current).pg_chk[n].SetValue(data[n])
-                    n += 1
+                    self.nb.GetPage(current).pg_chk[cb].SetValue(data[n])
+                    cb += 1
                 elif item[0] == 'b':
                     self.nb.GetPage(current).pg_txt[t].SetValue(str(data[n]))
                     t += 1
@@ -208,6 +221,7 @@ class PipeFrm(wx.Frame):
                 elif item[0] == 'r' and item[-1] == '2':
                     self.nb.GetPage(current).rdbtn2[b].SetValue(data[n])
                     b += 1
+                n += 1
 
     def K_calc(self, old):
         old_pg = self.nb.GetPage(old).Name
@@ -230,6 +244,7 @@ class PipeFrm(wx.Frame):
                 ValueList.append(length)
                 ValueList.append(matr)
                 ValueList.append(elev)
+                ValueList.append(self.data_good)
                 DBase.Dbase().TblEdit(UpQuery, ValueList)
             else:
                 return
@@ -257,7 +272,7 @@ class PipeFrm(wx.Frame):
                         Kt1 = float(bx_val) * K1[bx][2] * self.ff + Kt1
                 else:
                     Kt1 = Kt1 + float(bx_val) * K1[bx] * self.ff
-    
+
             ValueList.append(Kt1)
             UpQuery = self.BldQuery(old_pg, new_data)
             DBase.Dbase().TblEdit(UpQuery, ValueList)
@@ -454,7 +469,6 @@ class PipeFrm(wx.Frame):
         if self.data_good is True:
             row = ord(self.lbl) - 65
             self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
-
         self.Destroy()
 
 

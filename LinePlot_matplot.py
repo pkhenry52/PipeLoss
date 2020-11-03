@@ -1,4 +1,3 @@
-
 import os
 import shutil
 from ast import literal_eval
@@ -37,10 +36,10 @@ class RowLblRndr(glr.GridLabelRenderer):
         dc.SetBrush(wx.Brush(self._bgcolor))
         dc.SetPen(wx.TRANSPARENT_PEN)
         dc.DrawRectangle(rect)
-        hAlign, vAlign = grid.GetRowLabelAlignment()
+        hAlgn, vAlgn = grid.GetRowLabelAlignment()
         text = grid.GetRowLabelValue(row)
         self.DrawBorder(grid, dc, rect)
-        self.DrawText(grid, dc, rect, text, hAlign, vAlign)
+        self.DrawText(grid, dc, rect, text, hAlgn, vAlgn)
 
 
 class InputForm(wx.Frame):
@@ -251,26 +250,31 @@ class InputForm(wx.Frame):
         # repopulate the plt_Txt, plt_lines and plt_txt dictionaries
         self.ReDraw()
         self.GrdLoad()
+        self.Refresh()
+        self.Update()
 
     def DBpts(self):
         # download the points information and place into the pts dictionary
         data_sql = 'SELECT * FROM points'
         tbl_data = DBase.Dbase().Dsqldata(data_sql)
-        self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
+        if tbl_data != []:
+            self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
 
     def DBlines(self):
         # download the lines information from the database and put it into
         # the runs dictionary
         data_sql = 'SELECT * FROM lines'
         tbl_data = DBase.Dbase().Dsqldata(data_sql)
-        self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
+        if tbl_data != []:
+            self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
 
     def DBnodes(self):
         # download the data entered in the node_frm and put it into
         # the nodes dictionary
         data_sql = 'SELECT * FROM nodes'
         tbl_data = DBase.Dbase().Dsqldata(data_sql)
-        self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
+        if tbl_data != []:
+            self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
 
     def DBloops(self):
         # enter the data base information for the loops and put it into
@@ -278,12 +282,13 @@ class InputForm(wx.Frame):
         pol_dc = {}
         data_sql = 'SELECT * FROM loops'
         tbl_data = DBase.Dbase().Dsqldata(data_sql)
-        self.Loops = {i[0]:[[i[1], i[2], i[3]], literal_eval(i[4])]
-                       for i in tbl_data} 
-        for k,v in self.Loops.items():
-            self.Ln_Select = v[1]
-            self.AddLoop(k)
-            pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
+        if tbl_data != []:
+            self.Loops = {i[0]:[[i[1], i[2], i[3]], literal_eval(i[4])]
+                        for i in tbl_data} 
+            for k,v in self.Loops.items():
+                self.Ln_Select = v[1]
+                self.AddLoop(k)
+                pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
 
     def GrdLoad(self):
         # load the points information into the grid against the
@@ -297,6 +302,34 @@ class InputForm(wx.Frame):
                 self.grd.SetCellValue(row, 2, str(self.pts[end_pt][1]))
             else:
                 self.grd.SetCellValue(row, 1, end_pt)
+
+        # color the cells which repesent defined nodes
+        # get the nodes defined in the nodes dictionary
+        nds = list(self.nodes.keys())
+        # generate a list of all the points for the defined lines
+        run_tpl = list(self.runs.items())
+        # for each of the defined nodes generate a list of
+        # lines in which they are an end point
+        for lbl in nds:
+            node_lines = set([item[0] for item in run_tpl if lbl in item[1][0]])
+            # for every line indicated color the coresponding grid cell
+            for ltr in node_lines:
+                if lbl == self.grd.GetCellValue(ord(ltr)-65, 0):
+                    self.grd.SetCellBackgroundColour(ord(ltr)-65,
+                                                            0, 'lightgreen')
+                else:
+                    self.grd.SetCellBackgroundColour(ord(ltr)-65,
+                                                            1, 'lightgreen')
+                    self.grd.SetCellBackgroundColour(ord(ltr)-65,
+                                                            2, 'lightgreen')
+
+        data_sql = 'SELECT ID, saved FROM General'
+        tbl_data = DBase.Dbase().Dsqldata(data_sql)
+        if tbl_data != []:
+            for ln,saved in tbl_data:
+                if saved == 1:
+                    row = ord(ln) - 65
+                    self.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
 
     def add_toolbar(self):
         self.toolbar = NavigationToolbar(self.canvas)

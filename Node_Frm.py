@@ -164,7 +164,7 @@ class NodeFrm(wx.Frame):
             lst1.append(self.rad_bt[item-1].GetLabel()[-2])
             if self.chk_bx[item-n].GetValue():
                 if self.txt_bxs[item-n].GetValue() != '':
-                    flow = eval(self.txt_bxs[item-n].GetValue())
+                    flow = float(self.txt_bxs[item-n].GetValue())
             if self.rad_bt[item].GetValue() is False:
                 dirct = 0
             lst2.append(dirct)
