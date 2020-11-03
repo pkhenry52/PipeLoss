@@ -1,5 +1,6 @@
 import os
 import shutil
+import sqlite3
 from ast import literal_eval
 import string
 import wx
@@ -234,17 +235,24 @@ class InputForm(wx.Frame):
         dlg = OpenFile(self)
         dlg.ShowModal()
         file_name = dlg.filename
-        ''' DELETE QUOTES AFTER DEBUGGING IS FINISHED
-        if file_name.split(os.path.sep)[-1] != 'mt.db' and \
-            file_name.split(os.path.sep)[-1] != "":
-            self.DataLoad()'''
-        self.DataLoad()
+
+        if isinstance(file_name, str):
+            self.db = sqlite3.connect(file_name)
+            with self.db:
+                self.cursr = self.db.cursor()
+                self.cursr.execute('PRAGMA foreign_keys=ON')
+
+            if file_name.split(os.path.sep)[-1] != 'mt.db' and \
+                file_name.split(os.path.sep)[-1] != "":
+                self.DataLoad()
 
     def DataLoad(self):
         # run through all the functions to retreive the data from the database
-        self.DBpts()
-        self.DBnodes()
+        no_data = self.DBpts()
+        if no_data is True:
+            return
         self.DBlines()
+        self.DBnodes()
         self.DBloops()
         # the ReDraw function will addd the lines to the plot as well as
         # repopulate the plt_Txt, plt_lines and plt_txt dictionaries
@@ -255,16 +263,19 @@ class InputForm(wx.Frame):
 
     def DBpts(self):
         # download the points information and place into the pts dictionary
+        no_data = True
         data_sql = 'SELECT * FROM points'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
+            no_data = False
+        return no_data
 
     def DBlines(self):
         # download the lines information from the database and put it into
         # the runs dictionary
         data_sql = 'SELECT * FROM lines'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
 
@@ -272,7 +283,7 @@ class InputForm(wx.Frame):
         # download the data entered in the node_frm and put it into
         # the nodes dictionary
         data_sql = 'SELECT * FROM nodes'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
 
@@ -281,7 +292,7 @@ class InputForm(wx.Frame):
         # the Loops dictionaary
         pol_dc = {}
         data_sql = 'SELECT * FROM loops'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.Loops = {i[0]:[[i[1], i[2], i[3]], literal_eval(i[4])]
                         for i in tbl_data} 
@@ -324,7 +335,7 @@ class InputForm(wx.Frame):
                                                             2, 'lightgreen')
 
         data_sql = 'SELECT ID, saved FROM General'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             for ln,saved in tbl_data:
                 if saved == 1:
@@ -1053,45 +1064,45 @@ class InputForm(wx.Frame):
     def nodesDB(self):
         # clear data from table
         Dsql = 'DELETE FROM nodes'
-        DBase.Dbase().TblEdit(Dsql)
+        DBase.Dbase(self).TblEdit(Dsql)
         # build the sql for multiple rows
         Insql = 'INSERT INTO nodes(node_ID, lines) VALUES(?,?);'
         # convert the list inside the dictionary to a string
         Indata = [(i[0], str(i[1])) for i in list(self.nodes.items())]
-        DBase.Dbase().Daddrows(Insql, Indata)
+        DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def ptsDB(self):
         # clear data from table
         Dsql = 'DELETE FROM points'
-        DBase.Dbase().TblEdit(Dsql)
+        DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
         Insql = 'INSERT INTO points (pointID, pts) VALUES(?,?);'
         # convert the tuple inside the dictionary to a string
         Indata = [(i[0], str(i[1])) for i in list(self.pts.items())]
-        DBase.Dbase().Daddrows(Insql, Indata)
+        DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def linesDB(self):
         # clear data from table
         Dsql = 'DELETE FROM lines'
-        DBase.Dbase().TblEdit(Dsql)
+        DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
         Insql = 'INSERT INTO lines (lineID, ends, new_pt) VALUES(?,?,?);'
         # convert the tuple inside the dictionary to a string
         Indata = [(i[0], str(i[1][0]), i[1][1])
                    for i in list(self.runs.items())]
-        DBase.Dbase().Daddrows(Insql, Indata)
+        DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def loopsDB(self):
         # clear data from table
         Dsql = 'DELETE FROM loops'
-        DBase.Dbase().TblEdit(Dsql)
+        DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
         Insql = '''INSERT INTO loops (loop_num, Cx, Cy, Rad, lines)
          VALUES(?,?,?,?,?);'''
         # convert the tuple inside the dictionary to a string
         Indata = [(i[0], i[1][0][0], i[1][0][1], i[1][0][2], str(i[1][1]))
                    for i in list(self.Loops.items())]
-        DBase.Dbase().Daddrows(Insql, Indata)
+        DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def OnExit(self, evt):
         if self.cursr_set is True:
@@ -1156,9 +1167,8 @@ class OpenFile(wx.Dialog):
 
     def Selected(self, evt):
         self.filename = self.file_name.GetPath()
-#        connect_db(self.filename)
-        DBase.Dbase()
-        self.cont.Enable()
+        if isinstance(self.filename, str):
+            self.cont.Enable()
         evt.Skip()
 
     def OnNew(self, evt):
@@ -1174,12 +1184,12 @@ class OpenFile(wx.Dialog):
             self.filename = dlg.GetPaths()[0]
         if self.filename[-3:] != '.db':
             self.filename = self.filename + '.db'
-        
-        dlg.Destroy()
-        connect_db(self.filename)
+        mt_dir = os.getcwd()
+        mt_file = os.path.join(mt_dir, 'mt.db')
 
-        self.cont.Enable()
-
+        if isinstance(self.filename, str):
+            shutil.copy(mt_file, self.filename)
+            self.cont.Enable()
         evt.Skip()
 
     def OnClose(self, evt):

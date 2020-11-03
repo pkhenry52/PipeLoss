@@ -143,7 +143,7 @@ class PipeFrm(wx.Frame):
 
         # if data exists for the general page fill in the text boxes
         qry = 'SELECT * FROM General WHERE ID = "' + self.lbl + '"'
-        data = DBase.Dbase().Dsqldata(qry)[0]
+        data = DBase.Dbase(self.parent).Dsqldata(qry)[0]
         if data != []:
             self.nb.GetPage(0).info1.SetValue(str(data[1]))
             self.nb.GetPage(0).info2.SetValue(str(data[2]))
@@ -186,7 +186,7 @@ class PipeFrm(wx.Frame):
         # load the database data when the page is first called
         qry = ('SELECT * FROM ' + self.nb.GetPage(current).Name +
                ' WHERE ID = "' + self.lbl + '"')
-        data = DBase.Dbase().Dsqldata(qry)
+        data = DBase.Dbase(self.parent).Dsqldata(qry)
         if data != []:
             # data is a list containing the tuple of the form's information
             # so change the tuple to just a list
@@ -194,7 +194,7 @@ class PipeFrm(wx.Frame):
             # remove the ID value from the list
             del data[0]
             # make list of the table column names and remove the ID name
-            col_names = [name[1] for name in DBase.Dbase().Dcolinfo(
+            col_names = [name[1] for name in DBase.Dbase(self.parent).Dcolinfo(
                         self.nb.GetPage(current).Name)]
             del col_names[0]
 
@@ -245,7 +245,7 @@ class PipeFrm(wx.Frame):
                 ValueList.append(matr)
                 ValueList.append(elev)
                 ValueList.append(self.data_good)
-                DBase.Dbase().TblEdit(UpQuery, ValueList)
+                DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
             else:
                 return
 
@@ -275,7 +275,7 @@ class PipeFrm(wx.Frame):
 
             ValueList.append(Kt1)
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'ManVlv2':
             K2 = [8, 109, 43, 125, 214, 205, 1142, 1000, 300]
@@ -293,7 +293,7 @@ class PipeFrm(wx.Frame):
 
             ValueList.append(Kt2)
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'ChkVlv':
             K3 = [600, 100, 55, 200, (80, 60, 40), 300, 100, 350, 50, 55, 55]
@@ -319,7 +319,7 @@ class PipeFrm(wx.Frame):
 
             ValueList.append(Kt3)
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'Fittings':
             K4 = [30, 2, 16, 2, 50, 20, 13, 60, 72]
@@ -337,7 +337,7 @@ class PipeFrm(wx.Frame):
 
             ValueList.append(Kt4)
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'WldElb':
             K5 = [20, 16, 10, 8, (24, 24, 30, 60), (12, 15)]
@@ -376,7 +376,7 @@ class PipeFrm(wx.Frame):
             ValueList.append(Kt5)
 
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'EntExt':
             K6 = [.78, 1, .5, .28, .24, .15, .09, .04]
@@ -429,10 +429,10 @@ class PipeFrm(wx.Frame):
             ValueList.append(Kt6)
 
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
     def BldQuery(self, old_pg, new_data):
-        col_names = [name[1] for name in DBase.Dbase().Dcolinfo(old_pg)]
+        col_names = [name[1] for name in DBase.Dbase(self.parent).Dcolinfo(old_pg)]
 
         if new_data is False:
             col_names.remove('ID')
@@ -446,7 +446,7 @@ class PipeFrm(wx.Frame):
     def Data_Exist(self, old_pg):
         SQL_Chk = 'SELECT ID FROM ' + old_pg + ' WHERE ID = "' + self.lbl + '"'
         
-        if DBase.Dbase().Dsqldata(SQL_Chk) == []:
+        if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
             new_data = True
             ValueList = [self.lbl]
         else:
