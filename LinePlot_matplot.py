@@ -123,7 +123,7 @@ class InputForm(wx.Frame):
 
         fileMenu = wx.Menu()
         fileMenu.Append(101, '&New')
-        fileMenu.Append(103, '&Save Grid Data')
+        fileMenu.Append(103, '&Save To Database')
         fileMenu.AppendSeparator()
         fileMenu.Append(104, '&Exit')
 
@@ -869,7 +869,6 @@ class InputForm(wx.Frame):
         final_pts = [self.pts[cord] for cord in Ln_pts]
         self.poly_pts[loop_num] = final_pts
         self.Ln_Select = new_ln_list
-
         return(final_pts)
 
     def centroid(self, poly):

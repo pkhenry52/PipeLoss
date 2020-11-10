@@ -6,11 +6,12 @@ class NodeFrm(wx.Frame):
 
         self.rad_bt = []
         self.chk_bx = []
+        self.nd_bx = []
         self.txt_bxs = []
-        self.cord = tuple(cord)
-        self.nodes = node_dict
-        self.node_lst = set(node_lst)
-        self.node = node
+        self.cord = tuple(cord)    # coordinates for the selected node
+        self.nodes = node_dict    # the dictionary of nodes
+        self.node_lst = set(node_lst)  # set of the lines associated with node
+        self.node = node    # the node label which has been selected
         self.saved = False
         self.type = 0
 
@@ -46,15 +47,38 @@ class NodeFrm(wx.Frame):
         rbsizers = []
 
         ln_lst = set()
+        # see if node has already been defined
+        # the following will check to see if node
+        # has been changed since last save
+        # to the database or dictionary
         if self.node in self.nodes.keys():
-            d = {}
-            for k , v1, v2 in self.nodes[self.node][0]:
+            d = {}  # a dictionary of line(key) and rdbtn1,flow(values)
+            for k, v1, v2 in self.nodes[self.node][0]:
                 d.setdefault(k, []).append(v1)
                 d.setdefault(k, []).append(v2)
             ln_lst = set(d.keys())
 
+        # list of all the defined nodes in self.nodes minus the specified node
+        nds = list(self.nodes.keys())
+        nds.remove(self.node)
+        # generate a list of all the points for the defined lines
+        run_tpl = list(self.parent.runs.items())
+        # for each of the defined nodes generate a list of
+        # lines in which they are an end point
+        cmn_lns = {}
+        for lbl in nds:
+            node_lines = set([item[0] for item in run_tpl if lbl in item[1][0]])
+            if list(node_lines.intersection(ln_lst)) != []:
+                cmn_lns[list(node_lines.intersection(ln_lst))[0]] = lbl
+
         n = 0
+        # get each line located at the node as
+        # specified on the current node dictionary
         for ln in self.node_lst:
+            # check if line exists in set of all
+            # lines intersecting defined nodes
+            # if it is an update set the radio buttons
+            # to default else use the saved dictionary values
             if ln in self.node_lst.difference(ln_lst):
                 rdbtn = 0
                 txtbx = 0
@@ -63,14 +87,23 @@ class NodeFrm(wx.Frame):
                 rdbtn, txtbx = d[ln]
                 new_data = False
 
+            if ln in cmn_lns.keys():
+                txt_lbl = 'Specified\nat node "' + cmn_lns[ln] + '"'
+                for i in self.nodes[cmn_lns[ln]][0]:
+                    if i[0] == ln:
+                        rdbtn = i[1]
+                        txtbx = i[2]
+            else:
+                txt_lbl = ''
+
             rb_sizer = wx.BoxSizer(wx.HORIZONTAL)
             pos_rb = wx.RadioButton(self, id_num,
-                                    label=('\t\tline "' + ln + '"'),
+                                    label='\t\tline "' + ln + '"',
                                     pos=(20, 10*n),
                                     style=wx.RB_GROUP)
             neg_rb = wx.RadioButton(self, id_num+1, label='', pos=(180, 10*n))
             neg_rb.SetValue(bool(rdbtn))
-
+            nd_txt = wx.StaticText(self, id_num, label=txt_lbl)
             flow_chk = wx.CheckBox(self, id_num+2, label='', pos=(280, 10*n))
 
             txt_bx = wx.TextCtrl(self, id_num+3, value='',
@@ -85,12 +118,14 @@ class NodeFrm(wx.Frame):
 
             self.rad_bt.append(pos_rb)
             self.rad_bt.append(neg_rb)
+            self.nd_bx.append(nd_txt)
             self.chk_bx.append(flow_chk)
             self.txt_bxs.append(txt_bx)
 
             rb_sizer.Add(pos_rb, 0, wx.LEFT, 20)
             rb_sizer.Add(neg_rb, 0, wx.LEFT, 40)
-            rb_sizer.Add(flow_chk, 0, wx.LEFT, 80)
+            rb_sizer.Add(nd_txt, 0, wx.ALIGN_TOP)
+            rb_sizer.Add(flow_chk, 0, wx.LEFT, 40)
             rb_sizer.Add(txt_bx, 0, wx.LEFT | wx.RIGHT, 20)
 
             rbsizers.append(rb_sizer)
@@ -124,9 +159,12 @@ class NodeFrm(wx.Frame):
 
         btnsizer = wx.BoxSizer(wx.HORIZONTAL)
         xit = wx.Button(self, -1, "Exit")
+        sve = wx.Button(self, -1, "Save")
+        btnsizer.Add(sve, 0, wx.ALL | wx.ALIGN_CENTER, 5)
         btnsizer.Add(xit, 0, wx.ALL|wx.ALIGN_CENTER, 5)
 
         # bind the button events to handlers
+        self.Bind(wx.EVT_BUTTON, self.OnSave, sve)
         self.Bind(wx.EVT_BUTTON, self.OnClose, xit)
 
         self.sizer.Add(btnsizer, 0)
@@ -152,12 +190,12 @@ class NodeFrm(wx.Frame):
             self.txt_bxs[i].ChangeValue('')
             self.txt_bxs[i].Enable(False)
 
-    def OnSave(self):
+    def OnSave(self, evt):
         lst1 = []
         lst2 = []
         lst3 = []
         n = 1
-        flow = 0
+
         for item in range(1, len(self.rad_bt), 2):
             dirct = 1
             flow = 0
@@ -175,6 +213,7 @@ class NodeFrm(wx.Frame):
         ln_dirct = [list((zip(lst1, lst2, lst3))), self.type]
         # add information to the nodes dictionary
         self.nodes[self.node] = ln_dirct
+
         # change the grid cell color to green to indicate data is complete
         for ltr in self.node_lst:
             if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
@@ -187,5 +226,4 @@ class NodeFrm(wx.Frame):
                                                         2, 'lightgreen')
 
     def OnClose(self, evt):
-        self.OnSave()
         self.Destroy()
