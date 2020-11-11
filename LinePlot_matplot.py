@@ -520,24 +520,28 @@ class InputForm(wx.Frame):
         self.canvas.draw()
 
     def DrawArrow(self, endpt1, endpt2, LnLbl):
+        # get the end point coordinates
         x0, y0 = self.pts[endpt1]
         x1, y1 = self.pts[endpt2]
-        d = ((x1 - x0)**2 + (y1 - y0)**2)**.5
+        # use the grid size to determine proper arrow head length and width
         xmin, xmax = self.ax.get_xlim()
         ymin, ymax = self.ax.get_ylim()
         hw = (ymax - ymin) / 70
         hl = (xmax - xmin) / 50
-        xa = .3 * x0 + .7 * x1
-        ya = .3 * y0 + .7 * y1
+        # specify an arrow head location just off center of the line
+        xa = .4 * x0 + .6 * x1
+        ya = .4 * y0 + .6 * y1
+        # specify the arrow head direction
         dx = (x0 - xa) * hl
         dy = (y0 - ya) * hl
+        # draw the sucker
         arow = self.ax.arrow(xa, ya,
                              dx, dy,
                              fc='k', ec='k',
                              head_width=hw,
                              head_length=hl,
                              length_includes_head=True)
-
+        # save the arrow head in a dictionary for later deletion if needed
         self.plt_arow[LnLbl] = arow
         self.canvas.draw()
 
@@ -546,10 +550,12 @@ class InputForm(wx.Frame):
         self.dlt_line = False
         for  lbl in set_lns:
             # remove the lines and its label from the graphic
-            if lbl in self.plt_lines.keys():
+            if lbl in self.plt_lines:
                 self.plt_lines.pop(lbl)[0].remove()
-            if lbl in self.plt_Txt.keys():
+            if lbl in self.plt_Txt:
                 self.plt_Txt.pop(lbl).remove()
+            if lbl in self.plt_arow:
+                self.plt_arow.pop(lbl).remove()
             # get row location based on row label
             row = ord(lbl) - 65
             # remove the points for the line from the grid
@@ -1046,6 +1052,7 @@ class InputForm(wx.Frame):
         self.plt_lines = {}
         self.plt_txt = {}
         self.plt_Txt = {}
+        self.plt_arow = {}
         # generate a list of all the node points excluding the origin
         redraw_pts = [*self.pts]
         redraw_pts.remove('origin')
@@ -1080,6 +1087,20 @@ class InputForm(wx.Frame):
                                    color=self.colours[color_name])
                 self.plt_txt[pt1] = txt
                 redraw_pts.remove(pt1)
+
+        for nd_lbl, lns in self.nodes.items():
+            for ln in lns[0]:
+                if ln[0] not in self.plt_arow:
+                    endpt1 = nd_lbl
+                    if self.runs[ln[0]][0].index(endpt1) == 0:
+                        endpt2 = self.runs[ln[0]][0][1]
+                    else:
+                        endpt2 = self.runs[ln[0]][0][0]
+                    if ln[1] == 1:
+                        tmp = endpt2
+                        endpt2 = endpt1
+                        endpt1 = tmp
+                    self.DrawArrow(endpt1, endpt2, ln[0])
 
         # draw the loop arcs and label
         for key in self.Loops:
