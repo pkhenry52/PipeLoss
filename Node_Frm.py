@@ -65,11 +65,11 @@ class NodeFrm(wx.Frame):
         run_tpl = list(self.parent.runs.items())
         # for each of the defined nodes generate a list of
         # lines in which they are an end point
-        cmn_lns = {}
+        self.cmn_lns = {}
         for lbl in nds:
             node_lines = set([item[0] for item in run_tpl if lbl in item[1][0]])
             if list(node_lines.intersection(ln_lst)) != []:
-                cmn_lns[list(node_lines.intersection(ln_lst))[0]] = lbl
+                self.cmn_lns[list(node_lines.intersection(ln_lst))[0]] = lbl
 
         n = 0
         # get each line located at the node as
@@ -86,12 +86,11 @@ class NodeFrm(wx.Frame):
             else:
                 rdbtn, txtbx = d[ln]
                 new_data = False
-
-            if ln in cmn_lns.keys():
-                txt_lbl = 'Specified\nat node "' + cmn_lns[ln] + '"'
-                for i in self.nodes[cmn_lns[ln]][0]:
+            if ln in self.cmn_lns.keys():
+                txt_lbl = 'Specified\nat node "' + self.cmn_lns[ln] + '"'
+                for i in self.nodes[self.cmn_lns[ln]][0]:
                     if i[0] == ln:
-                        rdbtn = i[1]
+                        rdbtn = bool(i[1]-1)
                         txtbx = i[2]
             else:
                 txt_lbl = ''

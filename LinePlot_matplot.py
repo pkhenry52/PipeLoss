@@ -97,6 +97,8 @@ class InputForm(wx.Frame):
         self.arrw = {}
         # loop circle numbers
         self.plt_lpnum = {}
+        # line direction arrows
+        self.plt_arow = {}
 
         # set dictionary of points; key node letter, value tuple of point,
         self.pts = {}
@@ -515,6 +517,28 @@ class InputForm(wx.Frame):
                                picker=True, color=self.colours[color_name])
             self.plt_txt[LnLbl.lower()] = txt
 
+        self.canvas.draw()
+
+    def DrawArrow(self, endpt1, endpt2, LnLbl):
+        x0, y0 = self.pts[endpt1]
+        x1, y1 = self.pts[endpt2]
+        d = ((x1 - x0)**2 + (y1 - y0)**2)**.5
+        xmin, xmax = self.ax.get_xlim()
+        ymin, ymax = self.ax.get_ylim()
+        hw = (ymax - ymin) / 70
+        hl = (xmax - xmin) / 50
+        xa = .3 * x0 + .7 * x1
+        ya = .3 * y0 + .7 * y1
+        dx = (x0 - xa) * hl
+        dy = (y0 - ya) * hl
+        arow = self.ax.arrow(xa, ya,
+                             dx, dy,
+                             fc='k', ec='k',
+                             head_width=hw,
+                             head_length=hl,
+                             length_includes_head=True)
+
+        self.plt_arow[LnLbl] = arow
         self.canvas.draw()
 
     def RemoveLine(self, set_lns):
@@ -990,12 +1014,25 @@ class InputForm(wx.Frame):
 
         return poly
 
-    def Node(self, lbl):
+    def Node(self, nd_lbl):
         # collect data needed to initialize the node_frm
         run_tpl = list(self.runs.items())
-        cord = self.pts[lbl]
-        node_lines = [item[0] for item in run_tpl if lbl in item[1][0]]
-        Node_Frm.NodeFrm(self, lbl, cord, node_lines, self.nodes)
+        cord = self.pts[nd_lbl]
+        node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
+        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes)
+
+        for ln in self.nodes[nd_lbl][0]:
+            if ln[0] not in self.plt_arow:
+                endpt1 = nd_lbl
+                if self.runs[ln[0]][0].index(endpt1) == 0:
+                    endpt2 = self.runs[ln[0]][0][1]
+                else:
+                    endpt2 = self.runs[ln[0]][0][0]
+                if ln[1] == 1:
+                    tmp = endpt2
+                    endpt2 = endpt1
+                    endpt1 = tmp
+                self.DrawArrow(endpt1, endpt2, ln[0])
 
     def OnReDraw(self, evt):
         self.ReDraw()
