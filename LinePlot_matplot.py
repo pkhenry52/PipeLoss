@@ -372,7 +372,7 @@ class InputForm(wx.Frame):
         elif x_val != '' and y_val != '' and \
                 self.grd.GetCellValue(row, 0) != '':
             if LnLbl in self.runs:
-                nd = [int(x_val), int(y_val)]
+                nd = [float(x_val), float(y_val)]
                 self.MoveNode(nd, LnLbl)
             else:
                 self.DrawLine(*self.VarifyData(row))
@@ -455,7 +455,7 @@ class InputForm(wx.Frame):
                 # this cell contains a digit which means
                 # it can only be point2 as numeric
                 else:
-                    points2.append(int(pt))
+                    points2.append(float(pt))
             else:
                 continue
 
@@ -839,7 +839,7 @@ class InputForm(wx.Frame):
                 loop_num = 1
             else:
                 loop_num = [x for x in
-                            range(1, key_lst[-1]+1) if x not in key_lst]
+                            range(1, key_lst[-1]+1) if x not in key_lst][0]
                 if loop_num == []:
                     loop_num = max(key_lst) + 1
 
@@ -1025,20 +1025,22 @@ class InputForm(wx.Frame):
         run_tpl = list(self.runs.items())
         cord = self.pts[nd_lbl]
         node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
-        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes)
+
+        dlg = Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes)
+        dlg.ShowModal()
 
         for ln in self.nodes[nd_lbl][0]:
-            if ln[0] not in self.plt_arow:
-                endpt1 = nd_lbl
-                if self.runs[ln[0]][0].index(endpt1) == 0:
-                    endpt2 = self.runs[ln[0]][0][1]
-                else:
-                    endpt2 = self.runs[ln[0]][0][0]
-                if ln[1] == 1:
-                    tmp = endpt2
-                    endpt2 = endpt1
-                    endpt1 = tmp
-                self.DrawArrow(endpt1, endpt2, ln[0])
+            self.plt_arow.pop(ln[0]).remove()
+            endpt1 = nd_lbl
+            if self.runs[ln[0]][0].index(endpt1) == 0:
+                endpt2 = self.runs[ln[0]][0][1]
+            else:
+                endpt2 = self.runs[ln[0]][0][0]
+            if ln[1] == 1:
+                tmp = endpt2
+                endpt2 = endpt1
+                endpt1 = tmp
+            self.DrawArrow(endpt1, endpt2, ln[0])
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -1101,6 +1103,7 @@ class InputForm(wx.Frame):
                         endpt2 = endpt1
                         endpt1 = tmp
                     self.DrawArrow(endpt1, endpt2, ln[0])
+                    self.canvas.draw()
 
         # draw the loop arcs and label
         for key in self.Loops:

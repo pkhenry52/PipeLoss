@@ -1,7 +1,7 @@
 import wx
 
 
-class NodeFrm(wx.Frame):
+class NodeFrm(wx.Dialog):
     def __init__(self, parent, node, cord, node_lst, node_dict):
 
         self.rad_bt = []
@@ -51,26 +51,34 @@ class NodeFrm(wx.Frame):
         # the following will check to see if node
         # has been changed since last save
         # to the database or dictionary
-        if self.node in self.nodes.keys():
+        if self.node in self.nodes:
             d = {}  # a dictionary of line(key) and rdbtn1,flow(values)
             for k, v1, v2 in self.nodes[self.node][0]:
                 d.setdefault(k, []).append(v1)
                 d.setdefault(k, []).append(v2)
             ln_lst = set(d.keys())
 
-        # list of all the defined nodes in self.nodes minus the specified node
-        nds = list(self.nodes.keys())
-        nds.remove(self.node)
-        # generate a list of all the points for the defined lines
+        # convert elf.runs into a tuple of (line lbl, endpoints, new line)
         run_tpl = list(self.parent.runs.items())
-        # for each of the defined nodes generate a list of
-        # lines in which they are an end point
-        self.cmn_lns = {}
-        for lbl in nds:
-            node_lines = set([item[0] for item in run_tpl if lbl in item[1][0]])
-            if list(node_lines.intersection(ln_lst)) != []:
-                self.cmn_lns[list(node_lines.intersection(ln_lst))[0]] = lbl
 
+        # for each of the defined nodes generate a list of
+        # lines with the specified endpoint 'node'
+        self.cmn_lns = {}
+        # if there not any nodes defined skip this step
+#        if self.nodes != {}:
+        # for each key value (node) in self.nodes
+        # return the intersecting lines
+        # skip repeating the node of interest
+        for nd_lbl in self.nodes:
+            if nd_lbl != self.node:
+                node_lines = set([item[0] for \
+                    item in run_tpl if nd_lbl in item[1][0]])
+                # if there are other nodes already defined with
+                # lines ending in the node of interest then collect
+                # this as a common line already defined
+                if list(node_lines.intersection(ln_lst)) != []:
+                    self.cmn_lns[list(node_lines.intersection
+                                    (ln_lst))[0]] = nd_lbl
         n = 0
         # get each line located at the node as
         # specified on the current node dictionary
@@ -86,7 +94,8 @@ class NodeFrm(wx.Frame):
             else:
                 rdbtn, txtbx = d[ln]
                 new_data = False
-            if ln in self.cmn_lns.keys():
+
+            if ln in self.cmn_lns:
                 txt_lbl = 'Specified\nat node "' + self.cmn_lns[ln] + '"'
                 for i in self.nodes[self.cmn_lns[ln]][0]:
                     if i[0] == ln:
@@ -102,6 +111,7 @@ class NodeFrm(wx.Frame):
                                     style=wx.RB_GROUP)
             neg_rb = wx.RadioButton(self, id_num+1, label='', pos=(180, 10*n))
             neg_rb.SetValue(bool(rdbtn))
+
             nd_txt = wx.StaticText(self, id_num, label=txt_lbl)
             flow_chk = wx.CheckBox(self, id_num+2, label='', pos=(280, 10*n))
 
@@ -151,7 +161,7 @@ class NodeFrm(wx.Frame):
         if new_data is False:
             self.type_rbb.SetSelection(self.nodes[self.node][1])
 
-        self.Bind(wx.EVT_RADIOBOX, self.OnRadioBx, self.type_rbb)
+        self.Bind(wx.EVT_RADIOBOX, self.OnRadioBx)
 
         self.sizer.Add(self.type_rbb, 0,
                        wx.TOP | wx.BOTTOM | wx.ALIGN_CENTER, 30)
@@ -174,9 +184,8 @@ class NodeFrm(wx.Frame):
         self.Centre()
         self.Show(True)
 
-    def OnRadioBx(self, evt): 
+    def OnRadioBx(self, evt):
         rb = evt.GetEventObject()
-        rb.GetSelection()
         self.type = rb.GetSelection()
 
     def OnChkBox(self, evt):
@@ -193,23 +202,39 @@ class NodeFrm(wx.Frame):
         lst1 = []
         lst2 = []
         lst3 = []
-        n = 1
 
+        # cycle through the radio buttons and get the value of in first row
+        m = 1
         for item in range(1, len(self.rad_bt), 2):
             dirct = 1
             flow = 0
-            lst1.append(self.rad_bt[item-1].GetLabel()[-2])
-            if self.chk_bx[item-n].GetValue():
-                if self.txt_bxs[item-n].GetValue() != '':
-                    flow = float(self.txt_bxs[item-n].GetValue())
+            # get the line label from the radiobutton label
+            ln_lbl = self.rad_bt[item-1].GetLabel()[-2]
+            lst1.append(ln_lbl)
+            if self.chk_bx[item-m].GetValue():
+                if self.txt_bxs[item-m].GetValue() != '':
+                    flow = float(self.txt_bxs[item-m].GetValue())
             if self.rad_bt[item].GetValue() is False:
                 dirct = 0
+            m += 1
+
+            # if the node data is saved for this node then the other nodes
+            # with common lines need to relect the direction changes
+            if ln_lbl in self.cmn_lns:
+                n = 0
+                tpl = []
+                for tp in self.nodes[self.cmn_lns[ln_lbl]][0]:
+                    if tp[0]==ln_lbl:
+                        tpl.append(ln_lbl)
+                        tpl.append(abs(dirct-1))
+                        tpl.append(tp[2])
+                        self.nodes[self.cmn_lns[ln_lbl]][0][n] = tuple(tpl)
+                    n += 1
             lst2.append(dirct)
             lst3.append(flow)
-            n += 1
 
         # make a list containing the line label, flow direction and volume
-        ln_dirct = [list((zip(lst1, lst2, lst3))), self.type]
+        ln_dirct = [list(zip(lst1, lst2, lst3)), self.type]
         # add information to the nodes dictionary
         self.nodes[self.node] = ln_dirct
 
@@ -225,4 +250,5 @@ class NodeFrm(wx.Frame):
                                                         2, 'lightgreen')
 
     def OnClose(self, evt):
+        self.EndModal(True)
         self.Destroy()

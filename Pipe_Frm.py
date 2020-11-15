@@ -127,9 +127,8 @@ class PipeFrm(wx.Frame):
         self.nb.AddPage(EntExt(self.nb), 'Entry\nExit Losses')
         self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
         self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.OnBeforePgChg)
-        # menubar construction needs to be trimmed
-        menubar = wx.MenuBar()
 
+        menubar = wx.MenuBar()
         fileMenu = wx.Menu()
         # fileMenu.Append(wx.ID_OPEN, '&Open')
         # this will only change the grid cell color data 
@@ -138,18 +137,20 @@ class PipeFrm(wx.Frame):
         # fileMenu.Append(wx.ID_PRINT, '&Print\tCtrl+P')
         fileMenu.Append(wx.ID_EXIT, '&Quit\tCtrl+Q')
         menubar.Append(fileMenu, '&File')
-
         self.Bind(wx.EVT_MENU, self.menuhandler)
 
         # if data exists for the general page fill in the text boxes
         qry = 'SELECT * FROM General WHERE ID = "' + self.lbl + '"'
-        data = DBase.Dbase(self.parent).Dsqldata(qry)[0]
-        if data != []:
-            self.nb.GetPage(0).info1.SetValue(str(data[1]))
-            self.nb.GetPage(0).info2.SetValue(str(data[2]))
-            self.nb.GetPage(0).info3.SetValue(str(data[3]))
-            self.nb.GetPage(0).info4.SetValue(str(data[4]))
-            self.data_good = data[5]
+        frm_data = DBase.Dbase(self.parent).Dsqldata(qry)
+
+        if frm_data !=[]:
+            data = frm_data[0]
+            if data != []:
+                self.nb.GetPage(0).info1.SetValue(str(data[1]))
+                self.nb.GetPage(0).info2.SetValue(str(data[2]))
+                self.nb.GetPage(0).info3.SetValue(str(data[3]))
+                self.nb.GetPage(0).info4.SetValue(str(data[4]))
+                self.data_good = data[5]
 
         self.SetMenuBar(menubar)
         self.Centre()
@@ -468,7 +469,7 @@ class PipeFrm(wx.Frame):
         # if the data entered is completed then color grid line cell
         if self.data_good is True:
             row = ord(self.lbl) - 65
-            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
+            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))      
         self.Destroy()
 
 
