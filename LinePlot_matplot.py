@@ -271,6 +271,8 @@ class InputForm(wx.Frame):
         if tbl_data != []:
             self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
             no_data = False
+        print('self.pts = ', self.pts)
+        print('DB table points ', tbl_data)
         return no_data
 
     def DBlines(self):
@@ -280,7 +282,8 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
-
+        print('self.runs = ', self.runs)
+        print('DB table lines ', tbl_data)
     def DBnodes(self):
         # download the data entered in the node_frm and put it into
         # the nodes dictionary
@@ -288,7 +291,8 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
-
+        print('self.nodes = ', self.nodes)
+        print('DB table nodes ', tbl_data)
     def DBloops(self):
         # enter the data base information for the loops and put it into
         # the Loops dictionaary
@@ -302,7 +306,9 @@ class InputForm(wx.Frame):
                 self.Ln_Select = v[1]
                 self.AddLoop(k)
                 pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
-
+        print('self.Loops = ', self.Loops)
+        print('self.poly_pts', self.poly_pts)
+        print('DB table loops ', tbl_data)
     def GrdLoad(self):
         # load the points information into the grid against the
         # coresponding line label
@@ -1027,20 +1033,22 @@ class InputForm(wx.Frame):
         node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
 
         dlg = Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes)
-        dlg.ShowModal()
-
-        for ln in self.nodes[nd_lbl][0]:
-            self.plt_arow.pop(ln[0]).remove()
-            endpt1 = nd_lbl
-            if self.runs[ln[0]][0].index(endpt1) == 0:
-                endpt2 = self.runs[ln[0]][0][1]
-            else:
-                endpt2 = self.runs[ln[0]][0][0]
-            if ln[1] == 1:
-                tmp = endpt2
-                endpt2 = endpt1
-                endpt1 = tmp
-            self.DrawArrow(endpt1, endpt2, ln[0])
+        dlg.Show()
+        '''
+        if nd_lbl in self.nodes:
+            for ln in self.nodes[nd_lbl][0]:
+                if ln[0] in self.plt_arow:
+                    self.plt_arow.pop(ln[0]).remove()
+                endpt1 = nd_lbl
+                if self.runs[ln[0]][0].index(endpt1) == 0:
+                    endpt2 = self.runs[ln[0]][0][1]
+                else:
+                    endpt2 = self.runs[ln[0]][0][0]
+                if ln[1] == 1:
+                    tmp = endpt2
+                    endpt2 = endpt1
+                    endpt1 = tmp
+                self.DrawArrow(endpt1, endpt2, ln[0])'''
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -1261,5 +1269,4 @@ class OpenFile(wx.Dialog):
 if __name__ == "__main__":
     app = wx.App(False)
     frm = InputForm()
-    # frame = StrUpFrm(None)
     app.MainLoop()

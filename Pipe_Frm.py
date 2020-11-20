@@ -143,7 +143,7 @@ class PipeFrm(wx.Frame):
         qry = 'SELECT * FROM General WHERE ID = "' + self.lbl + '"'
         frm_data = DBase.Dbase(self.parent).Dsqldata(qry)
 
-        if frm_data !=[]:
+        if frm_data != []:
             data = frm_data[0]
             if data != []:
                 self.nb.GetPage(0).info1.SetValue(str(data[1]))
@@ -196,7 +196,7 @@ class PipeFrm(wx.Frame):
             del data[0]
             # make list of the table column names and remove the ID name
             col_names = [name[1] for name in DBase.Dbase(self.parent).Dcolinfo(
-                        self.nb.GetPage(current).Name)]
+                         self.nb.GetPage(current).Name)]
             del col_names[0]
 
             # database counter
@@ -469,7 +469,7 @@ class PipeFrm(wx.Frame):
         # if the data entered is completed then color grid line cell
         if self.data_good is True:
             row = ord(self.lbl) - 65
-            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))      
+            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))            
         self.Destroy()
 
 

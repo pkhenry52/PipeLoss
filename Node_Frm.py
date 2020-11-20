@@ -14,20 +14,22 @@ class NodeFrm(wx.Dialog):
         self.node = node    # the node label which has been selected
         self.saved = False
         self.type = 0
+        self.parent = parent
 
         ttl = 'Node "' + node + ' ' + str(cord) + '" Flow Information.'
 
-        super().__init__(parent, title=ttl,
-                         style=wx.DEFAULT_FRAME_STYLE &
-                         ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX |
-                           wx.MINIMIZE_BOX) | wx.STAY_ON_TOP)
+        super(NodeFrm, self).__init__(parent, title=ttl)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
-        self.parent = parent
 
         self.InitUI()
 
     def InitUI(self):
+        new_data = True
+        rdbtn = 0
+        txtbx = 0
+        ln_lst = set()
+
         # put the buttons in a sizer
         self.sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -46,39 +48,50 @@ class NodeFrm(wx.Dialog):
         id_num = 0
         rbsizers = []
 
-        ln_lst = set()
-        # see if node has already been defined
-        # the following will check to see if node
-        # has been changed since last save
-        # to the database or dictionary
+        ''' 
+        There are 3 locations the node info needs to be checked;
+        1) self.node_lst => a set of all the lines which intersect the node
+        based on the information from the runs dictionary
+        (what is shown in the plot)
+        2) ln_lst => lines previously defined in the nodes dictionary,
+        that may not represent the updated plot information
+        3) any of the lines which may connect to the queried node but have
+        been defined by the other line end point'''
+
+        # check 2) see if queried node has already been defined,
+        # if so get the needed info in ln_lst
         if self.node in self.nodes:
             d = {}  # a dictionary of line(key) and rdbtn1,flow(values)
+             # {'C': [1, 0], 'D': [0, 0], 'G': [0, 0]}
             for k, v1, v2 in self.nodes[self.node][0]:
                 d.setdefault(k, []).append(v1)
                 d.setdefault(k, []).append(v2)
             ln_lst = set(d.keys())
+        else:
+            ln_lst = self.node_lst
 
-        # convert elf.runs into a tuple of (line lbl, endpoints, new line)
+        # convert self.runs into a tuple of (line lbl, endpoints, new line)
+        # [('A', [('origin', 'a'), 1]), ('B', [('origin', 'b'), 1]),
+        #  ('C', [('b', 'c'), 1]), ('D', [('c', 'd'), 1]), ... ]
         run_tpl = list(self.parent.runs.items())
 
-        # for each of the defined nodes generate a list of
-        # lines with the specified endpoint 'node'
+        # step 3) getting any line which terminate
+        # with the queried end point
         self.cmn_lns = {}
-        # if there not any nodes defined skip this step
-#        if self.nodes != {}:
         # for each key value (node) in self.nodes
-        # return the intersecting lines
-        # skip repeating the node of interest
+        # return the intersecting lines as node_lines
         for nd_lbl in self.nodes:
+            # skip the node of interest
             if nd_lbl != self.node:
                 node_lines = set([item[0] for \
                     item in run_tpl if nd_lbl in item[1][0]])
-                # if there are other nodes already defined with
-                # lines ending in the node of interest then collect
-                # this as a common line already defined
-                if list(node_lines.intersection(ln_lst)) != []:
+                # compare the list of lines for each node
+                # with the lines list for the queried node
+                # if there is a common line save it and the node (nd_lbl)
+                if list(node_lines.intersection(ln_lst)) != [] and ln_lst != {}:
                     self.cmn_lns[list(node_lines.intersection
                                     (ln_lst))[0]] = nd_lbl
+
         n = 0
         # get each line located at the node as
         # specified on the current node dictionary
@@ -87,11 +100,7 @@ class NodeFrm(wx.Dialog):
             # lines intersecting defined nodes
             # if it is an update set the radio buttons
             # to default else use the saved dictionary values
-            if ln in self.node_lst.difference(ln_lst):
-                rdbtn = 0
-                txtbx = 0
-                new_data = True
-            else:
+            if ln in self.node_lst.difference(ln_lst) is False:
                 rdbtn, txtbx = d[ln]
                 new_data = False
 
@@ -181,7 +190,6 @@ class NodeFrm(wx.Dialog):
         self.sizer.SetSizeHints(self)
         self.SetSizer(self.sizer)
 
-        self.Centre()
         self.Show(True)
 
     def OnRadioBx(self, evt):
@@ -238,6 +246,21 @@ class NodeFrm(wx.Dialog):
         # add information to the nodes dictionary
         self.nodes[self.node] = ln_dirct
 
+        if self.node in self.nodes:
+            for ln in self.nodes[self.node][0]:
+                if ln[0] in self.parent.plt_arow:
+                    self.parent.plt_arow.pop(ln[0]).remove()
+                endpt1 = self.node
+                if self.parent.runs[ln[0]][0].index(endpt1) == 0:
+                    endpt2 = self.parent.runs[ln[0]][0][1]
+                else:
+                    endpt2 = self.parent.runs[ln[0]][0][0]
+                if ln[1] == 1:
+                    tmp = endpt2
+                    endpt2 = endpt1
+                    endpt1 = tmp
+                self.parent.DrawArrow(endpt1, endpt2, ln[0])
+
         # change the grid cell color to green to indicate data is complete
         for ltr in self.node_lst:
             if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
@@ -250,5 +273,5 @@ class NodeFrm(wx.Dialog):
                                                         2, 'lightgreen')
 
     def OnClose(self, evt):
-        self.EndModal(True)
+#        self.EndModal(True)
         self.Destroy()
