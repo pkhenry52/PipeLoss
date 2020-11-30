@@ -127,9 +127,8 @@ class PipeFrm(wx.Frame):
         self.nb.AddPage(EntExt(self.nb), 'Entry\nExit Losses')
         self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
         self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.OnBeforePgChg)
-        # menubar construction needs to be trimmed
-        menubar = wx.MenuBar()
 
+        menubar = wx.MenuBar()
         fileMenu = wx.Menu()
         # fileMenu.Append(wx.ID_OPEN, '&Open')
         # this will only change the grid cell color data 
@@ -138,24 +137,27 @@ class PipeFrm(wx.Frame):
         # fileMenu.Append(wx.ID_PRINT, '&Print\tCtrl+P')
         fileMenu.Append(wx.ID_EXIT, '&Quit\tCtrl+Q')
         menubar.Append(fileMenu, '&File')
-
         self.Bind(wx.EVT_MENU, self.menuhandler)
 
         # if data exists for the general page fill in the text boxes
         qry = 'SELECT * FROM General WHERE ID = "' + self.lbl + '"'
-        data = DBase.Dbase().Dsqldata(qry)[0]
-        if data != []:
-            self.nb.GetPage(0).info1.SetValue(str(data[1]))
-            self.nb.GetPage(0).info2.SetValue(str(data[2]))
-            self.nb.GetPage(0).info3.SetValue(str(data[3]))
-            self.nb.GetPage(0).info4.SetValue(str(data[4]))
+        frm_data = DBase.Dbase(self.parent).Dsqldata(qry)
+
+        if frm_data != []:
+            data = frm_data[0]
+            if data != []:
+                self.nb.GetPage(0).info1.SetValue(str(data[1]))
+                self.nb.GetPage(0).info2.SetValue(str(data[2]))
+                self.nb.GetPage(0).info3.SetValue(str(data[3]))
+                self.nb.GetPage(0).info4.SetValue(str(data[4]))
+                self.data_good = data[5]
 
         self.SetMenuBar(menubar)
         self.Centre()
         self.Show(True)
 
-    def menuhandler(self, event):
-        menu_id = event.GetId()
+    def menuhandler(self, evt):
+        menu_id = evt.GetId()
         if menu_id == wx.ID_EXIT:
             self.OnClose(None)
         elif menu_id == wx.ID_SAVE:
@@ -163,7 +165,7 @@ class PipeFrm(wx.Frame):
             self.OnClose(None)
 
     def OnBeforePgChg(self, evt):
-        old = evt.GetOldSelection()
+        # this called prior to a page change
         current = evt.GetSelection()
         self.Data_Load(current)
 
@@ -182,23 +184,35 @@ class PipeFrm(wx.Frame):
         self.K_calc(old)
 
     def Data_Load(self, current):
+        # load the database data when the page is first called
         qry = ('SELECT * FROM ' + self.nb.GetPage(current).Name +
                ' WHERE ID = "' + self.lbl + '"')
-        data = DBase.Dbase().Dsqldata(qry)
+        data = DBase.Dbase(self.parent).Dsqldata(qry)
         if data != []:
-            data = list(data[0])       
+            # data is a list containing the tuple of the form's information
+            # so change the tuple to just a list
+            data = list(data[0])
+            # remove the ID value from the list
             del data[0]
-            col_names = [name[1] for name in DBase.Dbase().Dcolinfo(
-                        self.nb.GetPage(current).Name)]
+            # make list of the table column names and remove the ID name
+            col_names = [name[1] for name in DBase.Dbase(self.parent).Dcolinfo(
+                         self.nb.GetPage(current).Name)]
             del col_names[0]
+
+            # database counter
             n = 0
+            # checkbox counter
+            cb = 0
+            # radio button1 counter
             a = 0
+            # radio button2 counter
             b = 0
+            # text box counter
             t = 0
             for item in col_names:
                 if item[0] == 'c':
-                    self.nb.GetPage(current).pg_chk[n].SetValue(data[n])
-                    n += 1
+                    self.nb.GetPage(current).pg_chk[cb].SetValue(data[n])
+                    cb += 1
                 elif item[0] == 'b':
                     self.nb.GetPage(current).pg_txt[t].SetValue(str(data[n]))
                     t += 1
@@ -208,6 +222,7 @@ class PipeFrm(wx.Frame):
                 elif item[0] == 'r' and item[-1] == '2':
                     self.nb.GetPage(current).rdbtn2[b].SetValue(data[n])
                     b += 1
+                n += 1
 
     def K_calc(self, old):
         old_pg = self.nb.GetPage(old).Name
@@ -230,7 +245,8 @@ class PipeFrm(wx.Frame):
                 ValueList.append(length)
                 ValueList.append(matr)
                 ValueList.append(elev)
-                DBase.Dbase().TblEdit(UpQuery, ValueList)
+                ValueList.append(self.data_good)
+                DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
             else:
                 return
 
@@ -257,10 +273,10 @@ class PipeFrm(wx.Frame):
                         Kt1 = float(bx_val) * K1[bx][2] * self.ff + Kt1
                 else:
                     Kt1 = Kt1 + float(bx_val) * K1[bx] * self.ff
-    
+
             ValueList.append(Kt1)
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'ManVlv2':
             K2 = [8, 109, 43, 125, 214, 205, 1142, 1000, 300]
@@ -278,7 +294,7 @@ class PipeFrm(wx.Frame):
 
             ValueList.append(Kt2)
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'ChkVlv':
             K3 = [600, 100, 55, 200, (80, 60, 40), 300, 100, 350, 50, 55, 55]
@@ -304,7 +320,7 @@ class PipeFrm(wx.Frame):
 
             ValueList.append(Kt3)
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'Fittings':
             K4 = [30, 2, 16, 2, 50, 20, 13, 60, 72]
@@ -322,7 +338,7 @@ class PipeFrm(wx.Frame):
 
             ValueList.append(Kt4)
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'WldElb':
             K5 = [20, 16, 10, 8, (24, 24, 30, 60), (12, 15)]
@@ -361,7 +377,7 @@ class PipeFrm(wx.Frame):
             ValueList.append(Kt5)
 
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'EntExt':
             K6 = [.78, 1, .5, .28, .24, .15, .09, .04]
@@ -414,10 +430,10 @@ class PipeFrm(wx.Frame):
             ValueList.append(Kt6)
 
             UpQuery = self.BldQuery(old_pg, new_data)
-            DBase.Dbase().TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
     def BldQuery(self, old_pg, new_data):
-        col_names = [name[1] for name in DBase.Dbase().Dcolinfo(old_pg)]
+        col_names = [name[1] for name in DBase.Dbase(self.parent).Dcolinfo(old_pg)]
 
         if new_data is False:
             col_names.remove('ID')
@@ -431,7 +447,7 @@ class PipeFrm(wx.Frame):
     def Data_Exist(self, old_pg):
         SQL_Chk = 'SELECT ID FROM ' + old_pg + ' WHERE ID = "' + self.lbl + '"'
         
-        if DBase.Dbase().Dsqldata(SQL_Chk) == []:
+        if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
             new_data = True
             ValueList = [self.lbl]
         else:
@@ -453,8 +469,7 @@ class PipeFrm(wx.Frame):
         # if the data entered is completed then color grid line cell
         if self.data_good is True:
             row = ord(self.lbl) - 65
-            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
-
+            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))            
         self.Destroy()
 
 

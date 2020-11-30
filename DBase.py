@@ -1,20 +1,12 @@
-import sqlite3
-
-
 class Dbase(object):
     '''DATABASE CLASS HANDLER'''
     # this initializes the database and opens the specified table
-    def __init__(self, frmtbl=None):
+    def __init__(self, parent):
         # this sets the path to the database and needs
         # to be changed accordingly
-
-        self.db = sqlite3.connect('mt.db')
-        with self.db:
-            self.cursr = self.db.cursor()
-            self.cursr.execute('PRAGMA foreign_keys=ON')
-
-#        self.cursr = cursr
-#        self.db = db
+        self.parent = parent
+        self.cursr = self.parent.cursr
+        self.db = self.parent.db
 
     def Dcolinfo(self, table):
         # sequence for items in colinfo is column number, column name,
