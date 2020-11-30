@@ -29,6 +29,7 @@ class NodeFrm(wx.Dialog):
         rdbtn = 0
         txtbx = 0
         ln_lst = set()
+        d = {}  # a dictionary of line(key) and rdbtn1,flow(values)
 
         # put the buttons in a sizer
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -38,7 +39,7 @@ class NodeFrm(wx.Dialog):
                              style=wx.ALIGN_LEFT)
         hdr2 = wx.StaticText(self, label='Flow\nOut Of\nNode',
                              style=wx.ALIGN_LEFT)
-        hdr3 = wx.StaticText(self, label='\nExternal Flow',
+        hdr3 = wx.StaticText(self, label='External\nConsumption Flow',
                              style=wx.ALIGN_CENTER)
         hdrsizer.Add(hdr1, 1, wx.LEFT, 20)
         hdrsizer.Add(hdr2, 1, wx.LEFT, 60)
@@ -61,9 +62,8 @@ class NodeFrm(wx.Dialog):
         # check 2) see if queried node has already been defined,
         # if so get the needed info in ln_lst
         if self.node in self.nodes:
-            d = {}  # a dictionary of line(key) and rdbtn1,flow(values)
              # {'C': [1, 0], 'D': [0, 0], 'G': [0, 0]}
-            for k, v1, v2 in self.nodes[self.node][0]:
+            for k, v1, v2 in self.nodes[self.node]:
                 d.setdefault(k, []).append(v1)
                 d.setdefault(k, []).append(v2)
             ln_lst = set(d.keys())
@@ -93,23 +93,31 @@ class NodeFrm(wx.Dialog):
                                     (ln_lst))[0]] = nd_lbl
 
         n = 0
-        # get each line located at the node as
-        # specified on the current node dictionary
+        # check each line located at the node as
+        # specified from the self.runs dictionary
         for ln in self.node_lst:
-            # check if line exists in set of all
-            # lines intersecting defined nodes
-            # if it is an update set the radio buttons
+            # if it is not an update (ie. there is no difference
+            # between the self.nodes list and self.runs generated
+            # list of lines) set the radio buttons
             # to default else use the saved dictionary values
             if ln in self.node_lst.difference(ln_lst) is False:
                 rdbtn, txtbx = d[ln]
+                txt_lbl = ''
                 new_data = False
-
-            if ln in self.cmn_lns:
+            # check if line is part of the set
+            # of lines listed at any other defined node
+            elif ln in self.cmn_lns:
                 txt_lbl = 'Specified\nat node "' + self.cmn_lns[ln] + '"'
-                for i in self.nodes[self.cmn_lns[ln]][0]:
+                for i in self.nodes[self.cmn_lns[ln]]:
                     if i[0] == ln:
                         rdbtn = bool(i[1]-1)
                         txtbx = i[2]
+            # if the line is not part of another defined node 
+            # and it is in the self.node_lst list of lines
+            # and it has been defined then use those values
+            elif ln in d:
+                rdbtn, txtbx = d[ln]
+                txt_lbl = ''
             else:
                 txt_lbl = ''
 
@@ -158,7 +166,8 @@ class NodeFrm(wx.Dialog):
         btn_lbls = ['Intersection of Multiple\nLines As List Above',
                     'Back Pressure Valve',
                     'Pressure Regulating Valve',
-                    'Centrifugal Pump', 'Reservoir Supply']
+                    'Tank Supply',
+                    'Centrifugal Pump\nTank']
 
         self.type_rbb = wx.RadioBox(self, 
                                     label=
@@ -207,10 +216,15 @@ class NodeFrm(wx.Dialog):
             self.txt_bxs[i].Enable(False)
 
     def OnSave(self, evt):
+        if self.type == 0:
+            self.SaveNode()
+
+    def SaveNode(self):
+        '''saves the data if the node is just
+        specified as an intersection of lines'''
         lst1 = []
         lst2 = []
         lst3 = []
-
         # cycle through the radio buttons and get the value of in first row
         m = 1
         for item in range(1, len(self.rad_bt), 2):
@@ -231,23 +245,23 @@ class NodeFrm(wx.Dialog):
             if ln_lbl in self.cmn_lns:
                 n = 0
                 tpl = []
-                for tp in self.nodes[self.cmn_lns[ln_lbl]][0]:
+                for tp in self.nodes[self.cmn_lns[ln_lbl]]:
                     if tp[0]==ln_lbl:
                         tpl.append(ln_lbl)
                         tpl.append(abs(dirct-1))
                         tpl.append(tp[2])
-                        self.nodes[self.cmn_lns[ln_lbl]][0][n] = tuple(tpl)
+                        self.nodes[self.cmn_lns[ln_lbl]][n] = tuple(tpl)
                     n += 1
             lst2.append(dirct)
             lst3.append(flow)
 
         # make a list containing the line label, flow direction and volume
-        ln_dirct = [list(zip(lst1, lst2, lst3)), self.type]
+        ln_dirct = list(zip(lst1, lst2, lst3))
         # add information to the nodes dictionary
         self.nodes[self.node] = ln_dirct
 
         if self.node in self.nodes:
-            for ln in self.nodes[self.node][0]:
+            for ln in self.nodes[self.node]:
                 if ln[0] in self.parent.plt_arow:
                     self.parent.plt_arow.pop(ln[0]).remove()
                 endpt1 = self.node

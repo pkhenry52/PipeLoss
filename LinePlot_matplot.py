@@ -19,7 +19,7 @@ from math import sin
 import DBase
 import Node_Frm
 import Pipe_Frm
-
+import Calc_Network
 
 class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, *args, **kw):
@@ -236,16 +236,16 @@ class InputForm(wx.Frame):
 
         dlg = OpenFile(self)
         dlg.ShowModal()
-        file_name = dlg.filename
+        self.file_name = dlg.filename
 
-        if isinstance(file_name, str):
-            self.db = sqlite3.connect(file_name)
+        if isinstance(self.file_name, str):
+            self.db = sqlite3.connect(self.file_name)
             with self.db:
                 self.cursr = self.db.cursor()
                 self.cursr.execute('PRAGMA foreign_keys=ON')
 
-            if file_name.split(os.path.sep)[-1] != 'mt.db' and \
-                file_name.split(os.path.sep)[-1] != "":
+            if self.file_name.split(os.path.sep)[-1] != 'mt.db' and \
+                self.file_name.split(os.path.sep)[-1] != "":
                 self.DataLoad()
 
     def DataLoad(self):
@@ -271,8 +271,8 @@ class InputForm(wx.Frame):
         if tbl_data != []:
             self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
             no_data = False
-        print('self.pts = ', self.pts)
-        print('DB table points ', tbl_data)
+#        print('self.pts = ', self.pts)
+#        print('DB table points ', tbl_data)
         return no_data
 
     def DBlines(self):
@@ -282,8 +282,8 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
-        print('self.runs = ', self.runs)
-        print('DB table lines ', tbl_data)
+#        print('self.runs = ', self.runs)
+#        print('DB table lines ', tbl_data)
     def DBnodes(self):
         # download the data entered in the node_frm and put it into
         # the nodes dictionary
@@ -291,8 +291,8 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
-        print('self.nodes = ', self.nodes)
-        print('DB table nodes ', tbl_data)
+#        print('self.nodes = ', self.nodes)
+#        print('DB table nodes ', tbl_data)
     def DBloops(self):
         # enter the data base information for the loops and put it into
         # the Loops dictionaary
@@ -306,9 +306,9 @@ class InputForm(wx.Frame):
                 self.Ln_Select = v[1]
                 self.AddLoop(k)
                 pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
-        print('self.Loops = ', self.Loops)
-        print('self.poly_pts', self.poly_pts)
-        print('DB table loops ', tbl_data)
+#        print('self.Loops = ', self.Loops)
+#        print('self.poly_pts', self.poly_pts)
+#        print('DB table loops ', tbl_data)
     def GrdLoad(self):
         # load the points information into the grid against the
         # coresponding line label
@@ -612,13 +612,13 @@ class InputForm(wx.Frame):
                     # the nodes dictionary if so delete the line tuple from
                     # the dictionary
                     if nd in self.nodes:
-                        if len(self.nodes[nd][0]) == 1:
+                        if len(self.nodes[nd]) == 1:
                             del self.nodes[nd]
                         else:
                             n = 0
-                            for v in self.nodes[nd][0]:
+                            for v in self.nodes[nd]:
                                 if lbl == v[0]:
-                                    self.nodes[nd][0].pop(n)
+                                    self.nodes[nd].pop(n)
                                 n += 1
 
                     # retrieve all the values from the loops dictionary
@@ -845,9 +845,11 @@ class InputForm(wx.Frame):
                 loop_num = 1
             else:
                 loop_num = [x for x in
-                            range(1, key_lst[-1]+1) if x not in key_lst][0]
+                            range(1, key_lst[-1]+1) if x not in key_lst]
                 if loop_num == []:
                     loop_num = max(key_lst) + 1
+                else:
+                    loop_num = loop_num[0]
 
             # determine the centroid of the polygon and the distance to the
             # shortest to any ine line from the centroid
@@ -1034,21 +1036,6 @@ class InputForm(wx.Frame):
 
         dlg = Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes)
         dlg.Show()
-        '''
-        if nd_lbl in self.nodes:
-            for ln in self.nodes[nd_lbl][0]:
-                if ln[0] in self.plt_arow:
-                    self.plt_arow.pop(ln[0]).remove()
-                endpt1 = nd_lbl
-                if self.runs[ln[0]][0].index(endpt1) == 0:
-                    endpt2 = self.runs[ln[0]][0][1]
-                else:
-                    endpt2 = self.runs[ln[0]][0][0]
-                if ln[1] == 1:
-                    tmp = endpt2
-                    endpt2 = endpt1
-                    endpt1 = tmp
-                self.DrawArrow(endpt1, endpt2, ln[0])'''
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -1099,7 +1086,7 @@ class InputForm(wx.Frame):
                 redraw_pts.remove(pt1)
 
         for nd_lbl, lns in self.nodes.items():
-            for ln in lns[0]:
+            for ln in lns:
                 if ln[0] not in self.plt_arow:
                     endpt1 = nd_lbl
                     if self.runs[ln[0]][0].index(endpt1) == 0:
@@ -1173,6 +1160,7 @@ class InputForm(wx.Frame):
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def OnExit(self, evt):
+        Calc_Network.Calc(self,self.cursr, self.db).Node_Matrix()
         if self.cursr_set is True:
             cursr.close()
             db.close
