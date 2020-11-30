@@ -236,6 +236,7 @@ class InputForm(wx.Frame):
 
         dlg = OpenFile(self)
         dlg.ShowModal()
+
         self.file_name = dlg.filename
 
         if isinstance(self.file_name, str):
@@ -1240,6 +1241,7 @@ class OpenFile(wx.Dialog):
             self.filename = dlg.GetPaths()[0]
         if self.filename[-3:] != '.db':
             self.filename = self.filename + '.db'
+
         mt_dir = os.getcwd()
         mt_file = os.path.join(mt_dir, 'mt.db')
 
