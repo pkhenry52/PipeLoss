@@ -1,5 +1,6 @@
 import os
 import shutil
+import sqlite3
 from ast import literal_eval
 import string
 import wx
