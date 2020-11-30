@@ -9,6 +9,7 @@ import DBase
 # need to determine the correct number of loops to include in matrix
 
 # ERROR the consumption nodes are still not loading properly
+# ERROR raised when using the test1.db 
 
 class Calc(object):
         
@@ -98,7 +99,7 @@ class Calc(object):
             rst2 = sum(ord(i) for i in self.parent.runs[lns[0]][0] if i != 'origin')
             if rst1 != rst2:
                lns.append(lns.pop(0))
-            print('loop lines ', lns, 'loop number', num)
+
             # loop lines  ['E', 'F', 'D', 'C'] loop number 1
             for n, ln in enumerate(lns):
                 nd1 = alpha_poly_pts[n]
