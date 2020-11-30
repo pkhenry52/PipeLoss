@@ -1146,11 +1146,13 @@ class OpenFile(wx.Dialog):
             self.filename = dlg.GetPaths()[0]
         if self.filename[-3:] != '.db':
             self.filename = self.filename + '.db'
-        
-        dlg.Destroy()
-        connect_db(self.filename)
 
-        self.cont.Enable()
+        mt_dir = os.getcwd()
+        mt_file = os.path.join(mt_dir, 'mt.db')
+
+        if isinstance(self.filename, str):
+            shutil.copy(mt_file, self.filename)
+            self.cont.Enable()
 
         evt.Skip()
 
