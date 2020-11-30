@@ -233,12 +233,18 @@ class InputForm(wx.Frame):
 
         dlg = OpenFile(self)
         dlg.ShowModal()
-        file_name = dlg.filename
-        ''' REACTIVATE THIS CODE AFTER DEBUGGING AND AUTOLOAD IS NOT NEEDED
-        if file_name.split(os.path.sep)[-1] != 'mt.db' and \
-            file_name.split(os.path.sep)[-1] != "":
-            self.DataLoad()'''
-        self.DataLoad()
+
+        self.file_name = dlg.filename
+
+        if isinstance(self.file_name, str):
+            self.db = sqlite3.connect(self.file_name)
+            with self.db:
+                self.cursr = self.db.cursor()
+                self.cursr.execute('PRAGMA foreign_keys=ON')
+
+            if self.file_name.split(os.path.sep)[-1] != 'mt.db' and \
+                self.file_name.split(os.path.sep)[-1] != "":
+                self.DataLoad()
 
     def DataLoad(self):
         # run through all the functions to retreive the data from the database
