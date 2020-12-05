@@ -8,8 +8,10 @@ import DBase
 # those which are consumption flows
 # need to determine the correct number of loops to include in matrix
 
-# ERROR the consumption nodes are still not loading properly
-# ERROR raised when using the test1.db 
+# ERROR the consumption nodes are still not loading
+# properly in the nodes form and/or nodes dictionary
+# ERROR raised when using the test1.db
+# ERROR null nodes i,j,m are generating matrix of zeros
 
 class Calc(object):
         
@@ -25,7 +27,7 @@ class Calc(object):
         # these are to be the arrays used in numpy
         # used to solve the linear equations
         var_arry = []
-        coef_arry = [0]*len(self.parent.nodes)
+        coef_arry = []
 
         for val in self.parent.nodes.values():
             # generate val=[('B', 0, 0), ('C', 0, 20.0), ('D', 1, 0)]
@@ -37,26 +39,29 @@ class Calc(object):
         # index them for matrix position
         # {'A': 0, 'B': 1, 'D': 2, 'E': 3, 'F': 4, 'G': 5, 'I': 6, 'J': 7}
         self.var_dic = dict((v,k) for k,v in enumerate(sorted(self.var_lst)))
-
+        
         # generate the matrix for each node
-        n = 0
         for val in self.parent.nodes.values():
-            nd_matx = [0]*len(self.var_dic)
-            for k, v1, v2 in val:
-                if v2 == 0:
-                    nd_matx[self.var_dic[k]] = math.cos(math.pi*v1)*-1
-                else:
-                    # specify the value for the coef array coresponding
-                    # to the matrix in the variable array
-                    # [20.0, 0, 0, 0]
-                    coef_arry[n] = v2 * math.cos(math.pi*v1)
-            n =+ 1
-            # add the node matrix to the main variable array
-            # [[0, -1.0, 1.0, 0, 0, 0, 0, 0],
-            # [0, 0, -1.0, -1.0, 1.0, 0, -1.0, 0],
-            # [0, 0, 0, 0, -1.0, -1.0, 0, 1.0],
-            # [-1.0, 1.0, 0, 1.0, 0, 1.0, 0, 0]]
-            var_arry.append(nd_matx)
+            if len(val) > 1:
+                nd_matx = [0]*len(self.var_dic)
+                coeff = 0
+                for k, v1, v2 in val:
+                    if v2 == 0:
+                        nd_matx[self.var_dic[k]] = math.cos(math.pi*v1)*-1
+                    else:
+                        # specify the value for the coef array coresponding
+                        # to the matrix in the variable array
+                        # [20.0, 0, 0, 0]
+                        coeff = v2 * math.cos(math.pi*v1)
+                # collect the array of node coeficients
+                # ie the value of any comsumption at the node
+                coef_arry.append(coeff)
+                # add the node matrix to the main variable array
+                # [[0, -1.0, 1.0, 0, 0, 0, 0, 0],
+                # [0, 0, -1.0, -1.0, 1.0, 0, -1.0, 0],
+                # [0, 0, 0, 0, -1.0, -1.0, 0, 1.0],
+                # [-1.0, 1.0, 0, 1.0, 0, 1.0, 0, 0]]
+                var_arry.append(nd_matx)
 
         # get all the Kt values from the various
         # tables and sum them for each line
@@ -87,7 +92,7 @@ class Calc(object):
 
             # check the first line in the loop line list to see if the
             # first two points listed in the poly_pts corespond to it
-            # if they do not then the line order needs to be changed
+            # if they do NOT then the line order needs to be changed
             if alpha_poly_pts[0] == 'origin':
                 rst1 = ord(alpha_poly_pts[1])
             elif alpha_poly_pts[1] == 'origin':
@@ -106,15 +111,20 @@ class Calc(object):
                 for val in self.parent.nodes[nd1]:
                     if ln in val:
                         k_matx[self.var_dic[ln]] = math.cos(math.pi*val[1]) *-1
-
+            # run through the matrix of all the lines mapped
+            # in the plot as specified as part of a node inorder to specify the
+            # index location for the Kt vaiable in the loop equations
+            # and combine the sign of the direction arrow with the
+            # calculated Kt for the line
             for k,v in self.var_dic.items():
-                if Kt_dict[k] != 0:
-                    k_matx[v] = Kt_dict[k] * k_matx[v]
-                else:
-                    k_matx[v] = 0.0
-            
+                if k in Kt_dict.keys():
+                    if Kt_dict[k] != 0:
+                        k_matx[v] = Kt_dict[k] * k_matx[v]
+                    else:
+                        k_matx[v] = 0.0
             var_arry.append(k_matx)
             coef_arry.append(0)
 
-            Ar = np.array(var_arry)
-            Cof = np.array(coef_arry)
+        # the final arrays for the nodes and the internal loops
+        Ar = np.array(var_arry)
+        Cof = np.array(coef_arry)
