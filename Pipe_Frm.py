@@ -240,12 +240,15 @@ class PipeFrm(wx.Frame):
                 self.dia = float(self.nb.GetPage(old).info1.GetValue())
                 e = .00197
                 self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
+                # define what this equation for pipe friction loss is.
+                Kt0 = 0
                 UpQuery = self.BldQuery(old_pg, new_data)
                 ValueList.append(str(self.dia))
                 ValueList.append(length)
                 ValueList.append(matr)
                 ValueList.append(elev)
                 ValueList.append(self.data_good)
+                ValueList.append(Kt0)
                 DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
             else:
                 return
