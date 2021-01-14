@@ -1,17 +1,9 @@
 import numpy as np
-# import math
 import sqlite3
 import DBase
 from math import cos, pi, log10
 
-
-# need to remove the node equations for the end of line nodes,
-# those which are consumption flows
 # need to determine the correct number of loops to include in matrix
-
-# ERROR the consumption nodes are still not loading
-# properly in the nodes form and/or nodes dictionary
-
 class Calc(object):
         
     def __init__(self, parent, cursr, db):
@@ -30,8 +22,8 @@ class Calc(object):
         # percentage variation in range of flow estimates
         # to calculate Q1 and Q2
         DeltaQ_Percent = .1
-        gravity = 9.8
-
+        gravity = 32.2  # ft/s^2
+        Chw = 140
         for val in self.parent.nodes.values():
             # generate val=[('B', 0, 0), ('C', 0, 20.0), ('D', 1, 0)]
             # for each node in self.nodes
@@ -84,6 +76,25 @@ class Calc(object):
             n += 1
         for ln in dct:
             dct[ln] = sum(dct[ln])
+
+        # get the dimensional information for each line and
+        # order data based on line label into a dictionary
+        qry = 'SELECT ID, info1, info2, info3 FROM General'
+        tbldata = DBase.Dbase(self).Dsqldata(qry)
+        # tbldata = line lbl, dia", lgth', e"
+        D_e={} # dimensional data
+               # {line label:[dia", e", AR, ARL, Line_Length+Le]}
+        for itm in tbldata:
+
+            f = (1.14 - 2 * log10(itm[3]/itm[1]))**-2
+            Le = dct[itm[0]] * (itm[1]/12) / f
+            Lgth = Le + itm[2]
+            K = (8.53E5 * Lgth) / (Chw**1.852 * itm[1]**4.87)
+            AR = pi * (itm[1] / 12)**2 / 4  # ft^2 
+            ARL = Lgth / (gravity * 2 * (itm[1] / 12) * AR**2)
+            D_e[itm[0]] = [itm[1], itm[3], AR, ARL, Lgth]
+            dct[itm[0]] = K
+        # generates a dictionary of the sum Kt values for each line
         Kt_dict = dict(sorted(dct.items(),key=lambda item: item[0]))
 
         # reverse the points dictionary with the cordinates as the key
@@ -110,7 +121,7 @@ class Calc(object):
             lns = self.parent.Loops[num][1]
             rst2 = sum(ord(i) for i in self.parent.runs[lns[0]][0] if i != 'origin')
             if rst1 != rst2:
-               lns.append(lns.pop(0))
+                lns.append(lns.pop(0))
 
             # loop lines  ['E', 'F', 'D', 'C'] loop number 1
             for n, ln in enumerate(lns):
@@ -144,87 +155,94 @@ class Calc(object):
         # put the flow and line labels into a dictionary
         # so positions can be controlled
         Q1 = np.linalg.solve(Ar, Cof)
+
         Flows = dict(zip(list(self.var_dic.keys()), Q1))
 
-        # get the dimensional information for each line and
-        # order data based on line label into a dictionary
-        qry = 'SELECT ID, info1, info2, info3 FROM General'
-        tbldata = DBase.Dbase(self).Dsqldata(qry)
-        D_e={} # dimensional data {line label:[diameter, e, AR, ARL]}
-        for itm in tbldata:
-            # ==== where .0254 and .3048 are conversion factors ====
-            AR = pi / 4 * (itm[1] * .0254)**2
-            ARL = (itm[2] * .3048) / (gravity * 2 * itm[1] * AR**2)
-            D_e[itm[0]] = [itm[1],itm[3],AR,ARL]
-
         Qsum = 0
-        Q = [0]*len(self.var_dic)
-        VIS = 1.0
+        density = 62.37  # lbs/ft^3
+        abs_vis = 1.1  # centipoise
+        kin_vis = (abs_vis * .000672197) / density # ft^2/s
         ELOG = 9.35 * log10(2.71828183)
 
-        i = 0
+        i = 0  # track number of iterations
         for ln, flow in Flows.items():
+            # start by using the 'flow' calculated in
+            # the solution of linear equations
+            # for the first iteration use;
             Calc_Flow = flow
             Avg_Flow = Calc_Flow
+            # after the first iteration change values to:
+            # where the 'Calc_Flow' is the iterated value for the flow
             if i > 1:
                 Avg_Flow = (flow + Calc_Flow) / 2
-                Qsum = Qsum + abs(flow + Calc_Flow)
-
+                Qsum = Qsum + abs(flow - Calc_Flow)
+            # upgrade the 'flow' value to the avg of the
+            # latest iterated values, if it passes the iterations
+            # then this will be the final line flow
             flow = Avg_Flow
             DeltaQ = Avg_Flow * DeltaQ_Percent
             Avg_Flow = abs(Avg_Flow)
 
+            print('++++++++++++++++++++++')
+            print("Line label = ", ln)
+            Lgth = D_e[ln][4]
             AR = D_e[ln][2]
             ARL = D_e[ln][3]
-            Dia = D_e[ln][0] * .0254
-            e = D_e[ln][1] * .0254
+            dia = D_e[ln][0]  # diameter in inches
+            Dia = dia/12   # diameter in feet
+            e = D_e[ln][1] / dia  # e/dia equivalent relative roughness
 
-            V1 = (Avg_Flow - DeltaQ) / AR
+            # Crane 410 Eq 3-2   velocity = .408 * gpm / (PipeID")^2
+            V1 = .408 * (Avg_Flow - DeltaQ) / dia**2
             if V1 < .001:
                 V1 = .002
-            V2 = (Avg_Flow + DeltaQ) / AR
-            VE = Avg_Flow /AR
-            RE1 = V1 * Dia / VIS
-            RE2 = V2 * Dia / VIS
+            V2 = .408 * (Avg_Flow + DeltaQ) / dia**2
+            VE = .408 * Avg_Flow / dia**2
+            print(f'Pipe Dia is {dia} and length is {Lgth}at a Velocity of {VE}')
+            # Crane 410 Eq 3-3 Re = 50.6 * gpm * density / (PipeID" * abs_vis)
+            RE1 = 50.6 * (Avg_Flow - DeltaQ) * density / (abs_vis * dia)
+            RE2 = 50.6 * (Avg_Flow + DeltaQ) * density / (abs_vis * dia)
+
             if RE2 < 2100:
                 F1 = 64 / RE1
                 F2 = 64 / RE2
                 EXPP = 1.0
-                Kt0 = 64 * VIS * ARL / Dia
+                Kt0 = 64 * kin_vis * ARL / dia
+                continue
             else:
-                MM = 0
-                F = 1 / (1.14 -2*log10(e))**2
-                PAR =  VE *(.125 * F)**.5 * Dia * e / VIS
-                if PAR < 65:
+                F = 1 / (1.14 - 2*log10(e))**2
+                PAR =  VE *(.125 * F)**.5 * Dia * e / kin_vis
+                if PAR <= 65:
                     RE = RE1
-# LOOP 2
-                    MCT = 0
-# LOOP 1 REPEAT THIS CODE UNTIL abs(DIF) > .00001 AND MCT < 15
-                    FS = F**.5
-                    FZ =.5 / (F * FS)
-                    ARG = e + 9.35 / (RE *FS)
-                    FF = 1 / FS - 1.14 + 2 * log10(ARG)
-                    DF = FZ + ELOG * FZ / (ARG *RE)
-                    DIF = FF / DF
-                    F = F + DIF
-                    MCT += 1
-# END OF LOOP 1
-                    if MM != 1:
-                        MM = 1
-                        RE = RE2
-                        F1 = F
-                    else:
-                        break
-# END OF LOOP 2
-                    F2 = F
+                    for MM in range(0,2):
+                        MCT = 0
+                        while True:
+                            # Colebrook Friction Factor for turbulent flow
+                            ARG = e + 9.35 / (RE * F**.5)
+                            FF = (1 / F**.5) - 1.14 + 2 * log10(ARG)
+                            DF = 1 / (2 * F * F**.5) + ELOG / (F * F**.5 * ARG * RE)
+                            DIF = FF / DF
+                            F = F + DIF
+                            MCT += 1
+                            if (abs(DIF) < .00001 or MCT > 15):
+                                break
+                        if MM != 1:
+                            MM = 1
+                            RE = RE2
+                            F1 = F
+                        F2 = F
+                    print('F1 and F2 = ', F1, F2)
                     BE = (log10(F1) - log10(F2)) / (log10(Avg_Flow + DeltaQ) - log10(Avg_Flow - DeltaQ))
-                    AE =  F1 * ( Avg_Flow - DeltaQ)**BE
+                    AE =  F1 * (Avg_Flow - DeltaQ)**BE
                     EP = 1 - BE
                     EXPP = EP + 1
+                    print(f'b = {BE} , a = {AE}, n = {EXPP}')
                     Kt0 = AE * ARL * Avg_Flow**EP
+                    print('Kt0 = ', Kt0)
+                    Kt = F * Lgth / Dia
+                    print(f'Piping Kt value = {Kt}')
                 else:
                     Kt0 = F * ARL * Avg_Flow**2
                     EXPP = 2
-            print(ln, Kt0)
+                    print('Kt0 = ', Kt0)
             i += 1
-        NCT += 1
