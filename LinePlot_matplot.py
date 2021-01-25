@@ -1161,7 +1161,7 @@ class InputForm(wx.Frame):
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def OnExit(self, evt):
-        Calc_Network.Calc(self,self.cursr, self.db).Node_Matrix()
+        Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
         if self.cursr_set is True:
             cursr.close()
             db.close
