@@ -38,6 +38,7 @@ class Calc(object):
             self.dct[ln] = sum(self.dct[ln])
 
     def Evaluation(self):
+        Q_old = {}
 
         # STEP 1 is to define the node matrices
         # these do not change during the calculations
@@ -96,34 +97,116 @@ class Calc(object):
 
         # and calculate the new Velocity, Re, f and new Kp values
         self.Iterate_Flow(Flows)
+        K_old = self.K.copy()
+        Q_old = Flows.copy()
         self.var_arry = self.var_arry[:-2]
         self.loop_matrix()
         Ar = np.array(self.var_arry)
         Q1 = np.linalg.solve(Ar, Cof)
         Flows = dict(zip(list(self.var_dic.keys()), Q1))
-        # use standard deviation for the results to
-        # determine acuacy and iterations to a max of 5
-        for iterations in range(0,5):
-            Qmd = 0
-            for Q in Flows.values():
-                Qmd = Qmd + Q
-            Qmd = Qmd / len(Flows)
-            sigma = 0
-            for Q in Flows.values():
-                sigma = (Q - Qmd)**2 + sigma
-            sigma = (sigma / len(Flows))**.5
 
-            if sigma > 1:
-                self.Kp_Iterated(Flows)
-                self.var_arry = self.var_arry[:-2]
-                self.loop_matrix()
-                Ar = np.array(self.var_arry)
-                Q1 = np.linalg.solve(Ar, Cof)
-                Flows = dict(zip(list(self.var_dic.keys()), Q1))
+        Q_avg = {}
+        for k, v in Flows.items():
+            Avg = (Flows[k] + Q_old[k]) / 2
+            Q_avg[k] = Avg
 
-            else:
-                print(Flows)
+        # use the first set of Q1, Kp and n
+        # to find new coef for the energy equation
+        # based on the equation K = Ki * Qi ^ (ni - 1)
+        self.Kp_Iterated(Q_avg)
+        self.var_arry = self.var_arry[:-2]
+        self.loop_matrix()
+        Ar = np.array(self.var_arry)
+        Q1 = np.linalg.solve(Ar, Cof)
+        Flows = dict(zip(list(self.var_dic.keys()), Q1))
+
+        for iters in range(5):
+            # and calculate the new Velocity, Re, f and new Kp values
+            self.Iterate_Flow(Q_avg)
+            Q_old = Flows.copy()
+            self.var_arry = self.var_arry[:-2]
+            self.loop_matrix()
+            Ar = np.array(self.var_arry)
+            Q1 = np.linalg.solve(Ar, Cof)
+            Flows = dict(zip(list(self.var_dic.keys()), Q1))
+
+            Q_avg = {}
+            for k, v in Flows.items():
+                Avg = (Flows[k] + Q_old[k]) / 2
+                Q_avg[k] = Avg
+
+            # use the first set of Q1, Kp and n
+            # to find new coef for the energy equation
+            # based on the equation K = Ki * Qi ^ (ni - 1)
+            self.Kp_Iterated(Q_avg)
+            self.var_arry = self.var_arry[:-2]
+            self.loop_matrix()
+            Ar = np.array(self.var_arry)
+            Q1 = np.linalg.solve(Ar, Cof)
+            Flows = dict(zip(list(self.var_dic.keys()), Q1))
+            # test the variation of the flows if the next iteration
+            # does not change then the last values are valid
+            sigma = self.Iterate_Test(Flows, Q_old)
+
+            if sigma <= .01:
+                completed = True
                 break
+            else:
+                completed = False
+                Q_avg = {}
+                for k, v in Flows.items():
+                    Avg = (Flows[k] + Q_old[k]) / 2
+                    Q_avg[k] = Avg
+
+        if completed is True:
+            density = 62.37  # lbs/ft^3
+            gravity = 32.2
+            abs_vis = 1.1  # centipoise
+            kin_vis = (abs_vis * .000672197) / density # ft^2/s
+            ELOG = 9.35 * log10(2.71828183)
+            # calculate these for each pipe flow
+            for ln, Q in Q_old.items():
+                gpm = Q * 448.8
+                dia = self.D_e[ln][0]
+                Dia = dia / 12
+                lgth = (self.D_e[ln][4] + self.D_e[ln][5])
+                e = self.D_e[ln][1] / dia
+                vel = .408 * gpm / dia**2
+                Re = 123.9 * dia * vel * density / abs_vis
+                if Re <= 2100:
+                    f = 64 / Re
+                    hL = .0962 * abs_vis * lgth * vel / (dia**2 * density)
+                    delta_P = (.000668 * abs_vis * lgth * vel / dia**2)
+                else:
+                    f = 1 / (1.14 - 2*log10(e))**2
+                    PAR =  vel *(.125 * f)**.5 * Dia * e / kin_vis
+                    if PAR <= 65:
+                        MCT = 0
+                        while True:
+                            # Colebrook Friction Factor for turbulent flow
+                            ARG = e + 9.35 / (Re * f**.5)
+                            FF = (1 / f**.5) - 1.14 + 2 * log10(ARG)
+                            DF = 1 / (2 * f * f**.5) + ELOG / 2 * (f * f**.5 * ARG * Re)
+                            DIF = FF / DF
+                            f = f + DIF
+                            MCT += 1
+                            if (abs(DIF) < .00001 or MCT > 15):
+                                break
+                    hL = .1863 * f * lgth * vel**2 / dia
+                    delta_P = .001294 * f * lgth * density * vel**2 / dia
+
+                print('\n+++++++++++++++++++++')
+                print('Line Label = ', ln,)
+                print('Pipe Dia (inches) = ',dia)
+                print('Equivalent Length (ft) = ', lgth)
+                print('Flow rate (gpm) = ', gpm, '  (ft^3/s) = ', Q)
+                print("Head Loss (ft of fluid) = ", hL)
+                print('Pressure Drop (psi) = ', delta_P)
+                print('Renolds Number = ', Re)
+                print('Friction Factor = ', f)
+                print('Flow Velocity (ft/sec) = ', vel)
+        else:
+            print('Unable to iterate network to a solution')
 
     def node_matrix(self):
         var_lst = set()
@@ -179,27 +262,26 @@ class Calc(object):
         qry = 'SELECT ID, info1, info2, info3 FROM General'
         tbldata = DBase.Dbase(self).Dsqldata(qry)
         # tbldata = line lbl, dia", lgth', e"
-        for itm in tbldata:
-            dia = itm[1]
+        for lbl, dia, Lgth, e in tbldata:
             Dia = dia / 12
-            e = itm[3]
-            Lgth = itm[2]
             AR = pi * Dia**2 / 4  # ft^2 
             n_exp = 0
 
             if FF is None:
                 # first calculation of f is based on fully turbulent flow
-                f = (1.14 - 2 * log10(itm[3]/itm[1]))**-2
+                f = (1.14 - 2 * log10(e/dia))**-2
             else:
                 # after first iteration use the calculated average f value
-                f = FF[itm[0]]
+                f = FF[lbl]
 
-            Le = self.dct[itm[0]] * Dia / f
+            Le = self.dct[lbl] * Dia / f
             ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
             Kp = (4.73 * (Lgth + Le)) / (Chw**1.852 * Dia**4.87)
 
-            self.D_e[itm[0]] = [dia, e, AR, ARL, Lgth, Le]
-            self.K[itm[0]] = [Kp, n_exp]
+            self.D_e[lbl] = [dia, e, AR, ARL, Lgth, Le]
+            self.K[lbl] = [Kp, n_exp]
+
+#        self.K = {'D':[4.71,1.96], 'E':[.402,1.85],'F':[1.37,1.90],'B':[.264,1.95],'G':[1.14,1.95],'I':[11.30,1.97],'H':[3.35,1.98]}
 
     def loop_matrix(self):
         # reverse the key and values in the points dictionary
@@ -208,6 +290,7 @@ class Calc(object):
         inv_pts = {tuple(v):k for k,v in self.parent.pts.items()}
         # change the poly_pts dictionary cordinates
         # to the coresponding node label
+
         for num in self.parent.poly_pts:
             k_matx = [0]*len(self.var_dic)
             alpha_poly_pts = []
@@ -246,9 +329,26 @@ class Calc(object):
                         k_matx[v] = self.K[k][0] * k_matx[v]
                     else:
                         k_matx[v] = 0.0
-
             self.var_arry.append(k_matx)
             self.coef_arry.append(0)
+
+    def Iterate_Test(self, Qa, Qb):
+        # convert the two dictionary of flows into ordered lists,
+        # since the keys are the same they can be sorted together
+        Qa_lst = []
+        Qb_lst = []
+
+        for k in sorted(Qa):
+            Qa_lst.append(Qa[k])
+            Qb_lst.append(Qb[k])
+        diff = np.abs(np.subtract(np.abs(np.array(Qa_lst)),
+                      np.abs(np.array(Qb_lst))))
+        # find the average of the differences between all the flows
+        mu = sum(diff) / len(diff)
+        numer = sum((diff - mu)**2)
+        denom = len(Qa_lst)-1
+        sigma = numer / denom
+        return sigma
 
     def Kp_Iterated(self, Flows):
         # calculate the new Kp values using n and the old Kp & Flows
