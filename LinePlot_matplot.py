@@ -19,7 +19,8 @@ from math import sin
 import DBase
 import Node_Frm
 import Pipe_Frm
-
+import Calc_Network
+import Fluid_Frm
 
 class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, *args, **kw):
@@ -37,10 +38,10 @@ class RowLblRndr(glr.GridLabelRenderer):
         dc.SetBrush(wx.Brush(self._bgcolor))
         dc.SetPen(wx.TRANSPARENT_PEN)
         dc.DrawRectangle(rect)
-        hAlign, vAlign = grid.GetRowLabelAlignment()
+        hAlgn, vAlgn = grid.GetRowLabelAlignment()
         text = grid.GetRowLabelValue(row)
         self.DrawBorder(grid, dc, rect)
-        self.DrawText(grid, dc, rect, text, hAlign, vAlign)
+        self.DrawText(grid, dc, rect, text, hAlgn, vAlgn)
 
 
 class InputForm(wx.Frame):
@@ -50,7 +51,7 @@ class InputForm(wx.Frame):
 
         super().__init__(None, wx.ID_ANY,
                          title='Plot Lines',
-                         size=(1300, 830))
+                         size=(1300, 800))
 
         # set up a list of dark colors suitable for the graph
         self.clrs = ['rosybrown', 'indianred', 'brown', 'darkred', 'red',
@@ -97,6 +98,8 @@ class InputForm(wx.Frame):
         self.arrw = {}
         # loop circle numbers
         self.plt_lpnum = {}
+        # line direction arrows
+        self.plt_arow = {}
 
         # set dictionary of points; key node letter, value tuple of point,
         self.pts = {}
@@ -123,9 +126,12 @@ class InputForm(wx.Frame):
 
         fileMenu = wx.Menu()
         fileMenu.Append(101, '&New')
-        fileMenu.Append(103, '&Save Grid Data')
+        fileMenu.Append(103, '&Save To Database')
         fileMenu.AppendSeparator()
         fileMenu.Append(104, '&Exit')
+
+        fluidMenu = wx.Menu()
+        fluidMenu.Append(301, '&Fluid Properties')
 
         deleteMenu = wx.Menu()
         deleteMenu.Append(201, '&Node')
@@ -133,11 +139,14 @@ class InputForm(wx.Frame):
         deleteMenu.Append(203, 'L&oop')
 
         mb.Append(fileMenu, 'File')
+        mb.Append(fluidMenu, 'Fluid Data')
         mb.Append(deleteMenu, '&Delete Element')
         self.SetMenuBar(mb)
 
         self.Bind(wx.EVT_MENU, self.OnExit, id=104)
         self.Bind(wx.EVT_MENU, self.OnDB_Save, id=103)
+
+        self.Bind(wx.EVT_MENU, self.OnFluidData, id=301)
 
         self.Bind(wx.EVT_MENU, self.OnDeleteNode, id=201)
         self.Bind(wx.EVT_MENU, self.OnDeleteLine, id=202)
@@ -249,47 +258,58 @@ class InputForm(wx.Frame):
 
     def DataLoad(self):
         # run through all the functions to retreive the data from the database
-        self.DBpts()
-        self.DBnodes()
+        no_data = self.DBpts()
+        if no_data is True:
+            return
         self.DBlines()
+        self.DBnodes()
         self.DBloops()
         # the ReDraw function will addd the lines to the plot as well as
         # repopulate the plt_Txt, plt_lines and plt_txt dictionaries
         self.ReDraw()
         self.GrdLoad()
+        self.Refresh()
+        self.Update()
 
     def DBpts(self):
         # download the points information and place into the pts dictionary
+        no_data = True
         data_sql = 'SELECT * FROM points'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
-        self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
+            no_data = False
+        return no_data
 
     def DBlines(self):
         # download the lines information from the database and put it into
         # the runs dictionary
         data_sql = 'SELECT * FROM lines'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
-        self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
 
     def DBnodes(self):
         # download the data entered in the node_frm and put it into
         # the nodes dictionary
         data_sql = 'SELECT * FROM nodes'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
-        self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
 
     def DBloops(self):
         # enter the data base information for the loops and put it into
         # the Loops dictionaary
         pol_dc = {}
         data_sql = 'SELECT * FROM loops'
-        tbl_data = DBase.Dbase().Dsqldata(data_sql)
-        self.Loops = {i[0]:[[i[1], i[2], i[3]], literal_eval(i[4])]
-                       for i in tbl_data} 
-        for k,v in self.Loops.items():
-            self.Ln_Select = v[1]
-            self.AddLoop(k)
-            pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.Loops = {i[0]:[[i[1], i[2], i[3]], literal_eval(i[4])]
+                        for i in tbl_data} 
+            for k,v in self.Loops.items():
+                self.Ln_Select = v[1]
+                self.AddLoop(k)
+                pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
 
     def GrdLoad(self):
         # load the points information into the grid against the
@@ -303,6 +323,34 @@ class InputForm(wx.Frame):
                 self.grd.SetCellValue(row, 2, str(self.pts[end_pt][1]))
             else:
                 self.grd.SetCellValue(row, 1, end_pt)
+
+        # color the cells which repesent defined nodes
+        # get the nodes defined in the nodes dictionary
+        nds = list(self.nodes.keys())
+        # generate a list of all the points for the defined lines
+        run_tpl = list(self.runs.items())
+        # for each of the defined nodes generate a list of
+        # lines in which they are an end point
+        for lbl in nds:
+            node_lines = set([item[0] for item in run_tpl if lbl in item[1][0]])
+            # for every line indicated color the coresponding grid cell
+            for ltr in node_lines:
+                if lbl == self.grd.GetCellValue(ord(ltr)-65, 0):
+                    self.grd.SetCellBackgroundColour(ord(ltr)-65,
+                                                            0, 'lightgreen')
+                else:
+                    self.grd.SetCellBackgroundColour(ord(ltr)-65,
+                                                            1, 'lightgreen')
+                    self.grd.SetCellBackgroundColour(ord(ltr)-65,
+                                                            2, 'lightgreen')
+
+        data_sql = 'SELECT ID, saved FROM General'
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            for ln,saved in tbl_data:
+                if saved == 1:
+                    row = ord(ln) - 65
+                    self.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
 
     def add_toolbar(self):
         self.toolbar = NavigationToolbar(self.canvas)
@@ -332,7 +380,7 @@ class InputForm(wx.Frame):
         elif x_val != '' and y_val != '' and \
                 self.grd.GetCellValue(row, 0) != '':
             if LnLbl in self.runs:
-                nd = [int(x_val), int(y_val)]
+                nd = [float(x_val), float(y_val)]
                 self.MoveNode(nd, LnLbl)
             else:
                 self.DrawLine(*self.VarifyData(row))
@@ -415,7 +463,7 @@ class InputForm(wx.Frame):
                 # this cell contains a digit which means
                 # it can only be point2 as numeric
                 else:
-                    points2.append(int(pt))
+                    points2.append(float(pt))
             else:
                 continue
 
@@ -479,15 +527,43 @@ class InputForm(wx.Frame):
 
         self.canvas.draw()
 
+    def DrawArrow(self, endpt1, endpt2, LnLbl):
+        # get the end point coordinates
+        x0, y0 = self.pts[endpt1]
+        x1, y1 = self.pts[endpt2]
+        # use the grid size to determine proper arrow head length and width
+        xmin, xmax = self.ax.get_xlim()
+        ymin, ymax = self.ax.get_ylim()
+        hw = (ymax - ymin) / 70
+        hl = (xmax - xmin) / 50
+        # specify an arrow head location just off center of the line
+        xa = .4 * x0 + .6 * x1
+        ya = .4 * y0 + .6 * y1
+        # specify the arrow head direction
+        dx = (x0 - xa) * hl
+        dy = (y0 - ya) * hl
+        # draw the sucker
+        arow = self.ax.arrow(xa, ya,
+                             dx, dy,
+                             fc='k', ec='k',
+                             head_width=hw,
+                             head_length=hl,
+                             length_includes_head=True)
+        # save the arrow head in a dictionary for later deletion if needed
+        self.plt_arow[LnLbl] = arow
+        self.canvas.draw()
+
     def RemoveLine(self, set_lns):
         # reset the delete warning flag
         self.dlt_line = False
         for  lbl in set_lns:
             # remove the lines and its label from the graphic
-            if lbl in self.plt_lines.keys():
+            if lbl in self.plt_lines:
                 self.plt_lines.pop(lbl)[0].remove()
-            if lbl in self.plt_Txt.keys():
+            if lbl in self.plt_Txt:
                 self.plt_Txt.pop(lbl).remove()
+            if lbl in self.plt_arow:
+                self.plt_arow.pop(lbl).remove()
             # get row location based on row label
             row = ord(lbl) - 65
             # remove the points for the line from the grid
@@ -538,13 +614,13 @@ class InputForm(wx.Frame):
                     # the nodes dictionary if so delete the line tuple from
                     # the dictionary
                     if nd in self.nodes:
-                        if len(self.nodes[nd][0]) == 1:
+                        if len(self.nodes[nd]) == 1:
                             del self.nodes[nd]
                         else:
                             n = 0
-                            for v in self.nodes[nd][0]:
+                            for v in self.nodes[nd]:
                                 if lbl == v[0]:
-                                    self.nodes[nd][0].pop(n)
+                                    self.nodes[nd].pop(n)
                                 n += 1
 
                     # retrieve all the values from the loops dictionary
@@ -677,6 +753,9 @@ class InputForm(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def OnFluidData(self, evt):
+        Fluid_Frm.FluidFrm(self)
+
     def OnDeleteLine(self, evt):
         import DltWrng
         # this only calls up the warning dialog the actual deletion
@@ -774,6 +853,8 @@ class InputForm(wx.Frame):
                             range(1, key_lst[-1]+1) if x not in key_lst]
                 if loop_num == []:
                     loop_num = max(key_lst) + 1
+                else:
+                    loop_num = loop_num[0]
 
             # determine the centroid of the polygon and the distance to the
             # shortest to any ine line from the centroid
@@ -831,7 +912,6 @@ class InputForm(wx.Frame):
         final_pts = [self.pts[cord] for cord in Ln_pts]
         self.poly_pts[loop_num] = final_pts
         self.Ln_Select = new_ln_list
-
         return(final_pts)
 
     def centroid(self, poly):
@@ -953,12 +1033,14 @@ class InputForm(wx.Frame):
 
         return poly
 
-    def Node(self, lbl):
+    def Node(self, nd_lbl):
         # collect data needed to initialize the node_frm
         run_tpl = list(self.runs.items())
-        cord = self.pts[lbl]
-        node_lines = [item[0] for item in run_tpl if lbl in item[1][0]]
-        Node_Frm.NodeFrm(self, lbl, cord, node_lines, self.nodes)
+        cord = self.pts[nd_lbl]
+        node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
+
+        dlg = Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes)
+        dlg.Show()
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -972,6 +1054,7 @@ class InputForm(wx.Frame):
         self.plt_lines = {}
         self.plt_txt = {}
         self.plt_Txt = {}
+        self.plt_arow = {}
         # generate a list of all the node points excluding the origin
         redraw_pts = [*self.pts]
         redraw_pts.remove('origin')
@@ -1007,6 +1090,21 @@ class InputForm(wx.Frame):
                 self.plt_txt[pt1] = txt
                 redraw_pts.remove(pt1)
 
+        for nd_lbl, lns in self.nodes.items():
+            for ln in lns:
+                if ln[0] not in self.plt_arow:
+                    endpt1 = nd_lbl
+                    if self.runs[ln[0]][0].index(endpt1) == 0:
+                        endpt2 = self.runs[ln[0]][0][1]
+                    else:
+                        endpt2 = self.runs[ln[0]][0][0]
+                    if ln[1] == 1:
+                        tmp = endpt2
+                        endpt2 = endpt1
+                        endpt1 = tmp
+                    self.DrawArrow(endpt1, endpt2, ln[0])
+                    self.canvas.draw()
+
         # draw the loop arcs and label
         for key in self.Loops:
             Cx, Cy, r = self.Loops[key][0]
@@ -1026,47 +1124,48 @@ class InputForm(wx.Frame):
     def nodesDB(self):
         # clear data from table
         Dsql = 'DELETE FROM nodes'
-        DBase.Dbase().TblEdit(Dsql)
+        DBase.Dbase(self).TblEdit(Dsql)
         # build the sql for multiple rows
         Insql = 'INSERT INTO nodes(node_ID, lines) VALUES(?,?);'
         # convert the list inside the dictionary to a string
         Indata = [(i[0], str(i[1])) for i in list(self.nodes.items())]
-        DBase.Dbase().Daddrows(Insql, Indata)
+        DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def ptsDB(self):
         # clear data from table
         Dsql = 'DELETE FROM points'
-        DBase.Dbase().TblEdit(Dsql)
+        DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
         Insql = 'INSERT INTO points (pointID, pts) VALUES(?,?);'
         # convert the tuple inside the dictionary to a string
         Indata = [(i[0], str(i[1])) for i in list(self.pts.items())]
-        DBase.Dbase().Daddrows(Insql, Indata)
+        DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def linesDB(self):
         # clear data from table
         Dsql = 'DELETE FROM lines'
-        DBase.Dbase().TblEdit(Dsql)
+        DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
         Insql = 'INSERT INTO lines (lineID, ends, new_pt) VALUES(?,?,?);'
         # convert the tuple inside the dictionary to a string
         Indata = [(i[0], str(i[1][0]), i[1][1])
                    for i in list(self.runs.items())]
-        DBase.Dbase().Daddrows(Insql, Indata)
+        DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def loopsDB(self):
         # clear data from table
         Dsql = 'DELETE FROM loops'
-        DBase.Dbase().TblEdit(Dsql)
+        DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
         Insql = '''INSERT INTO loops (loop_num, Cx, Cy, Rad, lines)
          VALUES(?,?,?,?,?);'''
         # convert the tuple inside the dictionary to a string
         Indata = [(i[0], i[1][0][0], i[1][0][1], i[1][0][2], str(i[1][1]))
                    for i in list(self.Loops.items())]
-        DBase.Dbase().Daddrows(Insql, Indata)
+        DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def OnExit(self, evt):
+        Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
         if self.cursr_set is True:
             cursr.close()
             db.close
@@ -1129,9 +1228,8 @@ class OpenFile(wx.Dialog):
 
     def Selected(self, evt):
         self.filename = self.file_name.GetPath()
-#        connect_db(self.filename)
-        DBase.Dbase()
-        self.cont.Enable()
+        if isinstance(self.filename, str):
+            self.cont.Enable()
         evt.Skip()
 
     def OnNew(self, evt):
@@ -1154,7 +1252,6 @@ class OpenFile(wx.Dialog):
         if isinstance(self.filename, str):
             shutil.copy(mt_file, self.filename)
             self.cont.Enable()
-
         evt.Skip()
 
     def OnClose(self, evt):
@@ -1166,5 +1263,4 @@ class OpenFile(wx.Dialog):
 if __name__ == "__main__":
     app = wx.App(False)
     frm = InputForm()
-    # frame = StrUpFrm(None)
     app.MainLoop()
