@@ -1,7 +1,7 @@
 import numpy as np
 import sqlite3
 import DBase
-from math import cos, pi, log10
+from math import cos, pi, log10, log, exp
 
 # need to determine the correct number of loops to include in matrix
 class Calc(object):
@@ -21,21 +21,123 @@ class Calc(object):
         self.D_e = {}
         # {line label:[Kp values and exponent n]}
         self.K = {}
+        
+        self.dct = self.Kt_vals()
+        self.density, self.kin_vis, self.abs_vis = self.Vis_Ro()
 
+    def Kt_vals(self):
         # get all the Kt values from the various
         # tables and sum them for each line
         datatbls = ['General', 'ManVlv1', 'ManVlv2', 'ChkVlv',
                     'Fittings', 'WldElb', 'EntExt']
         n = 0
-        self.dct = dict()
+        dct = dict()
         for tbl in datatbls:
             qry = 'SELECT ID, Kt' + str(n) + ' FROM ' + tbl
             tbldata = DBase.Dbase(self).Dsqldata(qry)
             for ln, Kt in tbldata:
-                self.dct.setdefault(ln, []).append(Kt)
+                dct.setdefault(ln, []).append(Kt)
             n += 1
-        for ln in self.dct:
-            self.dct[ln] = sum(self.dct[ln])
+        for ln in dct:
+            dct[ln] = sum(dct[ln])
+        return dct
+
+    def Vis_Ro(self):
+        qry = 'SELECT * FROM Fluid'
+        tbldata = DBase.Dbase(self).Dsqldata(qry)
+        dt = tbldata[0]
+        
+        # collect the densities convert to lb/ft^3
+        rho_1 = dt[1]
+        rho_2 = dt[6]
+        rho = dt[11]
+
+        if dt[13] == 1:
+            rho_1 = rho_1 * 62.428
+        elif dt[13] == 2:
+            rho_1 = rho_1 * .06243
+        if dt[16] == 1:
+            rho_2 = rho_2 * 62.428
+        elif dt[16] == 2:
+            rho_2 = rho_2 * .06243
+        if dt[19] == 1:
+            rho = rho * 62.428
+        elif dt[19] == 2:
+            rho = rho * .06243
+
+        # collect the dynamic vicosity convert to centipoise
+        # ['lbm/ft-sec', 'g/cm-s\n(poise)', 'centipoise']
+        eta_1 = dt[3]
+        eta_2 = dt[8]
+
+        # units speced as lbm/ft-sec
+        if dt[15] == 0:
+            eta_1 = eta_1 * 1487
+        # units speced as g/cm-s\n(poise)
+        elif dt[15] == 1:
+            eta_1 = eta_1 * 100
+
+        if dt[18] == 0:
+            eta_2 = eta_2 * 1487
+        elif dt[18] == 1:
+            eta_2 = eta_2 * 100
+
+        # convert the kinematic viscostiy to ft^2/s
+        # ['ft^2/s', 'cm^2/s\n(stokes)', 'centistokes']
+        nu_1 = dt[2]
+        nu_2 = dt[7]
+
+        # units speced as cm^2/s\n(stokes)
+        if dt[14] == 1:
+            nu_1 = nu_1 * .001076
+        # units speced as centistokes
+        elif dt[14] == 2:
+            nu_1 = nu_1 * .00001076
+
+        if dt[17] == 1:
+            nu_2 = nu_2 * .001076
+        elif dt[17] == 2:
+            nu2 = nu_2 * .00001076
+
+        # depending on which viscosity is provided calculate the other
+        if rho_2 == 0:
+            if nu_1 == 0:
+                nu_1 = eta_1 / rho_1
+            else:
+                eta_1 = nu_1 * rho_1
+            rho_mix = rho_1
+        elif rho_1 == 0:
+            if nu_2 == 0:
+                nu_2 = eta_2 / rho_2
+            else:
+                eta_2 = nu_2 * rho_2
+            rho_mix = rho_2
+        else:
+            # calculate the liquid mixture density and vicosity
+            x_1 = (dt[5] * rho_1) /((dt[5] * rho_1) + (dt[10] * rho_2))
+            x_2 = (dt[10] * rho_2) /((dt[5] * rho_1) + (dt[10] * rho_2))
+            rho_mix = (x_1 / rho_1 + x_2 / rho_2) ** -1           
+
+        # if there are solids present then calculate
+        # the slurry vicosity and density
+        if nu_1 == 0:
+            eta_mix = nu_2 * rho_mix * 1487
+            nu_mix = nu_2
+        elif nu_2 == 0:
+            eta_mix = nu_1 * rho_mix * 1487
+            nu_mix = nu_1
+        else:
+            VBN_1 = log(nu_1) / log(1000 * nu_1)
+            VBN_2 = log(nu_2) / log(1000 * nu_2)
+
+            VBN_mix = (dt[5] * VBN_1) + (dt[10] * VBN_2)
+            exp_1 = (VBN_mix - 10.975) / 14.534
+            part_1 = exp(exp_1)
+            exp_2 = 1/ (part_1 ** 0.8)
+            nu_mix = exp(exp_2)
+            eta_mix = nu_mix * rho_mix * 1487
+
+        return rho_mix, nu_mix, eta_mix
 
     def Evaluation(self):
         Q_old = {}
@@ -65,8 +167,7 @@ class Calc(object):
         Ar = np.array(self.var_arry)
 
         # Cof = np.array([4.45,-2.23,-3.34,-3.34,4.45,0.,0.])
-        # convert gpm to ft^3/sec
-        Cof = np.array(self.coef_arry) / 448.8
+        Cof = np.array(self.coef_arry)
 
         # STEP 3 solve for the initial flow values
         Q1 = np.linalg.solve(Ar, Cof)
@@ -97,7 +198,6 @@ class Calc(object):
 
         # and calculate the new Velocity, Re, f and new Kp values
         self.Iterate_Flow(Flows)
-        K_old = self.K.copy()
         Q_old = Flows.copy()
         self.var_arry = self.var_arry[:-2]
         self.loop_matrix()
@@ -106,7 +206,7 @@ class Calc(object):
         Flows = dict(zip(list(self.var_dic.keys()), Q1))
 
         Q_avg = {}
-        for k, v in Flows.items():
+        for k in Flows:
             Avg = (Flows[k] + Q_old[k]) / 2
             Q_avg[k] = Avg
 
@@ -131,7 +231,7 @@ class Calc(object):
             Flows = dict(zip(list(self.var_dic.keys()), Q1))
 
             Q_avg = {}
-            for k, v in Flows.items():
+            for k in Flows:
                 Avg = (Flows[k] + Q_old[k]) / 2
                 Q_avg[k] = Avg
 
@@ -154,32 +254,28 @@ class Calc(object):
             else:
                 completed = False
                 Q_avg = {}
-                for k, v in Flows.items():
+                for k in Flows:
                     Avg = (Flows[k] + Q_old[k]) / 2
                     Q_avg[k] = Avg
 
         if completed is True:
-            density = 62.37  # lbs/ft^3
-            gravity = 32.2
-            abs_vis = 1.1  # centipoise
-            kin_vis = (abs_vis * .000672197) / density # ft^2/s
             ELOG = 9.35 * log10(2.71828183)
             # calculate these for each pipe flow
             for ln, Q in Q_old.items():
-                gpm = Q * 448.8
+                gpm = Q * 448.83
                 dia = self.D_e[ln][0]
                 Dia = dia / 12
                 lgth = (self.D_e[ln][4] + self.D_e[ln][5])
                 e = self.D_e[ln][1] / dia
                 vel = .408 * gpm / dia**2
-                Re = 123.9 * dia * vel * density / abs_vis
+                Re = 123.9 * dia * vel * self.density / self.abs_vis
                 if Re <= 2100:
                     f = 64 / Re
-                    hL = .0962 * abs_vis * lgth * vel / (dia**2 * density)
-                    delta_P = (.000668 * abs_vis * lgth * vel / dia**2)
+                    hL = .0962 * self.abs_vis * lgth * vel / (dia**2 * self.density)
+                    delta_P = (.000668 * self.abs_vis * lgth * vel / dia**2)
                 else:
                     f = 1 / (1.14 - 2*log10(e))**2
-                    PAR =  vel *(.125 * f)**.5 * Dia * e / kin_vis
+                    PAR =  vel *(.125 * f)**.5 * Dia * e / self.kin_vis
                     if PAR <= 65:
                         MCT = 0
                         while True:
@@ -193,10 +289,13 @@ class Calc(object):
                             if (abs(DIF) < .00001 or MCT > 15):
                                 break
                     hL = .1863 * f * lgth * vel**2 / dia
-                    delta_P = .001294 * f * lgth * density * vel**2 / dia
-
+                    delta_P = .001294 * f * lgth * self.density * vel**2 / dia
+                
                 print('\n+++++++++++++++++++++')
                 print('Line Label = ', ln,)
+                print('Density = ', self.density)
+                print('Dynamic Vis. = ', self.abs_vis)
+                print('Kinematic Vis. = ', self.kin_vis)
                 print('Pipe Dia (inches) = ',dia)
                 print('Equivalent Length (ft) = ', lgth)
                 print('Flow rate (gpm) = ', gpm, '  (ft^3/s) = ', Q)
@@ -214,7 +313,7 @@ class Calc(object):
         for val in self.parent.nodes.values():
             # generate val=[('B', 0, 0), ('C', 0, 20.0), ('D', 1, 0)]
             # for each node in self.nodes
-            for k, v1, v2 in val:
+            for k, v1, v2, v3 in val:
                 if v2 == 0:
                     # make a list of all the pipes itersecting nodes
                     # excluding consumption flows
@@ -229,10 +328,16 @@ class Calc(object):
             if len(val) > 1:
                 nd_matx = [0]*len(self.var_dic)
                 coeff = 0
-                for k, v1, v2 in val:
+                for k, v1, v2, v3 in val:
                     if v2 == 0:
                         nd_matx[self.var_dic[k]] = cos(pi*v1)*-1
                     else:
+                        # convert the flow to ft^3/s
+                        # ['US GPM', 'ft^3/s', 'm^3/hr']
+                        if v3 == 0:
+                            v2 = v2 / 484.83
+                        elif v3 == 2:
+                            v2 = v2 * 101.941
                         # specify the value for the coef array coresponding
                         # to the matrix in the variable array
                         # [20.0, 0, 0, 0]
@@ -253,28 +358,68 @@ class Calc(object):
         del self.var_arry[-1]
         del self.coef_arry[-1]
 
-    def Kp_Le(self, FF=None):
+    def Kp_Le(self):
         gravity = 32.2  # ft/s^2
-        Chw = 120
 
         # get the dimensional information for each line and
         # order data based on line label into a dictionary
-        qry = 'SELECT ID, info1, info2, info3 FROM General'
+        qry = 'SELECT * FROM General'
         tbldata = DBase.Dbase(self).Dsqldata(qry)
-        # tbldata = line lbl, dia", lgth', e"
-        for lbl, dia, Lgth, e in tbldata:
+
+        for itm in tbldata:
+            lbl = itm[0]
+        
+            # convert the input diameter to inches
+            unt = itm[7]
+            if unt != 1:
+                dia = float(itm[1])
+            elif unt == 0:
+                dia = float(itm[1]) * 12
+            elif unt == 2:
+                dia = float(itm[1]) * 39.37
+            elif unt == 3:
+                dia = float(itm[1]) / 2.54
+            else:
+                dia = float(itm[1]) / 25.4
+
+            # convert the input length to feet
+            unt = itm[8]
+            if unt != 0:
+                Lgth = float(itm[2])
+            elif unt == 1:
+                Lgth = float(itm[2]) / 12
+            elif unt == 2:
+                Lgth = float(itm[2]) * 3.281
+            elif unt == 3:
+                Lgth = float(itm[2]) / 30.48
+            else:
+                Lgth = float(itm[2]) / 304.8
+
+            # specify the coresponding e value for the selected material
+            matr = itm[3]
+            if matr == 0:
+                Chw = 150
+                e = .000084
+            elif matr == 1:
+                Chw = 130
+                e = .0018
+            elif matr == 2:
+                Chw = 120
+                e = .09
+            elif matr == 3:
+                Chw = 140
+                e = .00006
+            elif matr == 4:
+                Chw = 125
+                e = .006
+
             Dia = dia / 12
             AR = pi * Dia**2 / 4  # ft^2 
             n_exp = 0
-
-            if FF is None:
-                # first calculation of f is based on fully turbulent flow
-                f = (1.14 - 2 * log10(e/dia))**-2
-            else:
-                # after first iteration use the calculated average f value
-                f = FF[lbl]
+            f = (1.14 - 2 * log10(e/dia))**-2
 
             Le = self.dct[lbl] * Dia / f
+
             ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
             Kp = (4.73 * (Lgth + Le)) / (Chw**1.852 * Dia**4.87)
 
@@ -362,10 +507,7 @@ class Calc(object):
         # to calculate Q1 and Q2
         DeltaQ_Percent = .3
         Qsum = 0
-        density = 62.37  # lbs/ft^3
         gravity = 32.2
-        abs_vis = 1.1  # centipoise
-        kin_vis = (abs_vis * .000672197) / density # ft^2/s
 
         ELOG = 9.35 * log10(2.71828183)
 
@@ -390,7 +532,7 @@ class Calc(object):
 
             dia = self.D_e[ln][0]  # diameter in inches
             Dia = dia/12   # diameter in feet
-            e = self.D_e[ln][1] / dia  # e/dia equivalent relative roughness
+            er = self.D_e[ln][1] / dia  # e/dia equivalent relative roughness
             AR = self.D_e[ln][2]
             Lgth = self.D_e[ln][4]
             ARL = self.D_e[ln][3]
@@ -403,26 +545,26 @@ class Calc(object):
             VE = Avg_Flow / AR
 
             # Crane 410 Eq 3-3 Re = 22700 * ft^3/sec * density / (PipeID" * abs_vis)
-            RE1 = 22700 * (Avg_Flow - DeltaQ) * density / (abs_vis * dia)
-            RE2 = 22700 * (Avg_Flow + DeltaQ) * density / (abs_vis * dia)
+            RE1 = 22700 * (Avg_Flow - DeltaQ) * self.density / (self.abs_vis * dia)
+            RE2 = 22700 * (Avg_Flow + DeltaQ) * self.density / (self.abs_vis * dia)
 
             if RE2 < 2100:
                 F1 = 64 / RE1
                 F2 = 64 / RE2
                 F = (F1+F2) / 2
                 EXPP = 1.0
-                Kp = 64 * kin_vis * ARL / dia
+                Kp = 64 * self.kin_vis * ARL / dia
                 continue
             else:
-                F = 1 / (1.14 - 2*log10(e))**2
-                PAR =  VE *(.125 * F)**.5 * Dia * e / kin_vis
+                F = 1 / (1.14 - 2*log10(er))**2
+                PAR =  VE *(.125 * F)**.5 * Dia * er / self.kin_vis
                 if PAR <= 65:
                     RE = RE1
                     for MM in range(0, 2):
                         MCT = 0
                         while True:
                             # Colebrook Friction Factor for turbulent flow
-                            ARG = e + 9.35 / (RE * F**.5)
+                            ARG = er + 9.35 / (RE * F**.5)
                             FF = (1 / F**.5) - 1.14 + 2 * log10(ARG)
                             DF = 1 / (2 * F * F**.5) + ELOG / 2 * (F * F**.5 * ARG * RE)
                             DIF = FF / DF

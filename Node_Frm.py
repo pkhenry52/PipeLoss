@@ -8,6 +8,8 @@ class NodeFrm(wx.Dialog):
         self.chk_bx = []
         self.nd_bx = []
         self.txt_bxs = []
+        self.chs_bxs = []
+
         self.cord = tuple(cord)    # coordinates for the selected node
         self.nodes = node_dict    # the dictionary of nodes
         self.node_lst = set(node_lst)  # set of the lines associated with node
@@ -18,7 +20,7 @@ class NodeFrm(wx.Dialog):
 
         ttl = 'Node "' + node + ' ' + str(cord) + '" Flow Information.'
 
-        super(NodeFrm, self).__init__(parent, title=ttl)
+        super(NodeFrm, self).__init__(parent, title=ttl, style=wx.RESIZE_BORDER, size=(900,600))
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
@@ -31,6 +33,8 @@ class NodeFrm(wx.Dialog):
         ln_lst = set()
         d = {}  # a dictionary of line(key) and rdbtn1,flow(values)
 
+        chcs_1 = ['US GPM', 'ft^3/s', 'm^3/hr']
+
         # put the buttons in a sizer
         self.sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -39,11 +43,15 @@ class NodeFrm(wx.Dialog):
                              style=wx.ALIGN_LEFT)
         hdr2 = wx.StaticText(self, label='Flow\nOut Of\nNode',
                              style=wx.ALIGN_LEFT)
-        hdr3 = wx.StaticText(self, label='External\nConsumption Flow',
+        hdr3 = wx.StaticText(self, label='External\nConsumption\nFlow',
                              style=wx.ALIGN_CENTER)
+        hdr4 = wx.StaticText(self, label='Units\nfor\nFlow',
+                             style=wx.ALIGN_CENTER)
+
         hdrsizer.Add(hdr1, 1, wx.LEFT, 20)
         hdrsizer.Add(hdr2, 1, wx.LEFT, 60)
-        hdrsizer.Add(hdr3, 1, wx.LEFT, 40)
+        hdrsizer.Add(hdr3, 1, wx.LEFT, 35)
+        hdrsizer.Add(hdr4, 1, wx.LEFT, 20)
 
         self.sizer.Add(hdrsizer, 1, wx.BOTTOM, 10)
         id_num = 0
@@ -63,9 +71,10 @@ class NodeFrm(wx.Dialog):
         # if so get the needed info in ln_lst
         if self.node in self.nodes:
              # {'C': [1, 0], 'D': [0, 0], 'G': [0, 0]}
-            for k, v1, v2 in self.nodes[self.node]:
+            for k, v1, v2, v3 in self.nodes[self.node]:
                 d.setdefault(k, []).append(v1)
                 d.setdefault(k, []).append(v2)
+                d.setdefault(k, []).append(v3)
             ln_lst = set(d.keys())
         else:
             ln_lst = self.node_lst
@@ -101,25 +110,26 @@ class NodeFrm(wx.Dialog):
             # list of lines) set the radio buttons
             # to default else use the saved dictionary values
             if ln in self.node_lst.difference(ln_lst) is False:
-                rdbtn, txtbx = d[ln]
+                rdbtn, txtbx, chsbx = d[ln]
                 txt_lbl = ''
                 new_data = False
             # check if line is part of the set
             # of lines listed at any other defined node
             elif ln in self.cmn_lns:
                 txt_lbl = 'Specified\nat node "' + self.cmn_lns[ln] + '"'
-                for i in self.nodes[self.cmn_lns[ln]]:
+                for i in self.nodes[self.cmn_lns[ln]]:                  
                     if i[0] == ln:
                         rdbtn = bool(i[1]-1)
                         txtbx = i[2]
+                        chsbx = i[3]
             # if the line is not part of another defined node 
             # and it is in the self.node_lst list of lines
             # and it has been defined then use those values
             elif ln in d:
-                rdbtn, txtbx = d[ln]
-                txt_lbl = ''
+                rdbtn, txtbx, chsbx = d[ln]
+                txt_lbl = 'Not Yet\nSpecified  '
             else:
-                txt_lbl = ''
+                txt_lbl = 'Not Yet\nSpecified  '
 
             rb_sizer = wx.BoxSizer(wx.HORIZONTAL)
             pos_rb = wx.RadioButton(self, id_num,
@@ -137,9 +147,14 @@ class NodeFrm(wx.Dialog):
                                  size=(-1, 30))
             txt_bx.Enable(False)
 
+            chs_bx = wx.Choice(self, id_num+4, choices=chcs_1, size=(-1, 30))
+            chs_bx.Enable(False)
+
             if txtbx != 0:
+                chs_bx.Enable()
                 txt_bx.Enable()
                 txt_bx.ChangeValue(str(txtbx))
+                chs_bx.SetSelection(chsbx)
                 flow_chk.SetValue(True)
 
             self.rad_bt.append(pos_rb)
@@ -147,12 +162,14 @@ class NodeFrm(wx.Dialog):
             self.nd_bx.append(nd_txt)
             self.chk_bx.append(flow_chk)
             self.txt_bxs.append(txt_bx)
+            self.chs_bxs.append(chs_bx)
 
             rb_sizer.Add(pos_rb, 0, wx.LEFT, 20)
             rb_sizer.Add(neg_rb, 0, wx.LEFT, 40)
             rb_sizer.Add(nd_txt, 0, wx.ALIGN_TOP)
             rb_sizer.Add(flow_chk, 0, wx.LEFT, 40)
-            rb_sizer.Add(txt_bx, 0, wx.LEFT | wx.RIGHT, 20)
+            rb_sizer.Add(txt_bx, 0, wx.LEFT, 20)
+            rb_sizer.Add(chs_bx, 0, wx.LEFT | wx.RIGHT, 20)
 
             rbsizers.append(rb_sizer)
             n += 5
@@ -161,6 +178,7 @@ class NodeFrm(wx.Dialog):
         self.Bind(wx.EVT_CHECKBOX, self.OnChkBox)
 
         for rbsizer in rbsizers:
+            self.sizer.Add((10,10))
             self.sizer.Add(rbsizer, 0)
 
         btn_lbls = ['Intersection of Multiple\nLines As List Above',
@@ -211,11 +229,16 @@ class NodeFrm(wx.Dialog):
         i = int((n-2)/4)
         if ckBx.GetValue():
             self.txt_bxs[i].Enable()
+            self.chs_bxs[i].Enable()
         else:
             self.txt_bxs[i].ChangeValue('')
             self.txt_bxs[i].Enable(False)
+            self.chs_bxs[i].SetSelection(4)
+            self.chs_bxs.Enable(False)
 
     def OnSave(self, evt):
+        # if the first item in the node type is
+        # selected as just an intercestion point
         if self.type == 0:
             self.SaveNode()
 
@@ -225,17 +248,21 @@ class NodeFrm(wx.Dialog):
         lst1 = []
         lst2 = []
         lst3 = []
+        lst4 = []
         # cycle through the radio buttons and get the value of in first row
         m = 1
         for item in range(1, len(self.rad_bt), 2):
             dirct = 1
             flow = 0
+            unts = 4
             # get the line label from the radiobutton label
             ln_lbl = self.rad_bt[item-1].GetLabel()[-2]
             lst1.append(ln_lbl)
             if self.chk_bx[item-m].GetValue():
                 if self.txt_bxs[item-m].GetValue() != '':
                     flow = float(self.txt_bxs[item-m].GetValue())
+                    unts = self.chs_bxs[item-m].GetSelection()
+
             if self.rad_bt[item].GetValue() is False:
                 dirct = 0
             m += 1
@@ -250,16 +277,17 @@ class NodeFrm(wx.Dialog):
                         tpl.append(ln_lbl)
                         tpl.append(abs(dirct-1))
                         tpl.append(tp[2])
+                        tpl.append(tp[3])
                         self.nodes[self.cmn_lns[ln_lbl]][n] = tuple(tpl)
                     n += 1
             lst2.append(dirct)
             lst3.append(flow)
+            lst4.append(unts)
 
         # make a list containing the line label, flow direction and volume
-        ln_dirct = list(zip(lst1, lst2, lst3))
+        ln_dirct = list(zip(lst1, lst2, lst3, lst4))
         # add information to the nodes dictionary
         self.nodes[self.node] = ln_dirct
-
         if self.node in self.nodes:
             for ln in self.nodes[self.node]:
                 if ln[0] in self.parent.plt_arow:

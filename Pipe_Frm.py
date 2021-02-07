@@ -95,7 +95,6 @@ def ScnFil(obj, colm1, colm2, colm3, num_row): #, rd_btns1=[], rd_btns2=[]):
     # widgets to be loaded for the specified notebook page
     return lst
 
-
 class PipeFrm(wx.Frame):
 
     def __init__(self, parent, lbl):
@@ -117,6 +116,10 @@ class PipeFrm(wx.Frame):
         self.data_good = False
 
         self.nb = wx.Notebook(self)
+
+        self.nb.units = ['inches', 'feet', 'meters', 'centimeters', 'millimeters']
+        self.nb.mtr = ['PVC', 'A53 / A106', 'Concrete', 'Tubing', 'Galvanized']
+
         self.nb.AddPage(General(self.nb), 'General Pipe\n Information')
         self.nb.AddPage(ManVlv1(self.nb),
                         'Ball, Butterfly,\nPlug, Globe Valves')
@@ -147,9 +150,12 @@ class PipeFrm(wx.Frame):
             data = frm_data[0]
             if data != []:
                 self.nb.GetPage(0).info1.SetValue(str(data[1]))
+                self.nb.GetPage(0).unt1.SetSelection(data[7])
                 self.nb.GetPage(0).info2.SetValue(str(data[2]))
-                self.nb.GetPage(0).info3.SetValue(str(data[3]))
+                self.nb.GetPage(0).unt2.SetSelection(data[8])
+                self.nb.GetPage(0).info3.SetSelection(data[3])
                 self.nb.GetPage(0).info4.SetValue(str(data[4]))
+                self.nb.GetPage(0).unt4.SetSelection(data[9])
                 self.data_good = data[5]
 
         self.SetMenuBar(menubar)
@@ -232,29 +238,68 @@ class PipeFrm(wx.Frame):
             # check to see if this a new record or an update
             ValueList, new_data = self.Data_Exist(old_pg)
 
-            length = self.nb.GetPage(old).info2.GetValue()
-            matr = self.nb.GetPage(old).info3.GetValue()
-            elev = self.nb.GetPage(old).info4.GetValue()
-
-            if self.nb.GetPage(old).info1.GetValue() != '':
+            # convert the input diameter to inches
+            unt = self.nb.GetPage(old).unt1.GetSelection()
+            if unt == 1:
                 self.dia = float(self.nb.GetPage(old).info1.GetValue())
-                e = .00197
-                self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
-                # define what this equation for pipe friction loss is.
+            elif unt == 0:
+                self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 12
+            elif unt == 2:
+                self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 39.37
+            elif unt == 3:
+                self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 2.54
+            else:
+                self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 25.4
+
+            # specify the coresponding e value for the selected material
+            matr = self.nb.GetPage(old).info3.GetSelection()
+            if matr == 0:
+                e = .000084
+            elif matr == 1:
+                e = .0018
+            elif matr == 2:
+                e = .09
+            elif matr == 3:
+                e = .00006
+            elif matr == 4:
+                e = .006               
+
+            # define what this equation for pipe friction loss is.
+            self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
+
+            ''' this is not needed here
+            # convert elevation to feet
+            unt = self.nb.GetPage(old).unt4.GetSelection()
+            if unt == 0:
+                elev = self.nb.GetPage(old).info4.GetValue()
+            elif unt == 1:
+                elev = self.nb.GetPage(old).info4.GetValue() / 12
+            elif unt == 2:
+                elev = self.nb.GetPage(old).info4.GetValue() * 3.281
+            elif unt == 3:
+                elev = self.nb.GetPage(old).info4.GetValue() / 30.48
+            else:
+                elev = self.nb.GetPage(old).info4.GetValue() / 304.8
+            '''
+
+            if self.nb.GetPage(old).info1.GetValue() != '':              
                 Kt0 = 0
                 UpQuery = self.BldQuery(old_pg, new_data)
-                ValueList.append(str(self.dia))
-                ValueList.append(length)
-                ValueList.append(matr)
-                ValueList.append(elev)
+                ValueList.append(str(self.nb.GetPage(old).info1.GetValue()))
+                ValueList.append(self.nb.GetPage(old).info2.GetValue())
+                ValueList.append(self.nb.GetPage(old).info3.GetSelection())
+                ValueList.append(self.nb.GetPage(old).info4.GetValue())
                 ValueList.append(self.data_good)
                 ValueList.append(Kt0)
+                ValueList.append(self.nb.GetPage(old).unt1.GetSelection())
+                ValueList.append(self.nb.GetPage(old).unt2.GetSelection())
+                ValueList.append(self.nb.GetPage(old).unt4.GetSelection())
                 DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
             else:
                 return
 
         if old_pg == 'ManVlv1':
-            K1 = [3, 340, 30, 55, 21, 150, 36, 55, 100, (45, 35, 25)]
+            K1 = [3, 340, 30, 55, 18, 150, 30, 55, 90, (45, 35, 25)]
             Kt1 = 0
 
             # check to see if this a new record or an update
@@ -300,7 +345,7 @@ class PipeFrm(wx.Frame):
             DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
         elif old_pg == 'ChkVlv':
-            K3 = [600, 100, 55, 200, (80, 60, 40), 300, 100, 350, 50, 55, 55]
+            K3 = [600, 400, 55, 200, (80, 60, 40), 300, 100, 350, 50, 55, 55]
             Kt3 = 0
 
             # check to see if this a new record or an update
@@ -475,44 +520,47 @@ class PipeFrm(wx.Frame):
             self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))            
         self.Destroy()
 
-
 class General(wx.Panel):
     def __init__(self, parent):
         super(General, self).__init__(parent, name='General')
 
+        self.parent = parent
+
+        chcs_1 = self.parent.units
+        chcs_2 = self.parent.mtr
+
         # put the buttons in a sizer
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        grd = wx.FlexGridSizer(4,3,10,10)
 
-        hdrsizer = wx.BoxSizer(wx.HORIZONTAL)
-        hdr1 = wx.StaticText(self, label='Diameter (inch)',
+        hdr1 = wx.StaticText(self, label='Diameter',
                              style=wx.ALIGN_LEFT)
-        hdr2 = wx.StaticText(self, label='Length (feet)',
+        hdr2 = wx.StaticText(self, label='Length',
                              style=wx.ALIGN_LEFT)
         hdr3 = wx.StaticText(self, label='Material',
                              style=wx.ALIGN_CENTER)
         hdr4 = wx.StaticText(self, label='Delta Elevation',
                              style=wx.ALIGN_CENTER)
 
-        hdrsizer.Add(hdr1, 1, wx.ALIGN_LEFT|wx.LEFT, 20)
-        hdrsizer.Add(hdr2, 1, wx.ALIGN_LEFT|wx.LEFT, 70)
-        hdrsizer.Add(hdr3, 1, wx.ALIGN_LEFT|wx.LEFT, 30)
-        hdrsizer.Add(hdr4, 1, wx.ALIGN_LEFT|wx.LEFT, 50)
-
-        infosizer = wx.BoxSizer(wx.HORIZONTAL)
         self.info1 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
+        self.unt1 = wx.Choice(self, choices = chcs_1)
         self.info2 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
-        self.info3 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
+        self.unt2 = wx.Choice(self, choices=chcs_1)
+        self.info3 = wx.Choice(self, choices=chcs_2)
+        blk3 = wx.StaticText(self, label = ' ')
         self.info4 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
-        infosizer.Add(self.info1, 1, wx.ALIGN_LEFT|wx.LEFT, 20)
-        infosizer.Add(self.info2, 1, wx.ALIGN_LEFT|wx.LEFT, 60)
-        infosizer.Add(self.info3, 1, wx.ALIGN_LEFT|wx.LEFT, 40)
-        infosizer.Add(self.info4, 1, wx.ALIGN_LEFT|wx.LEFT, 40)
-        
-        self.sizer.Add(hdrsizer, 0)
-        self.sizer.Add(infosizer, 0)
+        self.unt4 = wx.Choice(self, choices=chcs_1)
+
+        grd.AddMany([(hdr1), (self.info1), (self.unt1),
+                     (hdr2), (self.info2), (self.unt2),
+                     (hdr3), (self.info3), (blk3),
+                     (hdr4), (self.info4), (self.unt4)])
+
+        self.sizer.Add((5,50))
+        self.sizer.Add(grd, flag = wx.ALIGN_CENTER, border = 15)
 
         self.SetSizer(self.sizer)
-
 
 class ManVlv1(wx.Panel):
     def __init__(self, parent):
