@@ -20,6 +20,7 @@ import DBase
 import Node_Frm
 import Pipe_Frm
 import Calc_Network
+import Fluid_Frm
 
 class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, *args, **kw):
@@ -50,7 +51,7 @@ class InputForm(wx.Frame):
 
         super().__init__(None, wx.ID_ANY,
                          title='Plot Lines',
-                         size=(1300, 830))
+                         size=(1300, 800))
 
         # set up a list of dark colors suitable for the graph
         self.clrs = ['rosybrown', 'indianred', 'brown', 'darkred', 'red',
@@ -129,17 +130,23 @@ class InputForm(wx.Frame):
         fileMenu.AppendSeparator()
         fileMenu.Append(104, '&Exit')
 
+        fluidMenu = wx.Menu()
+        fluidMenu.Append(301, '&Fluid Properties')
+
         deleteMenu = wx.Menu()
         deleteMenu.Append(201, '&Node')
         deleteMenu.Append(202, '&Line')
         deleteMenu.Append(203, 'L&oop')
 
         mb.Append(fileMenu, 'File')
+        mb.Append(fluidMenu, 'Fluid Data')
         mb.Append(deleteMenu, '&Delete Element')
         self.SetMenuBar(mb)
 
         self.Bind(wx.EVT_MENU, self.OnExit, id=104)
         self.Bind(wx.EVT_MENU, self.OnDB_Save, id=103)
+
+        self.Bind(wx.EVT_MENU, self.OnFluidData, id=301)
 
         self.Bind(wx.EVT_MENU, self.OnDeleteNode, id=201)
         self.Bind(wx.EVT_MENU, self.OnDeleteLine, id=202)
@@ -272,8 +279,6 @@ class InputForm(wx.Frame):
         if tbl_data != []:
             self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
             no_data = False
-#        print('self.pts = ', self.pts)
-#        print('DB table points ', tbl_data)
         return no_data
 
     def DBlines(self):
@@ -283,8 +288,7 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
-#        print('self.runs = ', self.runs)
-#        print('DB table lines ', tbl_data)
+
     def DBnodes(self):
         # download the data entered in the node_frm and put it into
         # the nodes dictionary
@@ -292,8 +296,7 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
-#        print('self.nodes = ', self.nodes)
-#        print('DB table nodes ', tbl_data)
+
     def DBloops(self):
         # enter the data base information for the loops and put it into
         # the Loops dictionaary
@@ -307,9 +310,7 @@ class InputForm(wx.Frame):
                 self.Ln_Select = v[1]
                 self.AddLoop(k)
                 pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
-#        print('self.Loops = ', self.Loops)
-#        print('self.poly_pts', self.poly_pts)
-#        print('DB table loops ', tbl_data)
+
     def GrdLoad(self):
         # load the points information into the grid against the
         # coresponding line label
@@ -752,6 +753,9 @@ class InputForm(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def OnFluidData(self, evt):
+        Fluid_Frm.FluidFrm(self)
+
     def OnDeleteLine(self, evt):
         import DltWrng
         # this only calls up the warning dialog the actual deletion
@@ -1161,7 +1165,7 @@ class InputForm(wx.Frame):
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def OnExit(self, evt):
-        Calc_Network.Calc(self,self.cursr, self.db).Node_Matrix()
+        Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
         if self.cursr_set is True:
             cursr.close()
             db.close
