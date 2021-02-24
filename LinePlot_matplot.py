@@ -51,20 +51,17 @@ class InputForm(wx.Frame):
 
         super().__init__(None, wx.ID_ANY,
                          title='Plot Lines',
-                         size=(1300, 800))
+                         size=(1300, 840))
 
         # set up a list of dark colors suitable for the graph
-        self.clrs = ['rosybrown', 'indianred', 'brown', 'darkred', 'red',
-                     'salmon', 'tomato', 'darksalmon', 'orangered', 'navy',
-                     'olive', 'chocolate', 'saddlebrown', 'darkolivegreen',
-                     'darkorange', 'burlywood', 'orange', 'goldenrod',
-                     'darkseagreen', 'darkgreen', 'green', 'lawngreen',
-                     'darkslategray', 'darkslategrey', 'teal', 'darkcyan',
-                     'darkturquoise', 'darkkhaki', 'mediumorchid', 'purple',
-                     'deepskyblue', 'skyblue', 'darkslateblue', 'darkblue',
-                     'steelblue', 'dodgerblue', 'slategray', 'midnightblue',
-                     'mediumslateblue', 'mediumpurple', 'rebeccapurple',
-                     'blueviolet', 'darkorchid', 'darkviolet', 'royalblue'
+        self.clrs = ['indianred', 'darkred', 'red',
+                     'orangered', 'navy',
+                     'chocolate', 'saddlebrown','brown',
+                     'darkorange', 'orange','darkgreen', 'green',
+                     'darkslategray', 'darkcyan',
+                     'darkturquoise', 'darkkhaki', 'purple',
+                     'darkblue', 'steelblue', 'mediumpurple',
+                     'blueviolet', 'darkorchid', 'darkviolet'
                      ]
 
         self.colours = mcolors.CSS4_COLORS
@@ -84,6 +81,7 @@ class InputForm(wx.Frame):
         self.show_line = False
         self.show_node = False
         self.show_loop = False
+        self.show_pump = False
 
         # dictionary files for the lines and text plotted
         # used to remove specific items from plot
@@ -100,6 +98,8 @@ class InputForm(wx.Frame):
         self.plt_lpnum = {}
         # line direction arrows
         self.plt_arow = {}
+        # pump dictionary
+        self.plt_pump = {}
 
         # set dictionary of points; key node letter, value tuple of point,
         self.pts = {}
@@ -114,6 +114,12 @@ class InputForm(wx.Frame):
         # dictionary of nodes indicating key as node and value lst indicating
         # line lbl and flow into (+) or out of node (-)
         self.nodes = {}
+        # dictionary of the elevations fo the nodes
+        # used in the Q energy equations
+        self.elevs = {}
+        # dictionary of the pumps circuits
+        # used in the Q energy equations
+        self.pumps = {}
 
         # list of lines selected to form a loop
         self.Ln_Select = []
@@ -137,6 +143,7 @@ class InputForm(wx.Frame):
         deleteMenu.Append(201, '&Node')
         deleteMenu.Append(202, '&Line')
         deleteMenu.Append(203, 'L&oop')
+        deleteMenu.Append(204, '&Pump')
 
         mb.Append(fileMenu, 'File')
         mb.Append(fluidMenu, 'Fluid Data')
@@ -151,6 +158,7 @@ class InputForm(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnDeleteNode, id=201)
         self.Bind(wx.EVT_MENU, self.OnDeleteLine, id=202)
         self.Bind(wx.EVT_MENU, self.OnDeleteLoop, id=203)
+        self.Bind(wx.EVT_MENU, self.OnDeletePump, id=204)
 
         # create the form level sizer
         Main_Sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -263,6 +271,8 @@ class InputForm(wx.Frame):
             return
         self.DBlines()
         self.DBnodes()
+        self.DBelevs()
+        self.DBpumps()
         self.DBloops()
         # the ReDraw function will addd the lines to the plot as well as
         # repopulate the plt_Txt, plt_lines and plt_txt dictionaries
@@ -296,6 +306,22 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
+
+    def DBelevs(self):
+        # download the data entered in the node_frm and put it into
+        # the elevs dictionary
+        data_sql = 'SELECT * FROM elevs'
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.elevs = {i[0]:[i[1],i[2]] for i in tbl_data}       
+
+    def DBpumps(self):
+        # download the data entered in the node_frm and put it into
+        # the elevs dictionary
+        data_sql = 'SELECT * FROM Pump'
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.pumps = {i[0]:list(i[1:]) for i in tbl_data} 
 
     def DBloops(self):
         # enter the data base information for the loops and put it into
@@ -502,7 +528,6 @@ class InputForm(wx.Frame):
 
         rnd = np.random.randint(len(self.clrs))
         color_name = self.clrs[int(rnd)]
-
         # draw the line based on points supplied
         # and populate the dictionay with the control information
         x = [i[0] for i in points]
@@ -524,6 +549,73 @@ class InputForm(wx.Frame):
             txt = self.ax.text(x[1], y[1], LnLbl.lower(),
                                picker=True, color=self.colours[color_name])
             self.plt_txt[LnLbl.lower()] = txt
+
+        self.canvas.draw()
+
+    def DrawPump(self, nd_lbl):
+        Cx, Cy = self.pts[nd_lbl]
+        xmin, xmax = self.ax.get_xlim()
+        ymin, ymax = self.ax.get_ylim()
+
+        # determine length of x and y axis'
+        x_lg = xmax-xmin
+        y_lg = ymax - ymin
+
+        # set a percentage of the graph sizes for the pump radius
+        rx = .05 * x_lg
+        ry = .05 * y_lg
+        r = max(rx, ry)
+
+        # draw the pump
+        an = np.linspace(0, 2 * np.pi, 100)
+        pump = self.ax.plot(rx * r * np.cos(an) + Cx, ry * r * np.sin(an) + Cy,
+                           color='k', picker=True)
+ 
+        # determine the orientation of the tank
+        xcord = xmax - x_lg / 2
+        ycord = ymax - y_lg / 2
+        if Cx > xcord and Cy > ycord:
+            lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
+                                   color='k', picker=True)
+            x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
+            x_pipe = [Cx, Cx + .7 * rx]
+            y_rect = [Cy + i * ry for i in [1.2,2.2,2.2,1.2,1.2]]
+            y_pipe = [Cy, Cy + 1.2 * ry]
+            lp_tank = self.ax.text(Cx + rx * 1.5, Cy + (2.2 + 1.2)/2 * ry, 'Tank',
+                                   color='k')
+        elif Cx > xcord and Cy <= ycord:
+            lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
+                                   color='k', picker=True)
+            x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
+            x_pipe = [Cx, Cx + .7 * rx]
+            y_rect = [Cy + i * ry for i in [-1.2,0,0,-1.2,-1.2]]
+            y_pipe = [Cy, Cy - 1.2 * ry]
+            lp_tank = self.ax.text(Cx + rx * 1.5, Cy - 1.2/2 * ry, 'Tank',
+                                   color='k')          
+        elif Cx <= xcord and Cy <= ycord:
+            lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
+                                   color='k', picker=True)
+            x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
+            x_pipe = [Cx, Cx - .7 * rx]
+            y_rect = [Cy + i * ry for i in [-1.2,-1.2,0,0,-1.2]]
+            y_pipe = [Cy, Cy - 1.2 * ry]
+            lp_tank = self.ax.text(Cx - rx * .7, Cy - (.7 + 1.2)/2 * ry, 'Tank',
+                                   color='k')
+        else:
+            lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
+                                   color='k', picker=True)
+            x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
+            x_pipe = [Cx, Cx - .7 * rx]
+            y_rect = [Cy + i * ry for i in [1.2,1.2,2.2,2.2,1.2]]
+            y_pipe = [Cy, Cy + 1.2 * ry]
+            lp_tank = self.ax.text(Cx - rx * .7, Cy + (1.2 + 2.2)/2 * ry, 'Tank',
+                                   color='k')
+            
+        # draw the tank and pipe
+        tank = self.ax.plot(x_rect, y_rect, color='k')
+        pipe = self.ax.plot(x_pipe, y_pipe, color='k', picker=True)
+        # save the plot information
+        self.plt_pump[nd_lbl] = [pump, tank, pipe, lp_pump, lp_tank]
 
         self.canvas.draw()
 
@@ -622,6 +714,8 @@ class InputForm(wx.Frame):
                                 if lbl == v[0]:
                                     self.nodes[nd].pop(n)
                                 n += 1
+                    if nd in self.elevs:
+                        del self.elevs[nd]
 
                     # retrieve all the values from the loops dictionary
             set_loop = list(self.Loops.items())
@@ -712,9 +806,24 @@ class InputForm(wx.Frame):
         self.arrw.pop(num, None)[0].remove()
         self.crcl.pop(num, None)[0].remove()
         self.canvas.draw()
-        # remove the items from the appropriet lists and dictionaries
+        # remove the items from the appropriate lists and dictionaries
         self.Loops.pop(num, None)
         self.poly_pts.pop(num, None)
+
+    def RemovePump(self, lbl):
+        # reset the warning flag
+        self.dlt_pump = False
+        print(len(self.plt_pump[lbl]))
+        # remove the graphics elements
+        self.plt_pump[lbl][0][0].remove()
+        self.plt_pump[lbl][1][0].remove()
+        self.plt_pump[lbl][2][0].remove()
+        self.plt_pump[lbl][3].remove()
+        self.plt_pump[lbl][4].remove()
+        del self.plt_pump[lbl]
+        self.canvas.draw()
+        # remove the pump from the dictionary
+        self.pumps.pop(lbl, None)
 
     def OnLeftSelect(self, event):
         if isinstance(event.artist, Text):
@@ -738,14 +847,19 @@ class InputForm(wx.Frame):
             elif lbl.islower():
                 if self.dlt_node:
                     self.RemoveNode(lbl)
+                elif self.dlt_pump:
+                    self.RemovePump(lbl)
                 else:
                     self.Node(lbl)
-
             # if a number has been selected it must be a loop,
             # only action is to delete the loop provided delete flag is set
             elif lbl.isdigit():
                 if self.dlt_loop:
                     self.RemoveLoop(int(lbl))
+            elif lbl == 'Tank':
+                print('you have selected a tank', text, lbl)
+            elif lbl == 'Pump':
+                print('you have selected a pump', text, lbl)
 
     def WarnData(self):
         msg = "A node has been specified which is not defined."
@@ -773,7 +887,7 @@ class InputForm(wx.Frame):
         # this only calls up the warning dialog the actual deletion
         # is handled in teh OnLeftSelect function call and RemoveNode
         if self.show_node is False:
-            dlg = DltWrng.DeleteWarning(None, 'line')
+            dlg = DltWrng.DeleteWarning(None, 'node')
             self.dlt_node = dlg.ShowModal()
             self.show_node = dlg.show_me
             dlg.Destroy()
@@ -785,12 +899,24 @@ class InputForm(wx.Frame):
         # this only calls up the warning dialog the actual deletion
         # is handled in teh OnLeftSelect function call and RemoveLoop
         if self.show_loop is False:
-            dlg = DltWrng.DeleteWarning(None, 'line')
+            dlg = DltWrng.DeleteWarning(None, 'loop')
             self.dlt_loop = dlg.ShowModal()
             self.show_loop = dlg.show_me
             dlg.Destroy()
         else:
             self.dlt_loop = True
+
+    def OnDeletePump(self, evt):
+        import DltWrng
+        # this only calls up the warning dialog the actual deletion
+        # is handled in teh OnLeftSelect function call and RemoveLoop
+        if self.show_pump is False:
+            dlg = DltWrng.DeleteWarning(None, 'pump')
+            self.dlt_pump = dlg.ShowModal()
+            self.show_pump = dlg.show_me
+            dlg.Destroy()
+        else:
+            self.dlt_pump = True
 
     def OnLoop(self, evt):
         '''this set trigger as to what response is needed if a line is selected
@@ -1038,9 +1164,7 @@ class InputForm(wx.Frame):
         run_tpl = list(self.runs.items())
         cord = self.pts[nd_lbl]
         node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
-
-        dlg = Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes)
-        dlg.Show()
+        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes, self.elevs, self.pumps)
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -1110,6 +1234,10 @@ class InputForm(wx.Frame):
             Cx, Cy, r = self.Loops[key][0]
             self.DrawLoop(Cx, Cy, r, key)
 
+        # draw the pumps and tanks
+        for key in self.pumps:
+            self.DrawPump(key)
+
         self.Ln_Select = []
         self.Loop_Select = False
 
@@ -1129,6 +1257,15 @@ class InputForm(wx.Frame):
         Insql = 'INSERT INTO nodes(node_ID, lines) VALUES(?,?);'
         # convert the list inside the dictionary to a string
         Indata = [(i[0], str(i[1])) for i in list(self.nodes.items())]
+        DBase.Dbase(self).Daddrows(Insql, Indata)
+
+        # clear data from table
+        Dsql = 'DELETE FROM elevs'
+        DBase.Dbase(self).TblEdit(Dsql)
+        # build the sql for multiple rows
+        Insql = 'INSERT INTO elevs(nodeID, elev, units) VALUES(?,?,?);'
+        # convert the list inside the dictionary to a string
+        Indata = [(i[0], str(i[1][0]), str(i[1][1])) for i in list(self.elevs.items())]
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def ptsDB(self):

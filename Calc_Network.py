@@ -290,7 +290,7 @@ class Calc(object):
                                 break
                     hL = .1863 * f * lgth * vel**2 / dia
                     delta_P = .001294 * f * lgth * self.density * vel**2 / dia
-                
+
                 print('\n+++++++++++++++++++++')
                 print('Line Label = ', ln,)
                 print('Density = ', self.density)
@@ -370,7 +370,7 @@ class Calc(object):
             lbl = itm[0]
         
             # convert the input diameter to inches
-            unt = itm[7]
+            unt = itm[6]
             if unt != 1:
                 dia = float(itm[1])
             elif unt == 0:
@@ -383,7 +383,7 @@ class Calc(object):
                 dia = float(itm[1]) / 25.4
 
             # convert the input length to feet
-            unt = itm[8]
+            unt = itm[7]
             if unt != 0:
                 Lgth = float(itm[2])
             elif unt == 1:
