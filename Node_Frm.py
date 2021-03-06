@@ -253,7 +253,7 @@ class NodeFrm(wx.Frame):
         if self.node in self.pumps:
             self.type_rbb.SetSelection(3)
             v = self.pumps[self.node]
-            self.unt_bx.SetSelection(v[0])
+            self.unt_bx.SetSelection(int(v[0]))
  
         self.elev = wx.TextCtrl(self.pnl2, value=str(v[1]))
         hrz1 = wx.StaticText(self.pnl2, label = ' ')
@@ -357,7 +357,7 @@ class NodeFrm(wx.Frame):
             m += 1
 
             # if the node data is saved for this node then the other nodes
-            # with common lines need to relect the direction changes
+            # with common lines need to relate the direction changes
             if ln_lbl in self.cmn_lns:
                 n = 0
                 tpl = []
@@ -409,12 +409,18 @@ class NodeFrm(wx.Frame):
         self.elevs[self.node] = lst_elev
 
     def SavePump(self):
-        self.parent.DrawPump(self.node)
-        self.pumps[self.node] = [self.unt_bx.GetSelection(),
-                                 self.elev.GetValue(),
-                                 self.flow1.GetValue(), self.flow2.GetValue(),
-                                 self.flow3.GetValue(), self.tdh1.GetValue(),
-                                 self.tdh2.GetValue(), self.tdh3.GetValue()]
+        # if the pump has not already been drawn then draw
+        if self.node not in self.pumps:
+            self.parent.DrawPump(self.node)
+
+        self.pumps[self.node] = [int(self.unt_bx.GetSelection()),
+                                 float(self.elev.GetValue()),
+                                 float(self.flow1.GetValue()),
+                                 float(self.flow2.GetValue()),
+                                 float(self.flow3.GetValue()),
+                                 float(self.tdh1.GetValue()),
+                                 float(self.tdh2.GetValue()),
+                                 float(self.tdh3.GetValue())]
 
     def OnClose(self, evt):
         self.Destroy()

@@ -76,6 +76,7 @@ class InputForm(wx.Frame):
         self.dlt_loop = False
         self.dlt_line = False
         self.dlt_node = False
+        self.dlt_pump = False
 
         # flags to indicate if warning message is to show
         self.show_line = False
@@ -321,7 +322,7 @@ class InputForm(wx.Frame):
         data_sql = 'SELECT * FROM Pump'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
-            self.pumps = {i[0]:list(i[1:]) for i in tbl_data} 
+            self.pumps = {i[0]:list(i[1:]) for i in tbl_data}
 
     def DBloops(self):
         # enter the data base information for the loops and put it into
@@ -813,7 +814,7 @@ class InputForm(wx.Frame):
     def RemovePump(self, lbl):
         # reset the warning flag
         self.dlt_pump = False
-        print(len(self.plt_pump[lbl]))
+
         # remove the graphics elements
         self.plt_pump[lbl][0][0].remove()
         self.plt_pump[lbl][1][0].remove()
@@ -856,10 +857,12 @@ class InputForm(wx.Frame):
             elif lbl.isdigit():
                 if self.dlt_loop:
                     self.RemoveLoop(int(lbl))
+            '''
             elif lbl == 'Tank':
                 print('you have selected a tank', text, lbl)
             elif lbl == 'Pump':
                 print('you have selected a pump', text, lbl)
+            '''
 
     def WarnData(self):
         msg = "A node has been specified which is not defined."
@@ -1248,6 +1251,7 @@ class InputForm(wx.Frame):
         self.ptsDB()
         self.linesDB()
         self.loopsDB()
+        self.pumpDB()
 
     def nodesDB(self):
         # clear data from table
@@ -1266,6 +1270,19 @@ class InputForm(wx.Frame):
         Insql = 'INSERT INTO elevs(nodeID, elev, units) VALUES(?,?,?);'
         # convert the list inside the dictionary to a string
         Indata = [(i[0], str(i[1][0]), str(i[1][1])) for i in list(self.elevs.items())]
+        DBase.Dbase(self).Daddrows(Insql, Indata)
+
+    def pumpDB(self):
+        # clear data from table
+        Dsql = 'DELETE FROM Pump'
+        DBase.Dbase(self).TblEdit(Dsql)
+        # build sql to add rows to table
+        Insql = 'INSERT INTO Pump (pumpID, units, elev, flow1, flow2, flow3, tdh1, tdh2, tdh3) VALUES(?,?,?,?,?,?,?,?,?);'
+        Indata = []
+        for k, v in self.pumps.items():
+            ls = list(v)
+            ls.insert(0, k)
+            Indata.append(tuple(ls))
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def ptsDB(self):
