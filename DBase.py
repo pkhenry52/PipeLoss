@@ -30,6 +30,7 @@ class Dbase(object):
         return sqldata
 
     def Daddrows(self, InQuery, Rcrds):
+        print(InQuery, Rcrds)
         self.cursr.executemany(InQuery, Rcrds)
         self.db.commit()
 

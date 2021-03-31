@@ -102,7 +102,7 @@ class PipeFrm(wx.Frame):
         self.lbl = lbl
         ttl = 'Pipe & Fittings for ' + self.lbl
 
-        super().__init__(parent, title=ttl, size=(850, 930))
+        super().__init__(parent, title=ttl, size=(850, 930), style=wx.DEFAULT_FRAME_STYLE | wx.STAY_ON_TOP)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.parent = parent
@@ -111,6 +111,8 @@ class PipeFrm(wx.Frame):
 
     def InitUI(self):
         '''This is the main frame holding the notebook pages'''
+        # The Pipe Frm is the only form which upadtes the
+        # database as infomation is entered
         self.dia = 0
         self.ff = 0
         self.data_good = False
@@ -150,13 +152,11 @@ class PipeFrm(wx.Frame):
             data = frm_data[0]
             if data != []:
                 self.nb.GetPage(0).info1.SetValue(str(data[1]))
-                self.nb.GetPage(0).unt1.SetSelection(data[7])
+                self.nb.GetPage(0).unt1.SetSelection(data[6])
                 self.nb.GetPage(0).info2.SetValue(str(data[2]))
-                self.nb.GetPage(0).unt2.SetSelection(data[8])
+                self.nb.GetPage(0).unt2.SetSelection(data[7])
                 self.nb.GetPage(0).info3.SetSelection(data[3])
-                self.nb.GetPage(0).info4.SetValue(str(data[4]))
-                self.nb.GetPage(0).unt4.SetSelection(data[9])
-                self.data_good = data[5]
+                self.data_good = data[4]
 
         self.SetMenuBar(menubar)
         self.Centre()
@@ -288,12 +288,10 @@ class PipeFrm(wx.Frame):
                 ValueList.append(str(self.nb.GetPage(old).info1.GetValue()))
                 ValueList.append(self.nb.GetPage(old).info2.GetValue())
                 ValueList.append(self.nb.GetPage(old).info3.GetSelection())
-                ValueList.append(self.nb.GetPage(old).info4.GetValue())
                 ValueList.append(self.data_good)
                 ValueList.append(Kt0)
                 ValueList.append(self.nb.GetPage(old).unt1.GetSelection())
                 ValueList.append(self.nb.GetPage(old).unt2.GetSelection())
-                ValueList.append(self.nb.GetPage(old).unt4.GetSelection())
                 DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
             else:
                 return
@@ -520,6 +518,7 @@ class PipeFrm(wx.Frame):
             self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))            
         self.Destroy()
 
+
 class General(wx.Panel):
     def __init__(self, parent):
         super(General, self).__init__(parent, name='General')
@@ -540,25 +539,20 @@ class General(wx.Panel):
                              style=wx.ALIGN_LEFT)
         hdr3 = wx.StaticText(self, label='Material',
                              style=wx.ALIGN_CENTER)
-        hdr4 = wx.StaticText(self, label='Delta Elevation',
-                             style=wx.ALIGN_CENTER)
 
         self.info1 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
-        self.unt1 = wx.Choice(self, choices = chcs_1)
+        self.unt1 = wx.Choice(self, choices=chcs_1)
         self.info2 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
         self.unt2 = wx.Choice(self, choices=chcs_1)
         self.info3 = wx.Choice(self, choices=chcs_2)
-        blk3 = wx.StaticText(self, label = ' ')
-        self.info4 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
-        self.unt4 = wx.Choice(self, choices=chcs_1)
+        blk3 = wx.StaticText(self, label=' ')
 
         grd.AddMany([(hdr1), (self.info1), (self.unt1),
                      (hdr2), (self.info2), (self.unt2),
-                     (hdr3), (self.info3), (blk3),
-                     (hdr4), (self.info4), (self.unt4)])
+                     (hdr3), (self.info3), (blk3)])
 
-        self.sizer.Add((5,50))
-        self.sizer.Add(grd, flag = wx.ALIGN_CENTER, border = 15)
+        self.sizer.Add((5, 50))
+        self.sizer.Add(grd, flag=wx.ALIGN_CENTER, border=15)
 
         self.SetSizer(self.sizer)
 

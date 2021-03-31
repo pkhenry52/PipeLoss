@@ -32,6 +32,10 @@ class DeleteWarning(wx.Dialog):
             msg = 'Deleting a loop will result in the\ndeletion of ' \
                     'all data related to the loop.\n' \
                     'Select the corresponding loop\nnumber to proceed.'
+        elif self.elem == 'pump':
+            msg = 'Deleting a pump will result in the\ndeletion of ' \
+                    'all data related to the pump.\n' \
+                    'Select the corresponding\npump to proceed.'        
 
         hdrsizer = wx.BoxSizer(wx.HORIZONTAL)
 
