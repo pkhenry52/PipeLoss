@@ -101,6 +101,8 @@ class InputForm(wx.Frame):
         self.plt_arow = {}
         # pump dictionary
         self.plt_pump = {}
+        # valve marked dictionary
+        self.plt_vlv = {}
 
         # set dictionary of points; key node letter, value tuple of point,
         self.pts = {}
@@ -118,9 +120,15 @@ class InputForm(wx.Frame):
         # dictionary of the elevations fo the nodes
         # used in the Q energy equations
         self.elevs = {}
-        # dictionary of the pumps circuits
+        # dictionary of the pump circuits
         # used in the Q energy equations
         self.pumps = {}
+        # dictionary of the tank circuits
+        # used in the Q energy equations
+        self.tanks = {}
+        # dictionary of the control valves circuits
+        # used in the Q energy equations
+        self.vlvs = {}
 
         # list of lines selected to form a loop
         self.Ln_Select = []
@@ -144,7 +152,7 @@ class InputForm(wx.Frame):
         deleteMenu.Append(201, '&Node')
         deleteMenu.Append(202, '&Line')
         deleteMenu.Append(203, 'L&oop')
-        deleteMenu.Append(204, '&Pump')
+        deleteMenu.Append(204, '&Pump or Tank')
 
         mb.Append(fileMenu, 'File')
         mb.Append(fluidMenu, 'Fluid Data')
@@ -274,6 +282,8 @@ class InputForm(wx.Frame):
         self.DBnodes()
         self.DBelevs()
         self.DBpumps()
+        self.DBtanks()
+        self.DBvalves()
         self.DBloops()
         # the ReDraw function will addd the lines to the plot as well as
         # repopulate the plt_Txt, plt_lines and plt_txt dictionaries
@@ -323,6 +333,22 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.pumps = {i[0]:list(i[1:]) for i in tbl_data}
+
+    def DBvalves(self):
+        # download the data entered in the node_frm and put it into
+        # the elevs dictionary
+        data_sql = 'SELECT * FROM CVlv'
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.vlvs = {i[0]:list(i[1:]) for i in tbl_data}
+
+    def DBtanks(self):
+        # download the data entered in the node_frm and put it into
+        # the tanks dictionary
+        data_sql = 'SELECT * FROM Tank'
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.tanks = {i[0]:list(i[1:]) for i in tbl_data}        
 
     def DBloops(self):
         # enter the data base information for the loops and put it into
@@ -553,7 +579,7 @@ class InputForm(wx.Frame):
 
         self.canvas.draw()
 
-    def DrawPump(self, nd_lbl):
+    def DrawPump(self, nd_lbl, pump):
         Cx, Cy = self.pts[nd_lbl]
         xmin, xmax = self.ax.get_xlim()
         ymin, ymax = self.ax.get_ylim()
@@ -567,17 +593,19 @@ class InputForm(wx.Frame):
         ry = .05 * y_lg
         r = max(rx, ry)
 
-        # draw the pump
-        an = np.linspace(0, 2 * np.pi, 100)
-        pump = self.ax.plot(rx * r * np.cos(an) + Cx, ry * r * np.sin(an) + Cy,
-                           color='k', picker=True)
+        if pump:
+            # draw the pump
+            an = np.linspace(0, 2 * np.pi, 100)
+            pump = self.ax.plot(rx * r * np.cos(an) + Cx, ry * r * np.sin(an) + Cy,
+                            color='k', picker=True)
  
         # determine the orientation of the tank
         xcord = xmax - x_lg / 2
         ycord = ymax - y_lg / 2
         if Cx > xcord and Cy > ycord:
-            lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
-                                   color='k', picker=True)
+            if pump:
+                lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
+                                       color='k', picker=True)
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
             y_rect = [Cy + i * ry for i in [1.2,2.2,2.2,1.2,1.2]]
@@ -585,8 +613,9 @@ class InputForm(wx.Frame):
             lp_tank = self.ax.text(Cx + rx * 1.5, Cy + (2.2 + 1.2)/2 * ry, 'Tank',
                                    color='k')
         elif Cx > xcord and Cy <= ycord:
-            lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
-                                   color='k', picker=True)
+            if pump:
+                lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
+                                       color='k', picker=True)
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
             y_rect = [Cy + i * ry for i in [-1.2,0,0,-1.2,-1.2]]
@@ -594,8 +623,9 @@ class InputForm(wx.Frame):
             lp_tank = self.ax.text(Cx + rx * 1.5, Cy - 1.2/2 * ry, 'Tank',
                                    color='k')          
         elif Cx <= xcord and Cy <= ycord:
-            lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
-                                   color='k', picker=True)
+            if pump:
+                lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
+                                       color='k', picker=True)
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
             y_rect = [Cy + i * ry for i in [-1.2,-1.2,0,0,-1.2]]
@@ -603,8 +633,9 @@ class InputForm(wx.Frame):
             lp_tank = self.ax.text(Cx - rx * .7, Cy - (.7 + 1.2)/2 * ry, 'Tank',
                                    color='k')
         else:
-            lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
-                                   color='k', picker=True)
+            if pump:
+                lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
+                                       color='k', picker=True)
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
             y_rect = [Cy + i * ry for i in [1.2,1.2,2.2,2.2,1.2]]
@@ -616,7 +647,10 @@ class InputForm(wx.Frame):
         tank = self.ax.plot(x_rect, y_rect, color='k')
         pipe = self.ax.plot(x_pipe, y_pipe, color='k', picker=True)
         # save the plot information
-        self.plt_pump[nd_lbl] = [pump, tank, pipe, lp_pump, lp_tank]
+        if pump:
+            self.plt_pump[nd_lbl] = [pump, tank, pipe, lp_pump, lp_tank]
+        else:
+            self.plt_pump[nd_lbl] = [tank, pipe, lp_tank]
 
         self.canvas.draw()
 
@@ -646,10 +680,57 @@ class InputForm(wx.Frame):
         self.plt_arow[LnLbl] = arow
         self.canvas.draw()
 
+    def DrawValve(self, ln_lbl, loc, lg, typ):
+        # initialized sent from the Pipe_frm
+        # get the end points for the line
+        pt_A = self.runs[ln_lbl][0][0]
+        pt_B = self.runs[ln_lbl][0][1]
+        # determine the direction of flow so up and
+        # down stream flow can be determined
+        for ln in self.nodes[pt_A]:
+            if ln[0] == ln_lbl:
+                # if the flow is into the first point then reverse
+                # the X0 and X1
+                print('direction of flow', ln[1])
+                if ln[1] == 1:
+                    x_0 = self.pts[pt_A][0]
+                    x_1 = self.pts[pt_B][0]
+                    y_0 = self.pts[pt_A][1]
+                    y_1 = self.pts[pt_B][1]
+                elif ln[1] == 0:
+                    x_0 = self.pts[pt_B][0]
+                    x_1 = self.pts[pt_A][0]
+                    y_0 = self.pts[pt_B][1]
+                    y_1 = self.pts[pt_A][1]
+                # calulate the length of the line
+                d = ((x_1 - x_0)**2 + (y_1 - y_0)**2)**.5
+                # determine the ratio of the distance the
+                # valve is along the line
+                if typ == 0:
+                    t = float(loc) / float(lg)
+                else:
+                    t = (float(lg)-float(loc)) / float(lg)
+                # calulate the point location for the valve
+                x = ((1 - t) * x_0 + t * x_1)
+                y = ((1 - t) * y_0 + t * y_1)
+                # plot a red diamond at the valve location
+                vlv = self.ax.plot(x, y, c='red', markersize=10, marker='d')
+                self.plt_vlv[ln_lbl] = vlv
+
+                self.canvas.draw()
+                break
+
+    def RemoveVlv(self, ln_lbl):
+        if ln_lbl in self.plt_vlv:
+            self.plt_vlv.pop(ln_lbl)[0].remove()
+        self.canvas.draw()
+        self.Refresh()
+        self.Update()
+
     def RemoveLine(self, set_lns):
         # reset the delete warning flag
         self.dlt_line = False
-        for  lbl in set_lns:
+        for lbl in set_lns:
             # remove the lines and its label from the graphic
             if lbl in self.plt_lines:
                 self.plt_lines.pop(lbl)[0].remove()
@@ -718,7 +799,7 @@ class InputForm(wx.Frame):
                     if nd in self.elevs:
                         del self.elevs[nd]
 
-                    # retrieve all the values from the loops dictionary
+            # retrieve all the values from the loops dictionary
             set_loop = list(self.Loops.items())
             # get list of loops which are bordered by any of the lines
             for loup in set_loop:
@@ -729,6 +810,12 @@ class InputForm(wx.Frame):
                 loop_lns = set_lns.intersection(loup[1][1])
                 if len(loop_lns) > 0:
                     self.RemoveLoop(loup[0])
+
+            # retrieve the valve data
+            if lbl in self.plt_vlv:
+                self.RemoveVlv(lbl)
+
+            # revert the line cell color back to default
             self.grd.SetRowLabelRenderer(row, RowLblRndr(
                 self.default_color))
         self.canvas.draw()
@@ -825,6 +912,19 @@ class InputForm(wx.Frame):
         self.canvas.draw()
         # remove the pump from the dictionary
         self.pumps.pop(lbl, None)
+
+    def RemoveTank(self, lbl):
+        # reset the warning flag
+        self.dlt_pump = False
+
+        # remove the graphics elements
+        self.plt_pump[lbl][0][0].remove()
+        self.plt_pump[lbl][1][0].remove()
+        self.plt_pump[lbl][2].remove()
+        del self.plt_pump[lbl]
+        self.canvas.draw()
+        # remove the pump from the dictionary
+        self.pumps.pop(lbl, None)        
 
     def OnLeftSelect(self, event):
         if isinstance(event.artist, Text):
@@ -1167,7 +1267,7 @@ class InputForm(wx.Frame):
         run_tpl = list(self.runs.items())
         cord = self.pts[nd_lbl]
         node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
-        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes, self.elevs, self.pumps)
+        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes, self.elevs, self.pumps, self.tanks)
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -1239,7 +1339,15 @@ class InputForm(wx.Frame):
 
         # draw the pumps and tanks
         for key in self.pumps:
-            self.DrawPump(key)
+            self.DrawPump(key, True)
+
+        for key in self.tanks:
+            self.DrawPump(key, False)
+
+        for key in self.vlvs:
+            dat = self.vlvs[key]
+            print(dat)
+            self.DrawValve(key, dat[2], dat[4], dat[0])
 
         self.Ln_Select = []
         self.Loop_Select = False
@@ -1252,6 +1360,7 @@ class InputForm(wx.Frame):
         self.linesDB()
         self.loopsDB()
         self.pumpDB()
+        self.tankDB()
 
     def nodesDB(self):
         # clear data from table
@@ -1280,6 +1389,32 @@ class InputForm(wx.Frame):
         Insql = 'INSERT INTO Pump (pumpID, units, elev, flow1, flow2, flow3, tdh1, tdh2, tdh3) VALUES(?,?,?,?,?,?,?,?,?);'
         Indata = []
         for k, v in self.pumps.items():
+            ls = list(v)
+            ls.insert(0, k)
+            Indata.append(tuple(ls))
+        DBase.Dbase(self).Daddrows(Insql, Indata)
+
+    def tankDB(self):
+        # clear data from table
+        Dsql = 'DELETE FROM Tank'
+        DBase.Dbase(self).TblEdit(Dsql)
+        # build sql to add rows to table
+        Insql = 'INSERT INTO Tank (tankID, fluid_elev, units) VALUES(?,?,?);'
+        Indata = []
+        for k, v in self.tanks.items():
+            ls = list(v)
+            ls.insert(0, k)
+            Indata.append(tuple(ls))
+        DBase.Dbase(self).Daddrows(Insql, Indata)
+
+    def valveDB(self):
+        # clear data from table
+        Dsql = 'DELETE FROM CVlv'
+        DBase.Dbase(self).TblEdit(Dsql)
+        # build sql to add rows to table
+        Insql = 'INSERT INTO Tank (CVlv_ID, typ, units, locate, set_press, length) VALUES(?,?,?,?,?,?);'
+        Indata = []
+        for k, v in self.vlvs.items():
             ls = list(v)
             ls.insert(0, k)
             Indata.append(tuple(ls))

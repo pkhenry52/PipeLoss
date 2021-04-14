@@ -97,7 +97,7 @@ class Calc(object):
         if dt[17] == 1:
             nu_2 = nu_2 * .001076
         elif dt[17] == 2:
-            nu2 = nu_2 * .00001076
+            nu_2 = nu_2 * .00001076
 
         # depending on which viscosity is provided calculate the other
         if rho_2 == 0:
@@ -142,9 +142,28 @@ class Calc(object):
     def Evaluation(self):
         Q_old = {}
 
+        var_lst = set()
+
+        for val in self.parent.nodes.values():
+            # generate val=[('B', 0, 0), ('C', 0, 20.0), ('D', 1, 0)]
+            # for each node in self.nodes
+            for l in val:
+                if l[2] == 0:
+                    # make a list of all the pipes itersecting nodes
+                    # excluding consumption flows
+                    var_lst.add(l[0])
+
+        # sort them then index them for matrix position
+        # {'B': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'H': 5, 'I': 6}
+        self.var_dic = dict((v,k) for k,v in enumerate(sorted(var_lst)))
+        
+        Np = len(self.var_dic)
+
         # STEP 1 is to define the node matrices
         # these do not change during the calculations
-        self.node_matrix()
+        Nj = self.node_matrix()
+        # then develop the matrices for the various pumps
+        trans_var, trans_cof = self.pump_matrix()
 
         # STEP 2 use the Hazen-Williams equation
         # to determine an initial Kp values once the Q's are calculated
@@ -152,7 +171,10 @@ class Calc(object):
         self.Kp_Le()
 
         # use the preliminary Kp values to determine the loop energy equations
-        self.loop_matrix()
+        loop_var, loop_cof = self.loop_matrix(Nj, Np)
+
+        self.var_arry = self.var_arry + loop_var + trans_var
+        self.coef_arry = self.coef_arry + loop_cof + trans_cof
 
         # Array values for the lines ['B', 'D', 'E', 'F', 'G', 'H', 'I']
         # Ar = np.array([
@@ -164,10 +186,14 @@ class Calc(object):
         # [-0.26819644, 4.57925996, -0.40396739, -1.30345388, 0., 0., 0.]        ]
         # [ 0., 0., 0.40396739, 0., 1.50099963, 3.09127342, -9.41131546]
         # ])
+        print('\n\nFinal variable array before calculation = ', self.var_arry)
+        print(f'\nAr array size {len(self.var_arry[0])} {len(self.var_arry)})')
         Ar = np.array(self.var_arry)
 
         # Cof = np.array([4.45,-2.23,-3.34,-3.34,4.45,0.,0.])
         Cof = np.array(self.coef_arry)
+        print('\n\nFinal coef array before calculation = ', self.coef_arry)
+        print('\nCof array size = ',len(self.coef_arry), ' must equal AR "y"')
 
         # STEP 3 solve for the initial flow values
         Q1 = np.linalg.solve(Ar, Cof)
@@ -185,25 +211,15 @@ class Calc(object):
 
         # STEP 6 use the newest Kp values to generate
         # a new set of energy equations
-        #++++++++ the number of rows to be removed from
-        # var_arry needs to be set by the number of loop
-        # equations used ++++++++++++
-        self.var_arry = self.var_arry[:-2]
-        self.loop_matrix()
-        Ar = np.array(self.var_arry)
-        Q1 = np.linalg.solve(Ar, Cof)
+
         # STEP 7 calculate the new flow values
         # put the flow and line labels into a dictionary
-        Flows = dict(zip(list(self.var_dic.keys()), Q1))
+        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
 
         # and calculate the new Velocity, Re, f and new Kp values
         self.Iterate_Flow(Flows)
         Q_old = Flows.copy()
-        self.var_arry = self.var_arry[:-2]
-        self.loop_matrix()
-        Ar = np.array(self.var_arry)
-        Q1 = np.linalg.solve(Ar, Cof)
-        Flows = dict(zip(list(self.var_dic.keys()), Q1))
+        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
 
         Q_avg = {}
         for k in Flows:
@@ -214,21 +230,13 @@ class Calc(object):
         # to find new coef for the energy equation
         # based on the equation K = Ki * Qi ^ (ni - 1)
         self.Kp_Iterated(Q_avg)
-        self.var_arry = self.var_arry[:-2]
-        self.loop_matrix()
-        Ar = np.array(self.var_arry)
-        Q1 = np.linalg.solve(Ar, Cof)
-        Flows = dict(zip(list(self.var_dic.keys()), Q1))
+        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
 
         for iters in range(5):
             # and calculate the new Velocity, Re, f and new Kp values
             self.Iterate_Flow(Q_avg)
             Q_old = Flows.copy()
-            self.var_arry = self.var_arry[:-2]
-            self.loop_matrix()
-            Ar = np.array(self.var_arry)
-            Q1 = np.linalg.solve(Ar, Cof)
-            Flows = dict(zip(list(self.var_dic.keys()), Q1))
+            Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
 
             Q_avg = {}
             for k in Flows:
@@ -239,11 +247,7 @@ class Calc(object):
             # to find new coef for the energy equation
             # based on the equation K = Ki * Qi ^ (ni - 1)
             self.Kp_Iterated(Q_avg)
-            self.var_arry = self.var_arry[:-2]
-            self.loop_matrix()
-            Ar = np.array(self.var_arry)
-            Q1 = np.linalg.solve(Ar, Cof)
-            Flows = dict(zip(list(self.var_dic.keys()), Q1))
+            Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
             # test the variation of the flows if the next iteration
             # does not change then the last values are valid
             sigma = self.Iterate_Test(Flows, Q_old)
@@ -307,26 +311,48 @@ class Calc(object):
         else:
             print('Unable to iterate network to a solution')
 
+    def pump_matrix(self):
+        print('\nCalled pump matrix')
+        trans_var = []
+        trans_cof = []
+        N_pmp = len(self.parent.pumps)
+        # use the pump data enetered for 3 opeating point to calculate
+        # the constants for the pump equation
+        n = 0
+        for k, v in self.parent.pumps.items():
+            pump_Ar = np.array([[v[2]**2,v[2],1],
+                                [v[3]**2,v[3],1],
+                                [v[4]**2,v[4],1]])
+            pump_Cof = np.array([v[5],v[6],v[7]])
+            A, B, Ho = np.linalg.solve(pump_Ar, pump_Cof)
+
+            # ho is the head generated by the pump
+            ho = Ho -B / (4 * A)
+            # this is the coef value in the transformation equation
+            cof_arry = -1 * (B / (2 * A))
+            # this defines the variable arry for the transformation
+            # equation where -1 is the flow indicator for the actual
+            # discharge pipe and +1 is the indicator or the pump flow
+            print(self.var_arry)
+            var_matx = [0] * len(self.var_arry[0])
+            ln_lbl = self.parent.nodes[k][0][0]
+            var_matx[self.var_dic[ln_lbl]] = -1
+            var_matx[n - N_pmp] = 1
+
+            trans_var.append(var_matx)
+            trans_cof.append(cof_arry)
+            
+            n += 1
+        print('transfor variable array and transfer coef array = ', trans_var, trans_cof)
+        return trans_var, trans_cof
+
     def node_matrix(self):
-        var_lst = set()
-
-        for val in self.parent.nodes.values():
-            # generate val=[('B', 0, 0), ('C', 0, 20.0), ('D', 1, 0)]
-            # for each node in self.nodes
-            for k, v1, v2, v3 in val:
-                if v2 == 0:
-                    # make a list of all the pipes itersecting nodes
-                    # excluding consumption flows
-                    var_lst.add(k)
-
-        # sort them then index them for matrix position
-        # {'B': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'H': 5, 'I': 6}
-        self.var_dic = dict((v,k) for k,v in enumerate(sorted(var_lst)))
-
+        print('\n Called node matrix')
+        N_pmp = len(self.parent.pumps)
         # generate the matrix for each node
         for val in self.parent.nodes.values():
             if len(val) > 1:
-                nd_matx = [0]*len(self.var_dic)
+                nd_matx = [0]*(len(self.var_dic) + N_pmp - 1)
                 coeff = 0
                 for k, v1, v2, v3 in val:
                     if v2 == 0:
@@ -350,13 +376,21 @@ class Calc(object):
                 # [0, 0, -1.0, -1.0, 1.0, 0, -1.0, 0],
                 # [0, 0, 0, 0, -1.0, -1.0, 0, 1.0],
                 # [-1.0, 1.0, 0, 1.0, 0, 1.0, 0, 0]]
+                for n in range(N_pmp):
+                    nd_matx.append(0)
                 self.var_arry.append(nd_matx)
     
         # +++++ Note this code to be changed to delete
         # specific node if solution is not found after first iteration+++++
         # the final array for the nodes removing the last node
-        del self.var_arry[-1]
-        del self.coef_arry[-1]
+        if N_pmp == 0:
+            del self.var_arry[-1]
+            del self.coef_arry[-1]
+
+        Nj = len(self.coef_arry)
+
+        print('initial matrices = ', self.var_arry, '\n', self.coef_arry)
+        return Nj
 
     def Kp_Le(self):
         gravity = 32.2  # ft/s^2
@@ -426,18 +460,43 @@ class Calc(object):
             self.D_e[lbl] = [dia, e, AR, ARL, Lgth, Le]
             self.K[lbl] = [Kp, n_exp]
 
-#        self.K = {'D':[4.71,1.96], 'E':[.402,1.85],'F':[1.37,1.90],'B':[.264,1.95],'G':[1.14,1.95],'I':[11.30,1.97],'H':[3.35,1.98]}
+#        self.K = {'D':[4.71,1.96], 'E':[.402,1.85],'F':[1.37,1.90],
+#        'B':[.264,1.95],'G':[1.14,1.95],'I':[11.30,1.97],'H':[3.35,1.98]}
 
-    def loop_matrix(self):
+    def Ke_adjust(self, Nj, Np, trans_var, trans_cof):
+        print('\ncalled Ke adjust ')
+
+        loop_var, loop_cof = self.loop_matrix(Nj, Np)
+
+        self.var_arry = self.var_arry[:Nj] + loop_var + trans_var
+        self.coef_arry = self.coef_arry[:Nj] + loop_cof + trans_cof
+
+        Ar = np.array(self.var_arry)
+        Cof = np.array(self.coef_arry)
+
+        print('\n\nFinal variable array before calculation = ', self.var_arry)
+        print(f'\nAr array size {len(self.var_arry[0])} {len(self.var_arry)})')
+
+        print('\n\nFinal coef array before calculation = ', self.coef_arry)
+        print('\nCof array size = ',len(self.coef_arry), ' must equal AR "y"')
+
+        Q1 = np.linalg.solve(Ar, Cof)
+        # STEP 7 calculate the new flow values
+        # put the flow and line labels into a dictionary
+        return dict(zip(list(self.var_dic.keys()), Q1))
+
+    def loop_matrix(self, Nj, Np):
+        loop_var = []
+        loop_cof = []
+        print('\n Called Loop_matrix')
         # reverse the key and values in the points dictionary
         # with the cordinates as the key
         # and the node label as the value
         inv_pts = {tuple(v):k for k,v in self.parent.pts.items()}
         # change the poly_pts dictionary cordinates
         # to the coresponding node label
-
         for num in self.parent.poly_pts:
-            k_matx = [0]*len(self.var_dic)
+            k_matx = [0]*(len(self.var_dic)+len(self.parent.pumps))
             alpha_poly_pts = []
             for v in self.parent.poly_pts[num]:
                 alpha_poly_pts.append(inv_pts[tuple(v)])
@@ -474,8 +533,12 @@ class Calc(object):
                         k_matx[v] = self.K[k][0] * k_matx[v]
                     else:
                         k_matx[v] = 0.0
-            self.var_arry.append(k_matx)
-            self.coef_arry.append(0)
+                
+            loop_var.append(k_matx)
+            loop_cof.append(0)
+
+        print('variable array and coef array for loops is = ', loop_var, loop_cof)
+        return loop_var, loop_cof
 
     def Iterate_Test(self, Qa, Qb):
         # convert the two dictionary of flows into ordered lists,
