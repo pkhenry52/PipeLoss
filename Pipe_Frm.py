@@ -267,20 +267,6 @@ class PipeFrm(wx.Frame):
             # define what this equation for pipe friction loss is.
             self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
 
-            ''' this is not needed here
-            # convert elevation to feet
-            unt = self.nb.GetPage(old).unt4.GetSelection()
-            if unt == 0:
-                elev = self.nb.GetPage(old).info4.GetValue()
-            elif unt == 1:
-                elev = self.nb.GetPage(old).info4.GetValue() / 12
-            elif unt == 2:
-                elev = self.nb.GetPage(old).info4.GetValue() * 3.281
-            elif unt == 3:
-                elev = self.nb.GetPage(old).info4.GetValue() / 30.48
-            else:
-                elev = self.nb.GetPage(old).info4.GetValue() / 304.8
-            '''
             # save the General page data
             if self.nb.GetPage(old).info1.GetValue() != '':
                 Kt0 = 0
@@ -294,21 +280,23 @@ class PipeFrm(wx.Frame):
                 ValueList.append(self.nb.GetPage(old).unt2.GetSelection())
                 DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
-                CVlv_list = []
-                CVlv_list.append(self.lbl)
-                CVlv_list.append(self.nb.GetPage(old).prv_chk.GetValue())
-                CVlv_list.append(self.nb.GetPage(old).unt_bx.GetSelection())
-                CVlv_list.append(float(self.nb.GetPage(old).locate.GetValue()))
-                CVlv_list.append(float(self.nb.GetPage(old).set_press.GetValue()))
-                CVlv_list.append(float(self.nb.GetPage(old).info2.GetValue()))
+                if self.nb.GetPage(old).prv_chk.GetValue() or \
+                self.nb.GetPage(old).bpv_chk.GetValue():
+                    CVlv_list = []
+                    CVlv_list.append(self.lbl)
+                    CVlv_list.append(self.nb.GetPage(old).prv_chk.GetValue())
+                    CVlv_list.append(self.nb.GetPage(old).unt_bx.GetSelection())
+                    CVlv_list.append(float(self.nb.GetPage(old).locate.GetValue()))
+                    CVlv_list.append(float(self.nb.GetPage(old).set_press.GetValue()))
+                    CVlv_list.append(float(self.nb.GetPage(old).info2.GetValue()))
 
-                SQL_Chk = 'SELECT CVlv_ID FROM CVlv WHERE CVlv_ID = "' + self.lbl + '"'
-                if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
-                    UpQuery = 'INSERT INTO CVlv VALUES (?,?,?,?,?,?)'
-                    DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list)
-                else:
-                    UpQuery = 'UPDATE CVlv SET typ=?, units=?, locate=?, set_press=?, length=? WHERE CVlv_ID = "' + self.lbl + '"'
-                    DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list[1:])
+                    SQL_Chk = 'SELECT CVlv_ID FROM CVlv WHERE CVlv_ID = "' + self.lbl + '"'
+                    if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
+                        UpQuery = 'INSERT INTO CVlv VALUES (?,?,?,?,?,?)'
+                        DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list)
+                    else:
+                        UpQuery = 'UPDATE CVlv SET typ=?, units=?, locate=?, set_press=?, length=? WHERE CVlv_ID = "' + self.lbl + '"'
+                        DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list[1:])
             else:
                 return
 

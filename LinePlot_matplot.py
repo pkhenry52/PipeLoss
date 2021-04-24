@@ -16,6 +16,7 @@ from matplotlib.text import Text
 import matplotlib.colors as mcolors
 import numpy as np
 from math import sin
+from scipy.interpolate import interp1d, make_interp_spline
 import DBase
 import Node_Frm
 import Pipe_Frm
@@ -219,16 +220,19 @@ class InputForm(wx.Frame):
         self.grd.SetCellEditor(10, 2, editor)
 
         btnsizer = wx.BoxSizer(wx.HORIZONTAL)
-        drw = wx.Button(self, -1, "Redraw\nLines")
+        drw = wx.Button(self, id=0, label="Redraw\nLines")
         self.loop = wx.Button(self, -1, "Select\nLoop\nLines")
+        self.pseudo = wx.Button(self, id=1, label="Select\nPseudo\nLines")
         xit = wx.Button(self, -1, "Exit")
         btnsizer.Add(drw, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         btnsizer.Add(self.loop, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        btnsizer.Add(self.pseudo, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         btnsizer.Add(xit, 0, wx.ALL|wx.ALIGN_CENTER, 5)
 
         # bind the button events to handlers
         self.Bind(wx.EVT_BUTTON, self.OnReDraw, drw)
         self.Bind(wx.EVT_BUTTON, self.OnLoop, self.loop)
+        self.Bind(wx.EVT_BUTTON, self.OnLoop, self.pseudo)
         self.Bind(wx.EVT_BUTTON, self.OnExit, xit)
 
         sizerL.Add((10, 20))
@@ -363,6 +367,7 @@ class InputForm(wx.Frame):
                 self.Ln_Select = v[1]
                 self.AddLoop(k)
                 pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
+        self.Ln_Select = []
 
     def GrdLoad(self):
         # load the points information into the grid against the
@@ -720,6 +725,53 @@ class InputForm(wx.Frame):
                 self.canvas.draw()
                 break
 
+    def DrawPseudo(self):
+
+        '''
+        pts = [(0,0), (0.3,-0.15), (2.5,-1.2), (1.9,0.1)]
+        pseudo_pts = sorted(pts, key = lambda k:[k[0], k[1]])
+        X, Y = map(list, zip(*pseudo_pts))
+        '''
+
+        gap = 0.05
+        ln_1 = [(0, 0), (0.2 ,-0.2)]
+        # calculate the slope of the lines
+        m1 = (ln_1[1][1] - ln_1[0][1]) / (ln_1[1][0] - ln_1[0][0])
+
+        # slope of line perpendicular to main line is -1/m therefore
+        # the perpendicular line equation is Y = (-1/m) * X + Bp
+        # calculate the intercept points at each end of the main line
+        # with the new parallel line and the perpendicular
+        delta_y = ((gap**2) / (1+m1**2))**.5
+        ln1_y1 = ln_1[1][1] - delta_y
+        # since line 1 end point is on perpendicular line then solve for Bp
+        Bp1 = ln_1[1][1] - (-1/m1) * ln_1[1][0]
+        # substitute into perpendicular equation and find x1
+        ln1_x1 = (ln1_y1 - Bp1) / (-1/m1)
+        # do the same for the other end of the main line
+        ln1_y2 = ln_1[0][1] - delta_y
+        Bp2 = ln_1[0][1] - (-1/m1) * ln_1[0][0]
+        ln1_x2 = (ln1_y2 -Bp2) / (-1/m1)
+        psln1 = self.ax.plot([ln1_x1, ln1_x2],
+                             [ln1_y1, ln1_y2],
+                             'black', linestyle='--', marker='')
+
+        # repeat the above for line 2
+        ln_2 = [(2.0, 0.2), (0.2, -0.2)]
+        m2 = (ln_2[1][1] - ln_2[0][1]) / (ln_2[1][0] - ln_2[0][0])
+        delta_y = delta_y = ((gap**2) / (1+m2**2))**.5
+        ln2_y1 = ln_2[1][1] - delta_y
+        Bp1 = ln_2[1][1] - (-1/m2) * ln_2[1][0]
+        ln2_x1 = (ln2_y1 - Bp1) / (-1/m2)
+        ln2_y2 = ln_2[0][1] - delta_y
+        Bp2 = ln_2[0][1] - (-1/m2) * ln_2[0][0]
+        ln2_x2 = (ln2_y2 -Bp2) / (-1/m2)
+        psln2 = self.ax.plot([ln2_x1, ln2_x2],
+                             [ln2_y1, ln2_y2],
+                             'black', linestyle='--', marker='')
+
+        self.canvas.draw()
+
     def RemoveVlv(self, ln_lbl):
         if ln_lbl in self.plt_vlv:
             self.plt_vlv.pop(ln_lbl)[0].remove()
@@ -757,7 +809,6 @@ class InputForm(wx.Frame):
             # remove the line node from the graphic if it is the only line present
             if len(self.runs) == 1:
                 nd1, nd2 = self.runs.pop(lbl)[0]
-                
                 for nd in [nd1, nd2]:
                     if nd != 'origin':
                         self.pts.pop(nd)
@@ -924,7 +975,7 @@ class InputForm(wx.Frame):
         del self.plt_pump[lbl]
         self.canvas.draw()
         # remove the pump from the dictionary
-        self.pumps.pop(lbl, None)        
+        self.pumps.pop(lbl, None)
 
     def OnLeftSelect(self, event):
         if isinstance(event.artist, Text):
@@ -1024,48 +1075,60 @@ class InputForm(wx.Frame):
     def OnLoop(self, evt):
         '''this set trigger as to what response is needed if a line is selected
         either open input screen or build loop'''
-        if self.loop.GetLabel() == 'Select\nLoop\nLines':
-            self.loop.SetLabel('Cancel\nLoop\nSelection')
-            self.Loop_Select = True
-            self.Ln_Select = []
+        btn = evt.GetId()
+        if btn == 0:
+            if self.loop.GetLabel() == 'Select\nLoop\nLines':
+                self.loop.SetLabel('Cancel\nLoop\nSelection')
+                self.Loop_Select = True
+                self.Ln_Select = []
+            else:
+                self.loop.SetLabel('Select\nLoop\nLines')
+                self.Loop_Select = False
+                self.Ln_Select = []
         else:
-            self.loop.SetLabel('Select\nLoop\nLines')
-            self.Loop_Select = False
-            self.Ln_Select = []
+            if self.pseudo.GetLabel() == 'Select\nPseudo\nLines':
+                self.pseudo.SetLabel('Cancel\nLoop\nSelection')
+                self.Loop_Select = True
+                self.Ln_Select = []
+                msg = "The first selected line must connect\n \
+to a tank, pump or control valve"
+                dialog = wx.MessageDialog(self, msg, 'Line Selection', wx.OK|wx.ICON_INFORMATION)
+                dialog.ShowModal()
+                dialog.Destroy()
+            else:
+                self.pseudo.SetLabel('Select\nPseudo\nLines')
+                self.Loop_Select = False
+                self.Ln_Select = []
 
     def Loop(self, lbl):
         ''' build the loops made up of selected lines
         when all the end points have been duplicated the loop is closed'''
 	    # temporary list of the points in a loop
         LnPts = []
+        equip = False
 
         rnd = np.random.randint(len(self.clrs))
         color_name = self.clrs[rnd]
         for pt in self.runs[lbl][0]:
-            LnPts.append(self.pts[pt])
+            if equip is False:
+                LnPts.append(self.pts[pt])
 
         if lbl in self.Ln_Select:
             # if line was previously selected, deselect it
             # remove line lbl from selected line list
             self.Ln_Select.remove(lbl)
             self.plt_lines[lbl][0].set_color(self.colours[color_name])
-            # if line end point is in list remove it, if it is not in list
-            # then it was common to another line and needs to be replaced
-            for pt in LnPts:
-                if pt in self.loop_pts:
-                    self.loop_pts.remove(pt)
-                else:
-                    self.loop_pts.append(pt)
         else:  # a new line is selected
             self.Ln_Select.append(lbl)
             self.plt_lines[lbl][0].set_color('k')
-            # add end points to loops list if they are not present
-            # if it is common to another line then remove end point
-            for pt in LnPts:
-                if pt in self.loop_pts:
-                    self.loop_pts.remove(pt)
-                else:
-                    self.loop_pts.append(pt)
+
+        # if line end point is in list remove it, if it is not in list
+        # then it was common to another line and needs to be replaced
+        for pt in LnPts:
+            if pt in self.loop_pts:
+                self.loop_pts.remove(pt)
+            else:
+                self.loop_pts.append(pt)
 
         self.canvas.draw()
 
@@ -1084,25 +1147,27 @@ class InputForm(wx.Frame):
                     loop_num = max(key_lst) + 1
                 else:
                     loop_num = loop_num[0]
+            if equip is False:
+                # determine the centroid of the polygon and the distance to the
+                # shortest to any ine line from the centroid
+                # call it the radius for the circular arc
+                Cx, Cy, r = self.centroid(self.AddLoop(loop_num))
 
-            # determine the centroid of the polygon and the distance to the
-            # shortest to any ine line from the centroid
-            # call it the radius for the circular arc
-            Cx, Cy, r = self.centroid(self.AddLoop(loop_num))
+                # Reassign the polygons points to the dictionary poly_pts
+                # moving in a clockwise direction around the
+                self.poly_pts[loop_num] = self.SetRotation(Cx, Cy, loop_num)
 
-            # Reassign the polygons points to the dictionary poly_pts
-            # moving in a clockwise direction around the
-            self.poly_pts[loop_num] = self.SetRotation(Cx, Cy, loop_num)
+                self.Loops[loop_num] = [[Cx, Cy, r], self.Ln_Select]
+                # once the loop is closed and selection is done then return
+                # the lines to ramdon colors
+                for  ln in self.Ln_Select:
+                    rnd = np.random.randint(len(self.clrs))
+                    color_name = self.clrs[rnd]
+                    self.plt_lines[ln][0].set_color(self.colours[color_name])
 
-            self.Loops[loop_num] = [[Cx, Cy, r], self.Ln_Select]
-            # once the loop is closed and selection is done then return
-            # the lines to ramdon colors
-            for  ln in self.Ln_Select:
-                rnd = np.random.randint(len(self.clrs))
-                color_name = self.clrs[rnd]
-                self.plt_lines[ln][0].set_color(self.colours[color_name])
-
-            self.DrawLoop(Cx, Cy, r, loop_num)
+                self.DrawLoop(Cx, Cy, r, loop_num)
+            else:
+                self.DrawPseudo()
 
     def AddLoop(self, loop_num):
         '''generate the consecutive list of points making up the polygon
@@ -1214,10 +1279,9 @@ class InputForm(wx.Frame):
         ''' set direction of lines around loop as clockwise'''
         # add plus one for clockwise rotation
         rot = 0
-        poly = self.poly_pts[loop_num]
-
         # make a copy of the polygon points and add the start point to
         # the end of the list
+        poly = self.poly_pts[loop_num]
         poly.append(poly[0])
 
         for n in range(0, len(poly)-1):
@@ -1348,7 +1412,9 @@ class InputForm(wx.Frame):
             dat = self.vlvs[key]
             print(dat)
             self.DrawValve(key, dat[2], dat[4], dat[0])
-
+        
+        self.DrawPseudo()
+        
         self.Ln_Select = []
         self.Loop_Select = False
 
