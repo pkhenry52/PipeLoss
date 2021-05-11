@@ -527,10 +527,12 @@ class PipeFrm(wx.Frame):
                 loc = self.nb.GetPage(0).locate.GetValue()
                 lg = self.nb.GetPage(0).info2.GetValue()
                 if self.nb.GetPage(0).prv_chk.GetValue() == 1:
+                    # selected valve is BPV
                     vlv_typ = 1
                 else:
+                    # selected valve is PRV
                     vlv_typ = 0
-                self.parent.DrawValve(self.lbl, loc, lg, vlv_typ)
+                self.parent.DrawValve(*self.parent.vlv_pts(self.lbl, loc, lg, vlv_typ))
             else:
                 self.parent.RemoveVlv(self.lbl)
 

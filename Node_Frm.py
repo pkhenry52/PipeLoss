@@ -435,7 +435,11 @@ class NodeFrm(wx.Frame):
                     tmp = endpt2
                     endpt2 = endpt1
                     endpt1 = tmp
-                self.parent.DrawArrow(endpt1, endpt2, ln[0])
+                
+                x0, y0 = self.parent.pts[endpt1]
+                x1, y1 = self.parent.pts[endpt2]
+
+                self.parent.DrawArrow(x0, y0, x1, y1, ln[0])
 
         # change the grid cell color to green to indicate data is complete
         for ltr in self.node_lst:
