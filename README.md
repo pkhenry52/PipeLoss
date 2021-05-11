@@ -5,15 +5,15 @@ Present stage of the project is the completion of the GUI interface and some off
 programming for the solution of network and single line piping.
 
 ## To Do
-Incorporate the actual coding to solve the flow and head loss calculations, followed
-with the final debugging.
+Develop the user interface to add the required pseudo loop information and 
+then add loop configuration into matrix for final solution.
 
 ## Scope
 When completed the project will be a GUI for the solution to:
 Steady Flow Analysis of Pipe Networks: An Instructional Manual by Roland W. Jeppson.
 In addition to network piping it will be able to solve single line systems for slurries
-and vapours.  The code will from Jeppson's technical, the Crane 410 technical paper and
-both the Wier and Warman pump handbooks, for slurry caluculations.
+and vapours.  The code will be derived from Jeppson's technical paper, Crane 410 technical paper and
+both the Wier and Warman pump handbooks, for slurry calculations.
 
 ## Structure
 The GUI has been built using wxpython, Reportlab for reporting, SQLite for data storage
