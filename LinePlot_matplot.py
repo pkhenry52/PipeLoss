@@ -765,7 +765,7 @@ class InputForm(wx.Frame):
             self.plt_psarow[num].append(arow)
 
             if n == int((len(lst_pts)-1) / 2):
-                lp_num = self.ax.text(x0-gap, y0-gap, num, color='magenta', picker=True)
+                lp_num = self.ax.text(xa-gap, ya-gap, num, color='magenta', picker=True)
                 self.plt_lpnum[num] = lp_num
 
         self.canvas.draw()
@@ -1244,34 +1244,45 @@ to a tank, pump or contain a control valve"
                     # first find the coordinates for the valve
                     for ln in self.nodes[pt1]:
                         if ln[0] == new_lns[0]:
-                            self.vlv_pts(new_lns[0])
+                            x, y, pt = self.vlv_pts(new_lns[0])
                             break
                     # the valve point needs to be sa ved as coordinates
                     lst_pts.append((x, y))
                     # the end point of the line either
                     # upstream for BPV or downstream for PRV needs to be specified as pt1
                     lst_pts.append(self.pts[pt1])
-                else:
-                    lst_pts.append(self.pts[pt2])
-                    lst_pts.append(self.pts[pt1])
+#                else:
+#                    lst_pts.append(self.pts[pt2])
+#                    lst_pts.append(self.pts[pt1])
 
                 # cycle through the lines selected and
                 # add the new end points to the point list
+                flag = False
                 while len(self.Ln_Select) > 0:
                     for l in self.Ln_Select:
-                    # locate the line which connects to the
-                    # point downstream from the tank/pump
+                        # locate the line which connects to the
+                        # last point
                         if pt1 in self.runs[l][0]:
+                            # if the point pt1 defines a line containing a
+                            # valve it must be the last line in the loop
+                            if l in self.vlvs:
+                                x, y, pt1 = self.vlv_pts(l)
+                                new_lns.append(l)
+                                lst_pts.append((x, y))
+                                self.Ln_Select.remove(l)
+                                flag = True
+                                break
                             # determine if the pt is first or second in the
                             # line cordinates then select the other node
                             # to append to lst_pts
+                            if flag is True:
+                                break
                             idx = int(np.cos(self.runs[l][0].index(pt1)
-                                      *(np.pi/2)))
-                            lst_pts.append(self.pts[self.runs[l][0][idx]])
+                                        *(np.pi/2)))
                             pt1 = self.runs[l][0][idx]
                             self.Ln_Select.remove(l)
+                            lst_pts.append(self.pts[self.runs[l][0][idx]])
                             new_lns.append(l)
-
                 self.Pseudo[loop_num] = [lst_pts, new_lns]
                 self.DrawPseudo(loop_num, lst_pts, new_lns)
 
