@@ -156,7 +156,7 @@ class Calc(object):
         # sort them then index them for matrix position
         # {'B': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'H': 5, 'I': 6}
         self.var_dic = dict((v,k) for k,v in enumerate(sorted(var_lst)))
-        
+        print('unknown flows by pipe = ', self.var_dic)
         Np = len(self.var_dic)
 
         # STEP 1 is to define the node matrices
@@ -171,8 +171,8 @@ class Calc(object):
         self.Kp_Le()
 
         # use the preliminary Kp values to determine the loop energy equations
-        loop_var, loop_cof = self.loop_matrix(Nj, Np)
-
+        loop_var, loop_cof = self.loop_matrix()
+        self.pseudo_matrix()
         self.var_arry = self.var_arry + loop_var + trans_var
         self.coef_arry = self.coef_arry + loop_cof + trans_cof
 
@@ -459,14 +459,13 @@ class Calc(object):
 
             self.D_e[lbl] = [dia, e, AR, ARL, Lgth, Le]
             self.K[lbl] = [Kp, n_exp]
-
+            print(self.K)
 #        self.K = {'D':[4.71,1.96], 'E':[.402,1.85],'F':[1.37,1.90],
 #        'B':[.264,1.95],'G':[1.14,1.95],'I':[11.30,1.97],'H':[3.35,1.98]}
 
     def Ke_adjust(self, Nj, Np, trans_var, trans_cof):
-        print('\ncalled Ke adjust ')
 
-        loop_var, loop_cof = self.loop_matrix(Nj, Np)
+        loop_var, loop_cof = self.loop_matrix()
 
         self.var_arry = self.var_arry[:Nj] + loop_var + trans_var
         self.coef_arry = self.coef_arry[:Nj] + loop_cof + trans_cof
@@ -485,7 +484,7 @@ class Calc(object):
         # put the flow and line labels into a dictionary
         return dict(zip(list(self.var_dic.keys()), Q1))
 
-    def loop_matrix(self, Nj, Np):
+    def loop_matrix(self):
         loop_var = []
         loop_cof = []
         print('\n Called Loop_matrix')
@@ -522,6 +521,7 @@ class Calc(object):
                 for val in self.parent.nodes[nd1]:
                     if ln in val:
                         k_matx[self.var_dic[ln]] = cos(pi*val[1]) *-1
+                        break
             # run through the matrix of all the lines mapped
             # in the plot as specified as part of a node in order to specify
             # the index location for the Kp vaiable in the loop equations
@@ -533,12 +533,52 @@ class Calc(object):
                         k_matx[v] = self.K[k][0] * k_matx[v]
                     else:
                         k_matx[v] = 0.0
-                
+            print('loop k_matrix', k_matx)    
             loop_var.append(k_matx)
             loop_cof.append(0)
 
         print('variable array and coef array for loops is = ', loop_var, loop_cof)
         return loop_var, loop_cof
+
+    def pseudo_matrix(self):
+        pseudo_var = []
+        pseudo_cof = []
+        print('\n Called Pseudo_matrix')
+        # reverse the key and values in the points dictionary
+        # with the cordinates as the key
+        # and the node label as the value
+        inv_pts = {tuple(v):k for k,v in self.parent.pts.items()}
+        # change the poly_pts dictionary cordinates
+        # to the coresponding node label
+        for num in self.parent.Pseudo:
+            k_matx = [0]*(len(self.var_dic)+len(self.parent.pumps))
+            alpha_poly_pts = []
+            for v in self.parent.Pseudo[num][0]:
+                if tuple(v) in inv_pts:
+                    alpha_poly_pts.append(inv_pts[tuple(v)])
+            # loop lines  ['E', 'F', 'D', 'C'] loop number 1
+            for n, ln in enumerate(self.parent.Pseudo[num][1]):
+                nd1 = alpha_poly_pts[n]
+                for val in self.parent.nodes[nd1]:
+                    if ln in val:
+                        k_matx[self.var_dic[ln]] = cos(pi*val[1]) *-1
+                        break
+            # run through the matrix of all the lines mapped
+            # in the plot as specified as part of a node in order to specify
+            # the index location for the Kp vaiable in the loop equations
+            # and combine the sign of the direction arrow with the
+            # calculated Kp for the line
+
+            for k,v in self.var_dic.items():
+                if k in self.K.keys():
+                    if self.K[k][0] != 0:
+                        k_matx[v] = self.K[k][0] * k_matx[v]
+                    else:
+                        k_matx[v] = 0.0
+
+            pseudo_var.append(k_matx)
+            pseudo_cof.append(0)
+        print(pseudo_var, pseudo_cof)
 
     def Iterate_Test(self, Qa, Qb):
         # convert the two dictionary of flows into ordered lists,

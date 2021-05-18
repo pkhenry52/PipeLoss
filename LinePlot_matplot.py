@@ -228,8 +228,8 @@ class InputForm(wx.Frame):
 
         btnsizer = wx.BoxSizer(wx.HORIZONTAL)
         drw = wx.Button(self, -1, label="Redraw\nLines")
-        self.loop = wx.Button(self, id=0, label="Select\nLoop\nLines")
-        self.pseudo = wx.Button(self, id=1, label="Select\nPseudo\nLines")
+        self.loop = wx.Button(self, id=0, label="Select\nReal Loop\nLines")
+        self.pseudo = wx.Button(self, id=1, label="Select\nPseudo Loop\nLines")
         xit = wx.Button(self, -1, "Exit")
         btnsizer.Add(drw, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         btnsizer.Add(self.loop, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
@@ -965,8 +965,11 @@ class InputForm(wx.Frame):
         elif num in self.Pseudo:
             # remove the graphics from the form
             self.plt_lpnum.pop(num, None).remove()
-            self.psarow.pop(num, None)[0].remove()
-            self.plt_pseudo.pop(num, None)[0].remove()
+            for n in range(len(self.plt_psarow[num])):
+                self.plt_psarow[num][n].remove()
+                self.plt_pseudo[num][n][0].remove()
+            self.plt_psarow.pop(num, None)
+            self.plt_pseudo.pop(num, None)
             self.canvas.draw()
             # remove the items from the appropriate lists and dictionaries
             self.Pseudo.pop(num, None)      
@@ -1093,18 +1096,18 @@ class InputForm(wx.Frame):
         either open input screen or build loop'''
         btn = evt.GetId()
         if btn == 0:
-            if self.loop.GetLabel() == 'Select\nLoop\nLines':
-                self.loop.SetLabel('Cancel\nLoop\nSelection')
+            if self.loop.GetLabel() == 'Select\nReal Loop\nLines':
+                self.loop.SetLabel('Cancel\nReal Loop\nSelection')
                 self.Loop_Select = True
                 self.Ln_Select = []
             else:
-                self.loop.SetLabel('Select\nLoop\nLines')
+                self.loop.SetLabel('Select\nReal Loop\nLines')
                 self.loop_pts = []
                 self.Loop_Select = False
                 self.Ln_Select = []
         else:
-            if self.pseudo.GetLabel() == 'Select\nPseudo\nLines':
-                self.pseudo.SetLabel('Cancel\nLoop\nSelection')
+            if self.pseudo.GetLabel() == 'Select\nPseudo Loop\nLines':
+                self.pseudo.SetLabel('Cancel\nPseudo Loop\nSelection')
                 self.Loop_Select = True
                 self.Ln_Select = []
                 msg = "The first selected line must connect\n \
@@ -1114,7 +1117,7 @@ to a tank, pump or contain a control valve"
                 dialog.ShowModal()
                 dialog.Destroy()
             else:
-                self.pseudo.SetLabel('Select\nPseudo\nLines')
+                self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
                 self.Loop_Select = False
                 self.Ln_Select = []
 
@@ -1127,6 +1130,13 @@ to a tank, pump or contain a control valve"
         rnd = np.random.randint(len(self.clrs))
         color_name = self.clrs[rnd]
 
+        if 'C' in self.loop.GetLabel():
+            # selected to develop real loop
+            loop_typ = 0
+        else:
+            # selected to develop pseudo loop
+            loop_typ = 1
+
         for pt in self.runs[lbl][0]:
             if pt in self.tanks or pt in self.pumps:
                 # if the end point of the line is the point
@@ -1134,6 +1144,18 @@ to a tank, pump or contain a control valve"
                 # add it to the list of points LnPts
                 continue
             elif lbl in self.vlvs:
+                if loop_typ == 0:
+                    msg = '''A closed or real loop cannot have a \
+                    line containing a control valve.'''
+                    dialog = wx.MessageDialog(self, msg, 'Faulty Line Selection',
+                                            wx.OK | wx.ICON_ERROR)
+                    dialog.ShowModal()
+                    dialog.Destroy()
+                    # add the line now and delete it from Ln_Select
+                    # after exiting FOR loop
+                    self.Ln_Select.append(lbl)
+                    break
+
                 # check if line contains a valve
                 ptv = False
                 for ln in self.nodes[pt]:
@@ -1151,7 +1173,7 @@ to a tank, pump or contain a control valve"
                 if ptv:
                     msg = 'Next line selected must intersect at node ' + pt
                     dialog = wx.MessageDialog(self, msg, 'Next Line',
-                                              wx.OK | wx.ICON_INFORMATION)
+                                            wx.OK | wx.ICON_INFORMATION)
                     dialog.ShowModal()
                     dialog.Destroy()
                 else:
@@ -1182,12 +1204,10 @@ to a tank, pump or contain a control valve"
         # confirm all end points have been duplicated and loop closed
         if len(self.loop_pts) == 0:
             # determine which type of loop is being drawn
-            if 'C' in self.loop.GetLabel():
-                self.loop.SetLabel('Select\nLoop\nLines')
-                loop_typ = 0
+            if loop_typ == 0:
+                self.loop.SetLabel('Select\nReal Loop\nLines')
             else:
-                self.pseudo.SetLabel('Select\nPseudo\nLines')
-                loop_typ = 1
+                self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
 
             key_lst = list(self.Loops.keys()) + list(self.Pseudo.keys())
             # check for any missing loop numbers in Loops dictionary
@@ -1625,7 +1645,7 @@ to a tank, pump or contain a control valve"
         Dsql = 'DELETE FROM Pump'
         DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
-        Insql = 'INSERT INTO Pump (pumpID, units, elev, flow1, flow2, flow3, tdh1, tdh2, tdh3) VALUES(?,?,?,?,?,?,?,?,?);'
+        Insql = 'INSERT INTO Pump (pumpID, units, fluid_elev, flow1, flow2, flow3, tdh1, tdh2, tdh3) VALUES(?,?,?,?,?,?,?,?,?);'
         Indata = []
         for k, v in self.pumps.items():
             ls = list(v)
