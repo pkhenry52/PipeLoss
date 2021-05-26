@@ -1,4 +1,28 @@
 import wx
+import wx.lib.mixins.gridlabelrenderer as glr
+import wx.grid as gridlib
+
+
+class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
+    def __init__(self, *args, **kw):
+        gridlib.Grid.__init__(self, *args, **kw)
+        glr.GridWithLabelRenderersMixin.__init__(self)
+
+
+class RowLblRndr(glr.GridLabelRenderer):
+    '''This function is needed to change the cell colors in the
+    grid after data has been saved'''
+    def __init__(self, bgcolor):
+        self._bgcolor = bgcolor
+
+    def Draw(self, grid, dc, rect, row):
+        dc.SetBrush(wx.Brush(self._bgcolor))
+        dc.SetPen(wx.TRANSPARENT_PEN)
+        dc.DrawRectangle(rect)
+        hAlign, vAlign = grid.GetRowLabelAlignment()
+        text = grid.GetRowLabelValue(row)
+        self.DrawBorder(grid, dc, rect)
+        self.DrawText(grid, dc, rect, text, hAlign, vAlign)
 
 
 class NodeFrm(wx.Frame):
@@ -254,8 +278,9 @@ class NodeFrm(wx.Frame):
             self.type_rbb.SetSelection(2)
             v = self.pumps[self.node]
             self.unt_bx.SetSelection(int(v[0]))
-        elif self.node in self.tanks:
-            self.type_rbb.SetSelection(1)
+            self.pnl2.Show()
+        else:
+            self.pnl2.Hide()
 
         self.elev = wx.TextCtrl(self.pnl2, value=str(v[1]))
         hrz1 = wx.StaticText(self.pnl2, label = ' ')
@@ -277,7 +302,6 @@ class NodeFrm(wx.Frame):
         pnl2_sizer.Add(dt_sizer, 0, wx.ALIGN_LEFT)
 
         self.pnl2.SetSizer(pnl2_sizer)
-        self.pnl2.Hide()
 
         self.pnl3 = wx.Panel(self)
         res_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -285,8 +309,13 @@ class NodeFrm(wx.Frame):
         self.tk_elev = wx.TextCtrl(self.pnl3, value=str(v[1]))
         res_sizer.Add(tk_lbl,0,wx.LEFT, 15)
         res_sizer.Add(self.tk_elev, 0, wx.LEFT, 10)
+        if self.node in self.tanks:
+            self.type_rbb.SetSelection(1)
+            self.pnl3.Show()
+        else:
+            self.pnl3.Hide()
+
         self.pnl3.SetSizer(res_sizer)
-        self.pnl3.Hide()
 
         pnl_sizer.Add(self.pnl1, 1, wx.TOP | wx.LEFT, 15)
         pnl_sizer.Add(self.pnl2, 1, wx.TOP | wx.RIGHT, 15)
@@ -382,7 +411,8 @@ class NodeFrm(wx.Frame):
         lst2 = []
         lst3 = []
         lst4 = []
-        # cycle through the radio buttons and get the value of in first row
+
+        # cycle through the radio buttons and get the value in first row
         m = 1
         for item in range(1, len(self.rad_bt), 2):
             dirct = 1
@@ -407,16 +437,17 @@ class NodeFrm(wx.Frame):
                 tpl = []
                 for tp in self.nodes[self.cmn_lns[ln_lbl]]:
                     if tp[0]==ln_lbl:
+                        print('SAVE TO NODES')
                         tpl.append(ln_lbl)
                         tpl.append(abs(dirct-1))
-                        tpl.append(tp[2])
-                        tpl.append(tp[3])
+                        tpl.append(flow)
+                        tpl.append(unts)
                         self.nodes[self.cmn_lns[ln_lbl]][n] = tuple(tpl)
                     n += 1
             lst2.append(dirct)
             lst3.append(flow)
             lst4.append(unts)
-
+       
         # make a list containing the line label, flow direction and volume
         ln_dirct = list(zip(lst1, lst2, lst3, lst4))
         # add information to the nodes dictionary
@@ -441,16 +472,23 @@ class NodeFrm(wx.Frame):
 
                 self.parent.DrawArrow(x0, y0, x1, y1, ln[0])
 
+        bg_clr = 'lightgreen'
+        if len(self.chk_bx) == 1:
+            if self.chk_bx[0].GetValue() == 1:
+                bg_clr = 'yellow'
+                row = ord(ln_lbl) - 65
+                self.parent.grd.SetRowLabelRenderer(row, RowLblRndr(bg_clr))
+
         # change the grid cell color to green to indicate data is complete
         for ltr in self.node_lst:
             if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
                 self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        0, 'lightgreen')
+                                                        0, bg_clr)
             else:
                 self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        1, 'lightgreen')
+                                                        1, bg_clr)
                 self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        2, 'lightgreen')
+                                                        2, bg_clr)
 
         # add the elevation information to the node elevation dictionary
         lst_elev = [self.info4.GetValue(), self.unt4.GetSelection()]

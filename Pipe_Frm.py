@@ -238,37 +238,37 @@ class PipeFrm(wx.Frame):
             # check to see if this a new record or an update
             ValueList, new_data = self.Data_Exist(old_pg)
 
-            # convert the input diameter to inches
-            unt = self.nb.GetPage(old).unt1.GetSelection()
-            if unt == 1:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue())
-            elif unt == 0:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 12
-            elif unt == 2:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 39.37
-            elif unt == 3:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 2.54
-            else:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 25.4
-
-            # specify the coresponding e value for the selected material
-            matr = self.nb.GetPage(old).info3.GetSelection()
-            if matr == 0:
-                e = .000084
-            elif matr == 1:
-                e = .0018
-            elif matr == 2:
-                e = .09
-            elif matr == 3:
-                e = .00006
-            elif matr == 4:
-                e = .006               
-
-            # define what this equation for pipe friction loss is.
-            self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
-
-            # save the General page data
             if self.nb.GetPage(old).info1.GetValue() != '':
+                # convert the input diameter to inches
+                unt = self.nb.GetPage(old).unt1.GetSelection()
+                if unt == 1:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue())
+                elif unt == 0:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 12
+                elif unt == 2:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 39.37
+                elif unt == 3:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 2.54
+                else:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 25.4
+
+                # specify the coresponding e value for the selected material
+                matr = self.nb.GetPage(old).info3.GetSelection()
+                if matr == 0:
+                    e = .000084
+                elif matr == 1:
+                    e = .0018
+                elif matr == 2:
+                    e = .09
+                elif matr == 3:
+                    e = .00006
+                elif matr == 4:
+                    e = .006               
+
+                # define what this equation for pipe friction loss is.
+                self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
+
+                # save the General page data
                 Kt0 = 0
                 UpQuery = self.BldQuery(old_pg, new_data)
                 ValueList.append(str(self.nb.GetPage(old).info1.GetValue()))

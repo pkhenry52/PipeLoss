@@ -31,7 +31,7 @@ class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
 class RowLblRndr(glr.GridLabelRenderer):
     '''This function is needed to change the cell colors in the
-    grid after data has been saved'''
+    grid column labels after data has been saved'''
     def __init__(self, bgcolor):
         self._bgcolor = bgcolor
 
@@ -340,7 +340,7 @@ class InputForm(wx.Frame):
 
     def DBpumps(self):
         # download the data entered in the node_frm and put it into
-        # the elevs dictionary
+        # the pumps dictionary
         data_sql = 'SELECT * FROM Pump'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -348,7 +348,7 @@ class InputForm(wx.Frame):
 
     def DBvalves(self):
         # download the data entered in the node_frm and put it into
-        # the elevs dictionary
+        # the vlvs dictionary
         data_sql = 'SELECT * FROM CVlv'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -405,18 +405,30 @@ class InputForm(wx.Frame):
         run_tpl = list(self.runs.items())
         # for each of the defined nodes generate a list of
         # lines in which they are an end point
+
         for lbl in nds:
-            node_lines = set([item[0] for item in run_tpl if lbl in item[1][0]])
+            bg_clr = 'lightgreen'
+
+            if len(self.nodes[lbl]) == 1 \
+               and lbl not in self.pumps \
+               and lbl not in self.tanks:
+                bg_clr = 'yellow'
+                row = ord(self.nodes[lbl][0][0]) - 65
+                self.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
+
+    
+            node_lines = set([item[0] for item in run_tpl
+                              if lbl in item[1][0]])
             # for every line indicated color the coresponding grid cell
             for ltr in node_lines:
                 if lbl == self.grd.GetCellValue(ord(ltr)-65, 0):
                     self.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                            0, 'lightgreen')
+                                                            0, bg_clr)
                 else:
                     self.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                            1, 'lightgreen')
+                                                            1, bg_clr)
                     self.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                            2, 'lightgreen')
+                                                            2, bg_clr)
 
         data_sql = 'SELECT ID, saved FROM General'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
@@ -1126,7 +1138,6 @@ to a tank, pump or contain a control valve"
         when all the end points have been duplicated the loop is closed'''
 	    # temporary list of the points in a loop
         LnPts = []
-
         rnd = np.random.randint(len(self.clrs))
         color_name = self.clrs[rnd]
 
@@ -1145,17 +1156,24 @@ to a tank, pump or contain a control valve"
                 continue
             elif lbl in self.vlvs:
                 if loop_typ == 0:
-                    msg = '''A closed or real loop cannot have a \
-                    line containing a control valve.'''
-                    dialog = wx.MessageDialog(self, msg, 'Faulty Line Selection',
-                                            wx.OK | wx.ICON_ERROR)
+                    msg1 = 'A closed or real loop cannot have a '
+                    msg2 = '\nline containing a control valve.'
+                    dialog = wx.MessageDialog(self, msg1 + msg2,
+                                              'Faulty Line Selection',
+                                              wx.OK | wx.ICON_ERROR)
                     dialog.ShowModal()
                     dialog.Destroy()
                     # add the line now and delete it from Ln_Select
                     # after exiting FOR loop
                     self.Ln_Select.append(lbl)
-                    break
-
+                    for  ln in self.Ln_Select:
+                        rnd = np.random.randint(len(self.clrs))
+                        color_name = self.clrs[rnd]
+                        self.plt_lines[ln][0].set_color(self.colours[color_name])
+                    self.canvas.draw()
+                    self.loop.SetLabel('Select\nReal Loop\nLines')
+                    self.Ln_Select = []
+                    return
                 # check if line contains a valve
                 ptv = False
                 for ln in self.nodes[pt]:
@@ -1178,6 +1196,7 @@ to a tank, pump or contain a control valve"
                     dialog.Destroy()
                 else:
                     continue
+
             # build a list of all the selected line end points
             # do not includ any point which designate a tank or pump
             LnPts.append(self.pts[pt])
@@ -1304,6 +1323,10 @@ to a tank, pump or contain a control valve"
                             lst_pts.append(self.pts[self.runs[l][0][idx]])
                             new_lns.append(l)
                 self.Pseudo[loop_num] = [lst_pts, new_lns]
+                for  ln in new_lns:
+                    rnd = np.random.randint(len(self.clrs))
+                    color_name = self.clrs[rnd]
+                    self.plt_lines[ln][0].set_color(self.colours[color_name])
                 self.DrawPseudo(loop_num, lst_pts, new_lns)
 
     def AddLoop(self, loop_num):
@@ -1511,6 +1534,7 @@ to a tank, pump or contain a control valve"
         run_tpl = list(self.runs.items())
         cord = self.pts[nd_lbl]
         node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
+
         Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes, self.elevs, self.pumps, self.tanks)
 
     def OnReDraw(self, evt):

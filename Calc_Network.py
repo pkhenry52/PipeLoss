@@ -162,8 +162,6 @@ class Calc(object):
         # STEP 1 is to define the node matrices
         # these do not change during the calculations
         Nj = self.node_matrix()
-        # then develop the matrices for the various pumps
-        trans_var, trans_cof = self.pump_matrix()
 
         # STEP 2 use the Hazen-Williams equation
         # to determine an initial Kp values once the Q's are calculated
@@ -172,7 +170,11 @@ class Calc(object):
 
         # use the preliminary Kp values to determine the loop energy equations
         loop_var, loop_cof = self.loop_matrix()
-        self.pseudo_matrix()
+
+        # then develop the matrices for the various pumps
+        trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
+
+        self.pseudo_matrix(A_var, k_cof)
         self.var_arry = self.var_arry + loop_var + trans_var
         self.coef_arry = self.coef_arry + loop_cof + trans_cof
 
@@ -315,7 +317,11 @@ class Calc(object):
         print('\nCalled pump matrix')
         trans_var = []
         trans_cof = []
+
         N_pmp = len(self.parent.pumps)
+        A_var = {}
+        ho_cof = {}
+
         # use the pump data enetered for 3 opeating point to calculate
         # the constants for the pump equation
         n = 0
@@ -333,18 +339,19 @@ class Calc(object):
             # this defines the variable arry for the transformation
             # equation where -1 is the flow indicator for the actual
             # discharge pipe and +1 is the indicator or the pump flow
-            print(self.var_arry)
             var_matx = [0] * len(self.var_arry[0])
             ln_lbl = self.parent.nodes[k][0][0]
             var_matx[self.var_dic[ln_lbl]] = -1
             var_matx[n - N_pmp] = 1
 
+            A_var[k] = A, n - N_pmp
+            ho_cof[k] = ho, n - N_pmp
             trans_var.append(var_matx)
             trans_cof.append(cof_arry)
-            
             n += 1
-        print('transfor variable array and transfer coef array = ', trans_var, trans_cof)
-        return trans_var, trans_cof
+
+        print('transfer variable array and transfer coef array = ', trans_var, trans_cof)
+        return trans_var, trans_cof, A_var, ho_cof
 
     def node_matrix(self):
         print('\n Called node matrix')
@@ -402,7 +409,13 @@ class Calc(object):
 
         for itm in tbldata:
             lbl = itm[0]
-        
+
+            # if three is a control valve in the line then use
+            # the upstream or down strream legth as the new pipe length
+            lgth = 0
+            if lbl in self.parent.vlvs:
+                lgth = float(self.parent.vlvs[lbl][2])
+
             # convert the input diameter to inches
             unt = itm[6]
             if unt != 1:
@@ -422,12 +435,16 @@ class Calc(object):
                 Lgth = float(itm[2])
             elif unt == 1:
                 Lgth = float(itm[2]) / 12
+                lgth = lgth / 12
             elif unt == 2:
                 Lgth = float(itm[2]) * 3.281
+                lgth = lgth * 3.281
             elif unt == 3:
                 Lgth = float(itm[2]) / 30.48
+                lgth = lgth / 30.48
             else:
                 Lgth = float(itm[2]) / 304.8
+                lgth = lgth / 304.8
 
             # specify the coresponding e value for the selected material
             matr = itm[3]
@@ -454,12 +471,17 @@ class Calc(object):
 
             Le = self.dct[lbl] * Dia / f
 
-            ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
             Kp = (4.73 * (Lgth + Le)) / (Chw**1.852 * Dia**4.87)
+
+            if lgth > 0:
+                Kp = Kp * lgth / Lgth
+                Lgth = lgth
+
+            ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
 
             self.D_e[lbl] = [dia, e, AR, ARL, Lgth, Le]
             self.K[lbl] = [Kp, n_exp]
-            print(self.K)
+
 #        self.K = {'D':[4.71,1.96], 'E':[.402,1.85],'F':[1.37,1.90],
 #        'B':[.264,1.95],'G':[1.14,1.95],'I':[11.30,1.97],'H':[3.35,1.98]}
 
@@ -520,7 +542,7 @@ class Calc(object):
                 nd1 = alpha_poly_pts[n]
                 for val in self.parent.nodes[nd1]:
                     if ln in val:
-                        k_matx[self.var_dic[ln]] = cos(pi*val[1]) *-1
+                        k_matx[self.var_dic[ln]] = cos(pi*val[1]) * -1
                         break
             # run through the matrix of all the lines mapped
             # in the plot as specified as part of a node in order to specify
@@ -533,16 +555,16 @@ class Calc(object):
                         k_matx[v] = self.K[k][0] * k_matx[v]
                     else:
                         k_matx[v] = 0.0
-            print('loop k_matrix', k_matx)    
             loop_var.append(k_matx)
             loop_cof.append(0)
 
         print('variable array and coef array for loops is = ', loop_var, loop_cof)
         return loop_var, loop_cof
 
-    def pseudo_matrix(self):
+    def pseudo_matrix(self, A_var, ho_cof):
         pseudo_var = []
         pseudo_cof = []
+
         print('\n Called Pseudo_matrix')
         # reverse the key and values in the points dictionary
         # with the cordinates as the key
@@ -550,25 +572,59 @@ class Calc(object):
         inv_pts = {tuple(v):k for k,v in self.parent.pts.items()}
         # change the poly_pts dictionary cordinates
         # to the coresponding node label
+
         for num in self.parent.Pseudo:
+            Elev = 0
+            skip_0 = False
+            skip_1 = False
+
             k_matx = [0]*(len(self.var_dic)+len(self.parent.pumps))
             alpha_poly_pts = []
             for v in self.parent.Pseudo[num][0]:
                 if tuple(v) in inv_pts:
                     alpha_poly_pts.append(inv_pts[tuple(v)])
+
             # loop lines  ['E', 'F', 'D', 'C'] loop number 1
             for n, ln in enumerate(self.parent.Pseudo[num][1]):
                 nd1 = alpha_poly_pts[n]
+                '''===> need to address units in elevations <==='''
+                if ln in self.parent.vlvs:
+                    if n == 0:
+                        Elev = self.parent.vlvs[ln][3]
+                        skip_0 = True
+                    else:
+                        Elev = -1 * self.parent.vlvs[ln][3]
+                        skip_1 = True
                 for val in self.parent.nodes[nd1]:
                     if ln in val:
-                        k_matx[self.var_dic[ln]] = cos(pi*val[1]) *-1
+                        k_matx[self.var_dic[ln]] = cos(pi*val[1]) * -1
                         break
+
+            sgn = 1
+            m = 0
+            for pt in alpha_poly_pts:
+                '''===> need to address units in elevations <==='''
+                if (m == 0 and skip_0 is False) or \
+                   (m == len(alpha_poly_pts)-1 and skip_1 is False):
+                    if m == 0:
+                        sgn = 1
+                    else:
+                        sgn = -1
+                    if pt in self.parent.elevs:
+                        Elev = Elev + self.parent.elevs[pt][0] * sgn
+                    if pt in self.parent.pumps:
+                        Elev = Elev + self.parent.pumps[pt][1] * sgn
+                        k_matx[A_var[pt][1]] = A_var[pt][0] * sgn
+                        Elev = Elev + ho_cof[pt][0] * sgn
+                    elif pt in self.parent.tanks:
+                        Elev = Elev + self.parent.tanks[pt][0] * sgn
+                m += 1
+
             # run through the matrix of all the lines mapped
             # in the plot as specified as part of a node in order to specify
             # the index location for the Kp vaiable in the loop equations
             # and combine the sign of the direction arrow with the
             # calculated Kp for the line
-
             for k,v in self.var_dic.items():
                 if k in self.K.keys():
                     if self.K[k][0] != 0:
@@ -577,8 +633,9 @@ class Calc(object):
                         k_matx[v] = 0.0
 
             pseudo_var.append(k_matx)
-            pseudo_cof.append(0)
-        print(pseudo_var, pseudo_cof)
+            pseudo_cof.append(Elev)
+
+        print('variable and coef array for pseudo loops is = ', pseudo_var, pseudo_cof)
 
     def Iterate_Test(self, Qa, Qb):
         # convert the two dictionary of flows into ordered lists,
