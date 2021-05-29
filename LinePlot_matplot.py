@@ -23,6 +23,7 @@ import Pipe_Frm
 import Calc_Network
 import Fluid_Frm
 
+
 class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, *args, **kw):
         gridlib.Grid.__init__(self, *args, **kw)
@@ -436,7 +437,8 @@ class InputForm(wx.Frame):
             for ln,saved in tbl_data:
                 if saved == 1:
                     row = ord(ln) - 65
-                    self.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
+                    self.grd.SetRowLabelRenderer(row,
+                    RowLblRndr('lightgreen'))
 
     def add_toolbar(self):
         self.toolbar = NavigationToolbar(self.canvas)
@@ -1751,8 +1753,8 @@ to a tank, pump or contain a control valve"
     def OnExit(self, evt):
         Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
         if self.cursr_set is True:
-            cursr.close()
-            db.close
+            self.cursr.close()
+            self.db.close
         self.Destroy()
 
 

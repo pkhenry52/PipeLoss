@@ -174,9 +174,9 @@ class Calc(object):
         # then develop the matrices for the various pumps
         trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
 
-        self.pseudo_matrix(A_var, k_cof)
-        self.var_arry = self.var_arry + loop_var + trans_var
-        self.coef_arry = self.coef_arry + loop_cof + trans_cof
+        pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
+        self.var_arry = self.var_arry + loop_var + trans_var + pseudo_var
+        self.coef_arry = self.coef_arry + loop_cof + trans_cof + pseudo_cof
 
         # Array values for the lines ['B', 'D', 'E', 'F', 'G', 'H', 'I']
         # Ar = np.array([
@@ -216,12 +216,12 @@ class Calc(object):
 
         # STEP 7 calculate the new flow values
         # put the flow and line labels into a dictionary
-        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
+        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
 
         # and calculate the new Velocity, Re, f and new Kp values
         self.Iterate_Flow(Flows)
         Q_old = Flows.copy()
-        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
+        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
 
         Q_avg = {}
         for k in Flows:
@@ -232,13 +232,13 @@ class Calc(object):
         # to find new coef for the energy equation
         # based on the equation K = Ki * Qi ^ (ni - 1)
         self.Kp_Iterated(Q_avg)
-        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
+        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
 
         for iters in range(5):
             # and calculate the new Velocity, Re, f and new Kp values
             self.Iterate_Flow(Q_avg)
             Q_old = Flows.copy()
-            Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
+            Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
 
             Q_avg = {}
             for k in Flows:
@@ -249,7 +249,7 @@ class Calc(object):
             # to find new coef for the energy equation
             # based on the equation K = Ki * Qi ^ (ni - 1)
             self.Kp_Iterated(Q_avg)
-            Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof)
+            Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
             # test the variation of the flows if the next iteration
             # does not change then the last values are valid
             sigma = self.Iterate_Test(Flows, Q_old)
@@ -485,12 +485,13 @@ class Calc(object):
 #        self.K = {'D':[4.71,1.96], 'E':[.402,1.85],'F':[1.37,1.90],
 #        'B':[.264,1.95],'G':[1.14,1.95],'I':[11.30,1.97],'H':[3.35,1.98]}
 
-    def Ke_adjust(self, Nj, Np, trans_var, trans_cof):
+    def Ke_adjust(self, Nj, Np, trans_var, trans_cof, A_var, k_cof):
 
         loop_var, loop_cof = self.loop_matrix()
+        pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
 
-        self.var_arry = self.var_arry[:Nj] + loop_var + trans_var
-        self.coef_arry = self.coef_arry[:Nj] + loop_cof + trans_cof
+        self.var_arry = self.var_arry[:Nj] + loop_var + trans_var + pseudo_var
+        self.coef_arry = self.coef_arry[:Nj] + loop_cof + trans_cof + pseudo_cof
 
         Ar = np.array(self.var_arry)
         Cof = np.array(self.coef_arry)
@@ -611,13 +612,13 @@ class Calc(object):
                     else:
                         sgn = -1
                     if pt in self.parent.elevs:
-                        Elev = Elev + self.parent.elevs[pt][0] * sgn
+                        Elev = Elev + float(self.parent.elevs[pt][0]) * sgn
                     if pt in self.parent.pumps:
-                        Elev = Elev + self.parent.pumps[pt][1] * sgn
+                        Elev = Elev + float(self.parent.pumps[pt][1]) * sgn
                         k_matx[A_var[pt][1]] = A_var[pt][0] * sgn
                         Elev = Elev + ho_cof[pt][0] * sgn
                     elif pt in self.parent.tanks:
-                        Elev = Elev + self.parent.tanks[pt][0] * sgn
+                        Elev = Elev + float(self.parent.tanks[pt][0]) * sgn
                 m += 1
 
             # run through the matrix of all the lines mapped
@@ -634,8 +635,8 @@ class Calc(object):
 
             pseudo_var.append(k_matx)
             pseudo_cof.append(Elev)
-
-        print('variable and coef array for pseudo loops is = ', pseudo_var, pseudo_cof)
+        print('variable array and coef array = ', pseudo_var, pseudo_cof)
+        return pseudo_var, pseudo_cof
 
     def Iterate_Test(self, Qa, Qb):
         # convert the two dictionary of flows into ordered lists,
