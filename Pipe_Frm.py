@@ -238,51 +238,37 @@ class PipeFrm(wx.Frame):
             # check to see if this a new record or an update
             ValueList, new_data = self.Data_Exist(old_pg)
 
-            # convert the input diameter to inches
-            unt = self.nb.GetPage(old).unt1.GetSelection()
-            if unt == 1:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue())
-            elif unt == 0:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 12
-            elif unt == 2:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 39.37
-            elif unt == 3:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 2.54
-            else:
-                self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 25.4
+            if self.nb.GetPage(old).info1.GetValue() != '':
+                # convert the input diameter to inches
+                unt = self.nb.GetPage(old).unt1.GetSelection()
+                if unt == 1:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue())
+                elif unt == 0:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 12
+                elif unt == 2:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 39.37
+                elif unt == 3:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 2.54
+                else:
+                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 25.4
 
-            # specify the coresponding e value for the selected material
-            matr = self.nb.GetPage(old).info3.GetSelection()
-            if matr == 0:
-                e = .000084
-            elif matr == 1:
-                e = .0018
-            elif matr == 2:
-                e = .09
-            elif matr == 3:
-                e = .00006
-            elif matr == 4:
-                e = .006               
+                # specify the coresponding e value for the selected material
+                matr = self.nb.GetPage(old).info3.GetSelection()
+                if matr == 0:
+                    e = .000084
+                elif matr == 1:
+                    e = .0018
+                elif matr == 2:
+                    e = .09
+                elif matr == 3:
+                    e = .00006
+                elif matr == 4:
+                    e = .006               
 
-            # define what this equation for pipe friction loss is.
-            self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
+                # define what this equation for pipe friction loss is.
+                self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
 
-            ''' this is not needed here
-            # convert elevation to feet
-            unt = self.nb.GetPage(old).unt4.GetSelection()
-            if unt == 0:
-                elev = self.nb.GetPage(old).info4.GetValue()
-            elif unt == 1:
-                elev = self.nb.GetPage(old).info4.GetValue() / 12
-            elif unt == 2:
-                elev = self.nb.GetPage(old).info4.GetValue() * 3.281
-            elif unt == 3:
-                elev = self.nb.GetPage(old).info4.GetValue() / 30.48
-            else:
-                elev = self.nb.GetPage(old).info4.GetValue() / 304.8
-            '''
-
-            if self.nb.GetPage(old).info1.GetValue() != '':              
+                # save the General page data
                 Kt0 = 0
                 UpQuery = self.BldQuery(old_pg, new_data)
                 ValueList.append(str(self.nb.GetPage(old).info1.GetValue()))
@@ -293,6 +279,24 @@ class PipeFrm(wx.Frame):
                 ValueList.append(self.nb.GetPage(old).unt1.GetSelection())
                 ValueList.append(self.nb.GetPage(old).unt2.GetSelection())
                 DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
+
+                if self.nb.GetPage(old).prv_chk.GetValue() or \
+                self.nb.GetPage(old).bpv_chk.GetValue():
+                    CVlv_list = []
+                    CVlv_list.append(self.lbl)
+                    CVlv_list.append(self.nb.GetPage(old).prv_chk.GetValue())
+                    CVlv_list.append(self.nb.GetPage(old).unt_bx.GetSelection())
+                    CVlv_list.append(float(self.nb.GetPage(old).locate.GetValue()))
+                    CVlv_list.append(float(self.nb.GetPage(old).set_press.GetValue()))
+                    CVlv_list.append(float(self.nb.GetPage(old).info2.GetValue()))
+
+                    SQL_Chk = 'SELECT CVlv_ID FROM CVlv WHERE CVlv_ID = "' + self.lbl + '"'
+                    if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
+                        UpQuery = 'INSERT INTO CVlv VALUES (?,?,?,?,?,?)'
+                        DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list)
+                    else:
+                        UpQuery = 'UPDATE CVlv SET typ=?, units=?, locate=?, set_press=?, length=? WHERE CVlv_ID = "' + self.lbl + '"'
+                        DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list[1:])
             else:
                 return
 
@@ -512,10 +516,29 @@ class PipeFrm(wx.Frame):
         else:
             self.nb.SetSelection(pg+1)
 
-        # if the data entered is completed then color grid line cell
+        # if the data entered is completed
         if self.data_good is True:
+            # color the line label on the grid line cell green
             row = ord(self.lbl) - 65
-            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))            
+            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
+            # check to see if a BPV or PRV has been added or removed if so
+            # pass along to parent form to add or delete valve
+            if self.nb.GetPage(0).add_vlv is True:
+                loc = self.nb.GetPage(0).locate.GetValue()
+                lg = self.nb.GetPage(0).info2.GetValue()
+                if self.nb.GetPage(0).prv_chk.GetValue() == 1:
+                    # selected valve is BPV
+                    vlv_typ = 1
+                else:
+                    # selected valve is PRV
+                    vlv_typ = 0
+                unts = self.nb.GetPage(0).unt_bx.GetSelection()
+                press = self.nb.GetPage(0).set_press.GetValue()
+                self.parent.vlvs[self.lbl] = [vlv_typ, unts, loc, press, lg]
+                self.parent.DrawValve(self.lbl, *self.parent.vlv_pts(self.lbl))
+            else:
+                self.parent.RemoveVlv(self.lbl)
+
         self.Destroy()
 
 
@@ -524,6 +547,7 @@ class General(wx.Panel):
         super(General, self).__init__(parent, name='General')
 
         self.parent = parent
+        self.add_vlv = False
 
         chcs_1 = self.parent.units
         chcs_2 = self.parent.mtr
@@ -531,7 +555,7 @@ class General(wx.Panel):
         # put the buttons in a sizer
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         
-        grd = wx.FlexGridSizer(4,3,10,10)
+        grd = wx.FlexGridSizer(3,3,10,10)
 
         hdr1 = wx.StaticText(self, label='Diameter',
                              style=wx.ALIGN_LEFT)
@@ -551,10 +575,80 @@ class General(wx.Panel):
                      (hdr2), (self.info2), (self.unt2),
                      (hdr3), (self.info3), (blk3)])
 
+        chk_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.prv_chk = wx.CheckBox(self, id=1, label='Add a Pressure Relief Valve',
+                                   style=wx.ALIGN_RIGHT)
+        self.bpv_chk = wx.CheckBox(self, id=0, label='or Back Pressure Valve',
+                                   style=wx.ALIGN_RIGHT)
+        self.prv_chk.SetValue(False)
+        self.bpv_chk.SetValue(False)
+
+        self.Bind(wx.EVT_CHECKBOX, self.Onvlv)
+
+        chk_sizer.Add(self.prv_chk, 0, wx.ALIGN_LEFT| wx.LEFT, 30)
+        chk_sizer.Add((10, 5))
+        chk_sizer.Add(self.bpv_chk, 0, wx.ALIGN_LEFT | wx.LEFT, 30)
+
+        self.pnl2 = wx.Panel(self)
+        pnl2_sizer = wx.BoxSizer(wx.VERTICAL)
+        unt_chcs = ['psig',
+                    'KPa',
+                    'feet fluid']
+
+        unt_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        hrz2 = wx.StaticText(self.pnl2, label = 'Valve Set Pressure')
+        self.set_press = wx.TextCtrl(self.pnl2, value='')
+        unt_lbl = wx.StaticText(self.pnl2, label='Units')
+        self.unt_bx = wx.Choice(self.pnl2, choices=unt_chcs, size=(-1, 30))
+        unt_sizer.Add(hrz2, 0, wx.ALIGN_CENTRE_VERTICAL | wx.LEFT, 25)
+        unt_sizer.Add(self.set_press, 0, wx.LEFT, 10)
+        unt_sizer.Add(unt_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
+        unt_sizer.Add(self.unt_bx, 0, wx.LEFT, 10)
+
+        vlv_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.vlv_lbl = wx.StaticText(self.pnl2, label='Downstream Pipe Length')
+        self.locate = wx.TextCtrl(self.pnl2, value='')
+        vlv_sizer.Add(self.vlv_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 25)
+        vlv_sizer.Add(self.locate, 0, wx.LEFT, 15)
+
+        pnl2_sizer.Add(unt_sizer, 0, wx.ALIGN_CENTRE)
+        pnl2_sizer.Add((10,20))
+        pnl2_sizer.Add(vlv_sizer, 0, wx.ALIGN_CENTER)
+        self.pnl2.Hide()
+        self.pnl2.SetSizer(pnl2_sizer)
+
         self.sizer.Add((5, 50))
         self.sizer.Add(grd, flag=wx.ALIGN_CENTER, border=15)
+        self.sizer.Add((10, 25))
+        self.sizer.Add(chk_sizer)
+        self.sizer.Add(self.pnl2, 0, wx.TOP, 30)
 
         self.SetSizer(self.sizer)
+
+    def Onvlv(self, evt):
+        if evt.GetEventObject().GetId() == 1:
+            self.bpv_chk.SetValue(False)
+            if self.prv_chk.GetValue() is False:
+                self.add_vlv = False
+                self.pnl2.Hide()
+            else:
+                self.pnl2.Show()
+                self.vlv_lbl.SetLabel('Downstream Pipe Length')
+                self.add_vlv = True
+        else:
+            self.prv_chk.SetValue(False)
+            if self.bpv_chk.GetValue() is False:
+                self.add_vlv = False
+                self.pnl2.Hide()
+            else:
+                self.pnl2.Show()
+                self.vlv_lbl.SetLabel('Upstream Pipe Length')
+                self.add_vlv = True
+        self.sizer.SetSizeHints(self)
+        self.SetSizer(self.sizer)
+        self.Layout()
+        self.Refresh()
+
 
 class ManVlv1(wx.Panel):
     def __init__(self, parent):

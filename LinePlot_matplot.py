@@ -16,11 +16,13 @@ from matplotlib.text import Text
 import matplotlib.colors as mcolors
 import numpy as np
 from math import sin
+from scipy.interpolate import interp1d, make_interp_spline
 import DBase
 import Node_Frm
 import Pipe_Frm
 import Calc_Network
 import Fluid_Frm
+
 
 class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, *args, **kw):
@@ -30,7 +32,7 @@ class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
 
 class RowLblRndr(glr.GridLabelRenderer):
     '''This function is needed to change the cell colors in the
-    grid after data has been saved'''
+    grid column labels after data has been saved'''
     def __init__(self, bgcolor):
         self._bgcolor = bgcolor
 
@@ -101,6 +103,12 @@ class InputForm(wx.Frame):
         self.plt_arow = {}
         # pump dictionary
         self.plt_pump = {}
+        # valve marked dictionary
+        self.plt_vlv = {}
+        self.plt_vlv_lbl = {}
+        # plot lines and arrows for psuedo loops
+        self.plt_pseudo = {}
+        self.plt_psarow = {}
 
         # set dictionary of points; key node letter, value tuple of point,
         self.pts = {}
@@ -110,6 +118,9 @@ class InputForm(wx.Frame):
 	    # set dictionary of loops; key loop number, value list of centroid
         # point radius and list of all associated lines by key
         self.Loops = {}
+        # dictionary for the tracking of the pseudo loops by number
+        # with list of points and lines
+        self.Pseudo ={}
         # dictionary of the points moving around a given loop
         self.poly_pts = {}
         # dictionary of nodes indicating key as node and value lst indicating
@@ -118,9 +129,15 @@ class InputForm(wx.Frame):
         # dictionary of the elevations fo the nodes
         # used in the Q energy equations
         self.elevs = {}
-        # dictionary of the pumps circuits
+        # dictionary of the pump circuits
         # used in the Q energy equations
         self.pumps = {}
+        # dictionary of the tank circuits
+        # used in the Q energy equations
+        self.tanks = {}
+        # dictionary of the control valves circuits
+        # used in the Q energy equations
+        self.vlvs = {}
 
         # list of lines selected to form a loop
         self.Ln_Select = []
@@ -144,7 +161,7 @@ class InputForm(wx.Frame):
         deleteMenu.Append(201, '&Node')
         deleteMenu.Append(202, '&Line')
         deleteMenu.Append(203, 'L&oop')
-        deleteMenu.Append(204, '&Pump')
+        deleteMenu.Append(204, '&Pump or Tank')
 
         mb.Append(fileMenu, 'File')
         mb.Append(fluidMenu, 'Fluid Data')
@@ -211,16 +228,19 @@ class InputForm(wx.Frame):
         self.grd.SetCellEditor(10, 2, editor)
 
         btnsizer = wx.BoxSizer(wx.HORIZONTAL)
-        drw = wx.Button(self, -1, "Redraw\nLines")
-        self.loop = wx.Button(self, -1, "Select\nLoop\nLines")
+        drw = wx.Button(self, -1, label="Redraw\nLines")
+        self.loop = wx.Button(self, id=0, label="Select\nReal Loop\nLines")
+        self.pseudo = wx.Button(self, id=1, label="Select\nPseudo Loop\nLines")
         xit = wx.Button(self, -1, "Exit")
         btnsizer.Add(drw, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         btnsizer.Add(self.loop, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        btnsizer.Add(self.pseudo, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         btnsizer.Add(xit, 0, wx.ALL|wx.ALIGN_CENTER, 5)
 
         # bind the button events to handlers
         self.Bind(wx.EVT_BUTTON, self.OnReDraw, drw)
         self.Bind(wx.EVT_BUTTON, self.OnLoop, self.loop)
+        self.Bind(wx.EVT_BUTTON, self.OnLoop, self.pseudo)
         self.Bind(wx.EVT_BUTTON, self.OnExit, xit)
 
         sizerL.Add((10, 20))
@@ -274,8 +294,11 @@ class InputForm(wx.Frame):
         self.DBnodes()
         self.DBelevs()
         self.DBpumps()
+        self.DBtanks()
+        self.DBvalves()
         self.DBloops()
-        # the ReDraw function will addd the lines to the plot as well as
+        self.DBpseudo()
+        # the ReDraw function will add the lines to the plot as well as
         # repopulate the plt_Txt, plt_lines and plt_txt dictionaries
         self.ReDraw()
         self.GrdLoad()
@@ -318,25 +341,50 @@ class InputForm(wx.Frame):
 
     def DBpumps(self):
         # download the data entered in the node_frm and put it into
-        # the elevs dictionary
+        # the pumps dictionary
         data_sql = 'SELECT * FROM Pump'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.pumps = {i[0]:list(i[1:]) for i in tbl_data}
 
+    def DBvalves(self):
+        # download the data entered in the node_frm and put it into
+        # the vlvs dictionary
+        data_sql = 'SELECT * FROM CVlv'
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.vlvs = {i[0]:list(i[1:]) for i in tbl_data}
+
+    def DBtanks(self):
+        # download the data entered in the node_frm and put it into
+        # the tanks dictionary
+        data_sql = 'SELECT * FROM Tank'
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.tanks = {i[0]:list(i[1:]) for i in tbl_data}        
+
     def DBloops(self):
         # enter the data base information for the loops and put it into
         # the Loops dictionaary
-        pol_dc = {}
+#        pol_dc = {}
         data_sql = 'SELECT * FROM loops'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.Loops = {i[0]:[[i[1], i[2], i[3]], literal_eval(i[4])]
-                        for i in tbl_data} 
+                          for i in tbl_data} 
             for k,v in self.Loops.items():
                 self.Ln_Select = v[1]
                 self.AddLoop(k)
-                pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
+#                pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
+                self.SetRotation(v[0][0], v[0][1], k)
+        self.Ln_Select = []
+
+    def DBpseudo(self):
+        data_sql = 'SELECT * FROM pseudo'
+        tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
+        if tbl_data != []:
+            self.Pseudo = {i[0]:[literal_eval(i[1]),literal_eval(i[2])]
+                           for i in  tbl_data}
 
     def GrdLoad(self):
         # load the points information into the grid against the
@@ -358,18 +406,30 @@ class InputForm(wx.Frame):
         run_tpl = list(self.runs.items())
         # for each of the defined nodes generate a list of
         # lines in which they are an end point
+
         for lbl in nds:
-            node_lines = set([item[0] for item in run_tpl if lbl in item[1][0]])
+            bg_clr = 'lightgreen'
+
+            if len(self.nodes[lbl]) == 1 \
+               and lbl not in self.pumps \
+               and lbl not in self.tanks:
+                bg_clr = 'yellow'
+                row = ord(self.nodes[lbl][0][0]) - 65
+                self.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
+
+    
+            node_lines = set([item[0] for item in run_tpl
+                              if lbl in item[1][0]])
             # for every line indicated color the coresponding grid cell
             for ltr in node_lines:
                 if lbl == self.grd.GetCellValue(ord(ltr)-65, 0):
                     self.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                            0, 'lightgreen')
+                                                            0, bg_clr)
                 else:
                     self.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                            1, 'lightgreen')
+                                                            1, bg_clr)
                     self.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                            2, 'lightgreen')
+                                                            2, bg_clr)
 
         data_sql = 'SELECT ID, saved FROM General'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
@@ -377,7 +437,8 @@ class InputForm(wx.Frame):
             for ln,saved in tbl_data:
                 if saved == 1:
                     row = ord(ln) - 65
-                    self.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
+                    self.grd.SetRowLabelRenderer(row,
+                    RowLblRndr('lightgreen'))
 
     def add_toolbar(self):
         self.toolbar = NavigationToolbar(self.canvas)
@@ -520,7 +581,6 @@ class InputForm(wx.Frame):
             # add the varified data to the lines dictionary self.runs
             alpha_pts.append(nd_pt1)
             alpha_pts.append(nd_pt2)
-
             self.runs[LnLbl] = [alpha_pts, New_EndPt]
             return points, LnLbl, New_EndPt
 
@@ -553,31 +613,36 @@ class InputForm(wx.Frame):
 
         self.canvas.draw()
 
-    def DrawPump(self, nd_lbl):
+    def DrawPump(self, nd_lbl, pump):
         Cx, Cy = self.pts[nd_lbl]
         xmin, xmax = self.ax.get_xlim()
         ymin, ymax = self.ax.get_ylim()
 
         # determine length of x and y axis'
-        x_lg = xmax-xmin
+        x_lg = xmax - xmin
         y_lg = ymax - ymin
 
         # set a percentage of the graph sizes for the pump radius
         rx = .05 * x_lg
         ry = .05 * y_lg
-        r = max(rx, ry)
+        r = max(rx*5/x_lg, ry*5/y_lg)
 
-        # draw the pump
-        an = np.linspace(0, 2 * np.pi, 100)
-        pump = self.ax.plot(rx * r * np.cos(an) + Cx, ry * r * np.sin(an) + Cy,
-                           color='k', picker=True)
+        if pump:
+            # draw the pump
+            an = np.linspace(0, 2 * np.pi, 100)
+            pump = self.ax.plot(rx * r * np.cos(an) + Cx, ry * r * np.sin(an) + Cy,
+                            color='k', picker=True)
  
         # determine the orientation of the tank
         xcord = xmax - x_lg / 2
         ycord = ymax - y_lg / 2
         if Cx > xcord and Cy > ycord:
-            lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
-                                   color='k', picker=True)
+            if pump:
+                # lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
+                #                       color='k', picker=True)
+                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+                                       color='k', picker=True)                                        
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
             y_rect = [Cy + i * ry for i in [1.2,2.2,2.2,1.2,1.2]]
@@ -585,8 +650,12 @@ class InputForm(wx.Frame):
             lp_tank = self.ax.text(Cx + rx * 1.5, Cy + (2.2 + 1.2)/2 * ry, 'Tank',
                                    color='k')
         elif Cx > xcord and Cy <= ycord:
-            lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
-                                   color='k', picker=True)
+            if pump:
+                # lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
+                #                       color='k', picker=True)
+                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+                                       color='k', picker=True)                                        
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
             y_rect = [Cy + i * ry for i in [-1.2,0,0,-1.2,-1.2]]
@@ -594,8 +663,12 @@ class InputForm(wx.Frame):
             lp_tank = self.ax.text(Cx + rx * 1.5, Cy - 1.2/2 * ry, 'Tank',
                                    color='k')          
         elif Cx <= xcord and Cy <= ycord:
-            lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
-                                   color='k', picker=True)
+            if pump:
+                # lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
+                #                       color='k', picker=True)
+                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+                                       color='k', picker=True)                
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
             y_rect = [Cy + i * ry for i in [-1.2,-1.2,0,0,-1.2]]
@@ -603,8 +676,12 @@ class InputForm(wx.Frame):
             lp_tank = self.ax.text(Cx - rx * .7, Cy - (.7 + 1.2)/2 * ry, 'Tank',
                                    color='k')
         else:
-            lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
-                                   color='k', picker=True)
+            if pump:
+                # lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
+                #                       color='k', picker=True)
+                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+                                       color='k', picker=True) 
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
             y_rect = [Cy + i * ry for i in [1.2,1.2,2.2,2.2,1.2]]
@@ -616,14 +693,17 @@ class InputForm(wx.Frame):
         tank = self.ax.plot(x_rect, y_rect, color='k')
         pipe = self.ax.plot(x_pipe, y_pipe, color='k', picker=True)
         # save the plot information
-        self.plt_pump[nd_lbl] = [pump, tank, pipe, lp_pump, lp_tank]
+        if pump:
+            self.plt_pump[nd_lbl] = [pump, tank, pipe, lp_pump, lp_tank]
+        else:
+            self.plt_pump[nd_lbl] = [tank, pipe, lp_tank]
 
         self.canvas.draw()
 
-    def DrawArrow(self, endpt1, endpt2, LnLbl):
+    def DrawArrow(self, x0, y0, x1, y1, LnLbl):
         # get the end point coordinates
-        x0, y0 = self.pts[endpt1]
-        x1, y1 = self.pts[endpt2]
+#        x0, y0 = self.pts[endpt1]
+#        x1, y1 = self.pts[endpt2]
         # use the grid size to determine proper arrow head length and width
         xmin, xmax = self.ax.get_xlim()
         ymin, ymax = self.ax.get_ylim()
@@ -646,10 +726,88 @@ class InputForm(wx.Frame):
         self.plt_arow[LnLbl] = arow
         self.canvas.draw()
 
+    def DrawValve(self, ln_lbl, x, y, pt1):
+        # plot a red diamond at the valve location
+        vlv = self.ax.plot(x, y, c='red', markersize=10, marker='d')
+        self.plt_vlv[ln_lbl] = vlv
+
+        if self.vlvs[ln_lbl][0] == 1:
+            txt_lbl = 'BPV'
+        elif self.vlvs[ln_lbl][0] == 0:
+            txt_lbl = 'PRV'
+
+        xmin, xmax = self.ax.get_xlim()
+        ymin, ymax = self.ax.get_ylim()
+        hw = (ymax - ymin) / 70
+        hl = (xmax - xmin) / 70
+        
+        vlv_lbl = self.ax.text(x-hl, y-hw, txt_lbl, color='black')
+        self.plt_vlv_lbl[ln_lbl] = vlv_lbl
+        self.canvas.draw()
+
+    def DrawPseudo(self, num, lst_pts, new_lns):
+        self.plt_pseudo[num] = []
+        self.plt_psarow[num] = []
+        for n in range(len(lst_pts)-1):
+#            lbl = new_lns[n]
+
+            gap = 0.05
+            x0 = lst_pts[n][0] - gap
+            x1 = lst_pts[n+1][0] - gap
+            y0 = lst_pts[n][1] - gap
+            y1 = lst_pts[n+1][1] - gap
+
+            # draw thw lines parallel to the flow lines
+            # if the line is vertical
+            if x0 == x1:
+                x1 = x0
+            # if the line is horizontal
+            elif y0 == y1:
+                y1 = y0
+
+            psln = self.ax.plot([x0, x1],
+                                [y0, y1],
+                                'magenta', linestyle=':', marker='')
+            self.plt_pseudo[num].append(psln)
+
+            # draw the arrow heads on the psuedo lines
+            xmin, xmax = self.ax.get_xlim()
+            ymin, ymax = self.ax.get_ylim()
+            hw = (ymax - ymin) / 70
+            hl = (xmax - xmin) / 50
+            # specify an arrow head location just off center of the line
+            xa = .4 * x1 + .6 * x0
+            ya = .4 * y1 + .6 * y0
+            # specify the arrow head direction
+            dx = (x1 - xa) * hl
+            dy = (y1 - ya) * hl
+            # draw the sucker
+            arow = self.ax.arrow(xa, ya,
+                                dx, dy,
+                                fc='magenta', ec='k',
+                                head_width=hw,
+                                head_length=hl,
+                                length_includes_head=True)
+            self.plt_psarow[num].append(arow)
+
+            if n == int((len(lst_pts)-1) / 2):
+                lp_num = self.ax.text(xa-gap, ya-gap, num, color='magenta', picker=True)
+                self.plt_lpnum[num] = lp_num
+
+        self.canvas.draw()
+
+    def RemoveVlv(self, ln_lbl):
+        if ln_lbl in self.plt_vlv:
+            self.plt_vlv.pop(ln_lbl)[0].remove()
+            self.plt_vlv_lbl.pop(ln_lbl).remove()
+        self.canvas.draw()
+        self.Refresh()
+        self.Update()
+
     def RemoveLine(self, set_lns):
         # reset the delete warning flag
         self.dlt_line = False
-        for  lbl in set_lns:
+        for lbl in set_lns:
             # remove the lines and its label from the graphic
             if lbl in self.plt_lines:
                 self.plt_lines.pop(lbl)[0].remove()
@@ -676,7 +834,6 @@ class InputForm(wx.Frame):
             # remove the line node from the graphic if it is the only line present
             if len(self.runs) == 1:
                 nd1, nd2 = self.runs.pop(lbl)[0]
-                
                 for nd in [nd1, nd2]:
                     if nd != 'origin':
                         self.pts.pop(nd)
@@ -718,7 +875,7 @@ class InputForm(wx.Frame):
                     if nd in self.elevs:
                         del self.elevs[nd]
 
-                    # retrieve all the values from the loops dictionary
+            # retrieve all the values from the real loops dictionary
             set_loop = list(self.Loops.items())
             # get list of loops which are bordered by any of the lines
             for loup in set_loop:
@@ -729,6 +886,24 @@ class InputForm(wx.Frame):
                 loop_lns = set_lns.intersection(loup[1][1])
                 if len(loop_lns) > 0:
                     self.RemoveLoop(loup[0])
+
+            # retrieve all the values from the pseudo loops dictionary
+            set_loop = list(self.Pseudo.items())
+            # get list of loops which are bordered by any of the lines
+            for loup in set_loop:
+                # find the common lines between the loops dictionary
+                # line list and the lines intersection the node
+                # if there are any lines common to both then they
+                # represent a node associated with a loop
+                loop_lns = set_lns.intersection(loup[1][1])
+                if len(loop_lns) > 0:
+                    self.RemoveLoop(loup[0])
+
+            # retrieve the valve data
+            if lbl in self.plt_vlv:
+                self.RemoveVlv(lbl)
+
+            # revert the line cell color back to default
             self.grd.SetRowLabelRenderer(row, RowLblRndr(
                 self.default_color))
         self.canvas.draw()
@@ -788,28 +963,42 @@ class InputForm(wx.Frame):
         crc = self.ax.plot(r * np.cos(an)+Cx, r * np.sin(an)+Cy,
                            color='k', picker=True)
         self.crcl[num] = crc
+
         # add the arrow head to circle
         arow = self.ax.plot(Cx-r, Cy, '^', ls='-', ms=mrk,
                             color='k', picker=True)
         self.arrw[num] = arow
+
         # number the loop circle
         lp_num = self.ax.text(Cx, Cy, num, color='k', picker=True)
         self.plt_lpnum[num] = lp_num
+
         self.Loop_Select = False
         self.canvas.draw()
 
     def RemoveLoop(self, num):
         # reset the delete warning flag
         self.dlt_loop = False
-
-        # remove the graphics from the form
-        self.plt_lpnum.pop(num, None).remove()
-        self.arrw.pop(num, None)[0].remove()
-        self.crcl.pop(num, None)[0].remove()
-        self.canvas.draw()
-        # remove the items from the appropriate lists and dictionaries
-        self.Loops.pop(num, None)
-        self.poly_pts.pop(num, None)
+        if num in self.Loops:
+            # remove the graphics from the form
+            self.plt_lpnum.pop(num, None).remove()
+            self.arrw.pop(num, None)[0].remove()
+            self.crcl.pop(num, None)[0].remove()
+            self.canvas.draw()
+            # remove the items from the appropriate lists and dictionaries
+            self.Loops.pop(num, None)
+            self.poly_pts.pop(num, None)
+        elif num in self.Pseudo:
+            # remove the graphics from the form
+            self.plt_lpnum.pop(num, None).remove()
+            for n in range(len(self.plt_psarow[num])):
+                self.plt_psarow[num][n].remove()
+                self.plt_pseudo[num][n][0].remove()
+            self.plt_psarow.pop(num, None)
+            self.plt_pseudo.pop(num, None)
+            self.canvas.draw()
+            # remove the items from the appropriate lists and dictionaries
+            self.Pseudo.pop(num, None)      
 
     def RemovePump(self, lbl):
         # reset the warning flag
@@ -821,6 +1010,19 @@ class InputForm(wx.Frame):
         self.plt_pump[lbl][2][0].remove()
         self.plt_pump[lbl][3].remove()
         self.plt_pump[lbl][4].remove()
+        del self.plt_pump[lbl]
+        self.canvas.draw()
+        # remove the pump from the dictionary
+        self.pumps.pop(lbl, None)
+
+    def RemoveTank(self, lbl):
+        # reset the warning flag
+        self.dlt_pump = False
+
+        # remove the graphics elements
+        self.plt_pump[lbl][0][0].remove()
+        self.plt_pump[lbl][1][0].remove()
+        self.plt_pump[lbl][2].remove()
         del self.plt_pump[lbl]
         self.canvas.draw()
         # remove the pump from the dictionary
@@ -857,12 +1059,6 @@ class InputForm(wx.Frame):
             elif lbl.isdigit():
                 if self.dlt_loop:
                     self.RemoveLoop(int(lbl))
-            '''
-            elif lbl == 'Tank':
-                print('you have selected a tank', text, lbl)
-            elif lbl == 'Pump':
-                print('you have selected a pump', text, lbl)
-            '''
 
     def WarnData(self):
         msg = "A node has been specified which is not defined."
@@ -924,24 +1120,99 @@ class InputForm(wx.Frame):
     def OnLoop(self, evt):
         '''this set trigger as to what response is needed if a line is selected
         either open input screen or build loop'''
-        if self.loop.GetLabel() == 'Select\nLoop\nLines':
-            self.loop.SetLabel('Cancel\nLoop\nSelection')
-            self.Loop_Select = True
-            self.Ln_Select = []
+        btn = evt.GetId()
+        if btn == 0:
+            if self.loop.GetLabel() == 'Select\nReal Loop\nLines':
+                self.loop.SetLabel('Cancel\nReal Loop\nSelection')
+                self.Loop_Select = True
+                self.Ln_Select = []
+            else:
+                self.loop.SetLabel('Select\nReal Loop\nLines')
+                self.loop_pts = []
+                self.Loop_Select = False
+                self.Ln_Select = []
         else:
-            self.loop.SetLabel('Select\nLoop\nLines')
-            self.Loop_Select = False
-            self.Ln_Select = []
+            if self.pseudo.GetLabel() == 'Select\nPseudo Loop\nLines':
+                self.pseudo.SetLabel('Cancel\nPseudo Loop\nSelection')
+                self.Loop_Select = True
+                self.Ln_Select = []
+                msg = "The first selected line must connect\n \
+to a tank, pump or contain a control valve"
+                dialog = wx.MessageDialog(self, msg, 'Line Selection',
+                                          wx.OK|wx.ICON_INFORMATION)
+                dialog.ShowModal()
+                dialog.Destroy()
+            else:
+                self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
+                self.Loop_Select = False
+                self.Ln_Select = []
 
     def Loop(self, lbl):
         ''' build the loops made up of selected lines
         when all the end points have been duplicated the loop is closed'''
 	    # temporary list of the points in a loop
         LnPts = []
-
         rnd = np.random.randint(len(self.clrs))
         color_name = self.clrs[rnd]
+
+        if 'C' in self.loop.GetLabel():
+            # selected to develop real loop
+            loop_typ = 0
+        else:
+            # selected to develop pseudo loop
+            loop_typ = 1
+
         for pt in self.runs[lbl][0]:
+            if pt in self.tanks or pt in self.pumps:
+                # if the end point of the line is the point
+                # at which the pump or tank is located do not
+                # add it to the list of points LnPts
+                continue
+            elif lbl in self.vlvs:
+                if loop_typ == 0:
+                    msg1 = 'A closed or real loop cannot have a '
+                    msg2 = '\nline containing a control valve.'
+                    dialog = wx.MessageDialog(self, msg1 + msg2,
+                                              'Faulty Line Selection',
+                                              wx.OK | wx.ICON_ERROR)
+                    dialog.ShowModal()
+                    dialog.Destroy()
+                    # add the line now and delete it from Ln_Select
+                    # after exiting FOR loop
+                    self.Ln_Select.append(lbl)
+                    for  ln in self.Ln_Select:
+                        rnd = np.random.randint(len(self.clrs))
+                        color_name = self.clrs[rnd]
+                        self.plt_lines[ln][0].set_color(self.colours[color_name])
+                    self.canvas.draw()
+                    self.loop.SetLabel('Select\nReal Loop\nLines')
+                    self.Ln_Select = []
+                    return
+                # check if line contains a valve
+                ptv = False
+                for ln in self.nodes[pt]:
+                # find the selected line in the nodes list
+                    if ln[0] == lbl:
+                        if ln[1] == 1 and self.vlvs[lbl][0] == 1:
+                        # this is the case where the flow is out
+                        # of the node toward a BPV
+                            ptv = True
+                        elif ln[1] == 0 and self.vlvs[lbl][0] == 0:
+                        # this is the case where the flow is into
+                        # the node away from a PRV
+                            ptv = True
+                        break
+                if ptv:
+                    msg = 'Next line selected must intersect at node ' + pt
+                    dialog = wx.MessageDialog(self, msg, 'Next Line',
+                                            wx.OK | wx.ICON_INFORMATION)
+                    dialog.ShowModal()
+                    dialog.Destroy()
+                else:
+                    continue
+
+            # build a list of all the selected line end points
+            # do not includ any point which designate a tank or pump
             LnPts.append(self.pts[pt])
 
         if lbl in self.Ln_Select:
@@ -949,31 +1220,29 @@ class InputForm(wx.Frame):
             # remove line lbl from selected line list
             self.Ln_Select.remove(lbl)
             self.plt_lines[lbl][0].set_color(self.colours[color_name])
-            # if line end point is in list remove it, if it is not in list
-            # then it was common to another line and needs to be replaced
-            for pt in LnPts:
-                if pt in self.loop_pts:
-                    self.loop_pts.remove(pt)
-                else:
-                    self.loop_pts.append(pt)
         else:  # a new line is selected
             self.Ln_Select.append(lbl)
             self.plt_lines[lbl][0].set_color('k')
-            # add end points to loops list if they are not present
-            # if it is common to another line then remove end point
-            for pt in LnPts:
-                if pt in self.loop_pts:
-                    self.loop_pts.remove(pt)
-                else:
-                    self.loop_pts.append(pt)
 
         self.canvas.draw()
 
-        if not self.loop_pts:
-            # confirm all end points have been duplicated and loop closed
-            self.loop.SetLabel('Select\nLoop\nLines')
+        # if line end points are in the list of line points already selected
+        # remove it, if it is not add it to the list
+        for pt in LnPts:
+            if pt in self.loop_pts:
+                self.loop_pts.remove(pt)
+            else:
+                self.loop_pts.append(pt)
 
-            key_lst = list(self.Loops.keys())
+        # confirm all end points have been duplicated and loop closed
+        if len(self.loop_pts) == 0:
+            # determine which type of loop is being drawn
+            if loop_typ == 0:
+                self.loop.SetLabel('Select\nReal Loop\nLines')
+            else:
+                self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
+
+            key_lst = list(self.Loops.keys()) + list(self.Pseudo.keys())
             # check for any missing loop numbers in Loops dictionary
             if key_lst == []:
                 loop_num = 1
@@ -985,24 +1254,94 @@ class InputForm(wx.Frame):
                 else:
                     loop_num = loop_num[0]
 
-            # determine the centroid of the polygon and the distance to the
-            # shortest to any ine line from the centroid
-            # call it the radius for the circular arc
-            Cx, Cy, r = self.centroid(self.AddLoop(loop_num))
+            # from this point on all lines have been selected
+            # code is concerned with the completed list of lines Ln_Select
 
-            # Reassign the polygons points to the dictionary poly_pts
-            # moving in a clockwise direction around the
-            self.poly_pts[loop_num] = self.SetRotation(Cx, Cy, loop_num)
+            # first part of if is for the real loop drawing
+            if loop_typ == 0:
 
-            self.Loops[loop_num] = [[Cx, Cy, r], self.Ln_Select]
-            # once the loop is closed and selection is done then return
-            # the lines to ramdon colors
-            for  ln in self.Ln_Select:
-                rnd = np.random.randint(len(self.clrs))
-                color_name = self.clrs[rnd]
-                self.plt_lines[ln][0].set_color(self.colours[color_name])
+                # determine the centroid of the polygon and the distance to the
+                # shortest to any ine line from the centroid
+                # call it the radius for the circular arc
+                Cx, Cy, r = self.centroid(self.AddLoop(loop_num))
 
-            self.DrawLoop(Cx, Cy, r, loop_num)
+                # Reassign the polygons points to the dictionary poly_pts
+                # moving in a clockwise direction around the
+                self.poly_pts[loop_num] = self.SetRotation(Cx, Cy, loop_num)
+
+                self.Loops[loop_num] = [[Cx, Cy, r], self.Ln_Select]
+                # once the loop is closed and selection is done then return
+                # the lines to ramdon colors
+                for  ln in self.Ln_Select:
+                    rnd = np.random.randint(len(self.clrs))
+                    color_name = self.clrs[rnd]
+                    self.plt_lines[ln][0].set_color(self.colours[color_name])
+
+                self.DrawLoop(Cx, Cy, r, loop_num)
+
+            # second part for pseudo loops
+            else:
+                lst_pts = []
+                # starting with the first line in Ln_Select
+                # to specify the start points
+                new_lns = [self.Ln_Select[0]]
+                pt1, pt2 = self.runs[self.Ln_Select.pop(0)][0]
+
+                # set the node point of the tank or pump as the
+                # first point in the loop pt1
+                if pt1 in self.tanks or pt1 in self.pumps:
+                    lst_pts.append(self.pts[pt1])
+                    pt1 = pt2
+                    lst_pts.append(self.pts[pt1])
+                elif new_lns[0] in self.vlvs:
+                    # first find the coordinates for the valve
+                    for ln in self.nodes[pt1]:
+                        if ln[0] == new_lns[0]:
+                            x, y, pt = self.vlv_pts(new_lns[0])
+                            break
+                    # the valve point needs to be sa ved as coordinates
+                    lst_pts.append((x, y))
+                    # the end point of the line either
+                    # upstream for BPV or downstream for PRV needs to be specified as pt1
+                    lst_pts.append(self.pts[pt1])
+#                else:
+#                    lst_pts.append(self.pts[pt2])
+#                    lst_pts.append(self.pts[pt1])
+
+                # cycle through the lines selected and
+                # add the new end points to the point list
+                flag = False
+                while len(self.Ln_Select) > 0:
+                    for l in self.Ln_Select:
+                        # locate the line which connects to the
+                        # last point
+                        if pt1 in self.runs[l][0]:
+                            # if the point pt1 defines a line containing a
+                            # valve it must be the last line in the loop
+                            if l in self.vlvs:
+                                x, y, pt1 = self.vlv_pts(l)
+                                new_lns.append(l)
+                                lst_pts.append((x, y))
+                                self.Ln_Select.remove(l)
+                                flag = True
+                                break
+                            # determine if the pt is first or second in the
+                            # line cordinates then select the other node
+                            # to append to lst_pts
+                            if flag is True:
+                                break
+                            idx = int(np.cos(self.runs[l][0].index(pt1)
+                                        *(np.pi/2)))
+                            pt1 = self.runs[l][0][idx]
+                            self.Ln_Select.remove(l)
+                            lst_pts.append(self.pts[self.runs[l][0][idx]])
+                            new_lns.append(l)
+                self.Pseudo[loop_num] = [lst_pts, new_lns]
+                for  ln in new_lns:
+                    rnd = np.random.randint(len(self.clrs))
+                    color_name = self.clrs[rnd]
+                    self.plt_lines[ln][0].set_color(self.colours[color_name])
+                self.DrawPseudo(loop_num, lst_pts, new_lns)
 
     def AddLoop(self, loop_num):
         '''generate the consecutive list of points making up the polygon
@@ -1114,10 +1453,9 @@ class InputForm(wx.Frame):
         ''' set direction of lines around loop as clockwise'''
         # add plus one for clockwise rotation
         rot = 0
-        poly = self.poly_pts[loop_num]
-
         # make a copy of the polygon points and add the start point to
         # the end of the list
+        poly = self.poly_pts[loop_num]
         poly.append(poly[0])
 
         for n in range(0, len(poly)-1):
@@ -1162,12 +1500,56 @@ class InputForm(wx.Frame):
 
         return poly
 
+    def vlv_pts(self, ln_lbl):
+        dat = self.vlvs[ln_lbl]
+        loc = dat[2]
+        lg = dat[4]
+        typ = dat[0]
+        # initialized sent from the Pipe_frm
+        # get the end points for the line
+        pt1, pt2 = self.runs[ln_lbl][0]
+        # determine the direction of flow so up and
+        # down stream flow can be determined
+        for ln in self.nodes[pt1]:
+            if ln[0] == ln_lbl:
+                # if the flow is into the first point then reverse
+                # the X0 and X1
+                # selected valve is BPV
+                if ln[1] == 1:
+                    x_0 = self.pts[pt1][0]
+                    x_1 = self.pts[pt2][0]
+                    y_0 = self.pts[pt1][1]
+                    y_1 = self.pts[pt2][1]
+                    if typ == 0:
+                        pt1 = pt2
+                # selected valve is PRV
+                elif ln[1] == 0:
+                    x_0 = self.pts[pt2][0]
+                    x_1 = self.pts[pt1][0]
+                    y_0 = self.pts[pt2][1]
+                    y_1 = self.pts[pt1][1]
+                    if typ == 1:
+                        pt1 = pt2
+                # calulate the length of the line
+                d = ((x_1 - x_0)**2 + (y_1 - y_0)**2)**.5
+                # determine the ratio of the distance the
+                # valve is along the line
+                if typ == 0:
+                    t = float(loc) / float(lg)
+                else:
+                    t = (float(lg)-float(loc)) / float(lg)
+                # calulate the point location for the valve
+                x = ((1 - t) * x_0 + t * x_1)
+                y = ((1 - t) * y_0 + t * y_1)
+        return(x, y, pt1)
+
     def Node(self, nd_lbl):
         # collect data needed to initialize the node_frm
         run_tpl = list(self.runs.items())
         cord = self.pts[nd_lbl]
         node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
-        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes, self.elevs, self.pumps)
+
+        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes, self.elevs, self.pumps, self.tanks)
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -1217,19 +1599,31 @@ class InputForm(wx.Frame):
                 self.plt_txt[pt1] = txt
                 redraw_pts.remove(pt1)
 
+        # add arrow heads to the lines for each node
         for nd_lbl, lns in self.nodes.items():
+            # lns is the list of line data at the intersection of node nd_lbl
             for ln in lns:
+                # check if line has already plotted arrow head
                 if ln[0] not in self.plt_arow:
+                    # assume line start point is at node
                     endpt1 = nd_lbl
+                    # if self.runs[ln_lbl] = (endpt1, endpt2) then if is satisfied 
                     if self.runs[ln[0]][0].index(endpt1) == 0:
                         endpt2 = self.runs[ln[0]][0][1]
+                    # if self.runs[ln_lbl] = (endpt2, endpt1) then this follows
                     else:
                         endpt2 = self.runs[ln[0]][0][0]
+
+                    # if flow is out of node reverse the arrow direction
                     if ln[1] == 1:
                         tmp = endpt2
                         endpt2 = endpt1
                         endpt1 = tmp
-                    self.DrawArrow(endpt1, endpt2, ln[0])
+
+                    x0, y0 = self.pts[endpt1]
+                    x1, y1 = self.pts[endpt2]
+
+                    self.DrawArrow(x0, y0, x1, y1, ln[0])
                     self.canvas.draw()
 
         # draw the loop arcs and label
@@ -1239,8 +1633,18 @@ class InputForm(wx.Frame):
 
         # draw the pumps and tanks
         for key in self.pumps:
-            self.DrawPump(key)
+            self.DrawPump(key, True)
 
+        for key in self.tanks:
+            self.DrawPump(key, False)
+
+        for ln_lbl in self.vlvs:
+            self.DrawValve(ln_lbl, *self.vlv_pts(ln_lbl))
+        
+        for key in self.Pseudo:
+            dat = self.Pseudo[key]
+            self.DrawPseudo(key, dat[0], dat[1])
+        
         self.Ln_Select = []
         self.Loop_Select = False
 
@@ -1251,7 +1655,9 @@ class InputForm(wx.Frame):
         self.ptsDB()
         self.linesDB()
         self.loopsDB()
+        self.pseudoDB()
         self.pumpDB()
+        self.tankDB()
 
     def nodesDB(self):
         # clear data from table
@@ -1277,9 +1683,35 @@ class InputForm(wx.Frame):
         Dsql = 'DELETE FROM Pump'
         DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
-        Insql = 'INSERT INTO Pump (pumpID, units, elev, flow1, flow2, flow3, tdh1, tdh2, tdh3) VALUES(?,?,?,?,?,?,?,?,?);'
+        Insql = 'INSERT INTO Pump (pumpID, units, fluid_elev, flow1, flow2, flow3, tdh1, tdh2, tdh3) VALUES(?,?,?,?,?,?,?,?,?);'
         Indata = []
         for k, v in self.pumps.items():
+            ls = list(v)
+            ls.insert(0, k)
+            Indata.append(tuple(ls))
+        DBase.Dbase(self).Daddrows(Insql, Indata)
+
+    def tankDB(self):
+        # clear data from table
+        Dsql = 'DELETE FROM Tank'
+        DBase.Dbase(self).TblEdit(Dsql)
+        # build sql to add rows to table
+        Insql = 'INSERT INTO Tank (tankID, fluid_elev, units) VALUES(?,?,?);'
+        Indata = []
+        for k, v in self.tanks.items():
+            ls = list(v)
+            ls.insert(0, k)
+            Indata.append(tuple(ls))
+        DBase.Dbase(self).Daddrows(Insql, Indata)
+
+    def valveDB(self):
+        # clear data from table
+        Dsql = 'DELETE FROM CVlv'
+        DBase.Dbase(self).TblEdit(Dsql)
+        # build sql to add rows to table
+        Insql = 'INSERT INTO CVlv (CVlv_ID, typ, units, locate, set_press, length) VALUES(?,?,?,?,?,?);'
+        Indata = []
+        for k, v in self.vlvs.items():
             ls = list(v)
             ls.insert(0, k)
             Indata.append(tuple(ls))
@@ -1318,11 +1750,23 @@ class InputForm(wx.Frame):
                    for i in list(self.Loops.items())]
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
+    def pseudoDB(self):
+        # clear data from table
+        Dsql = 'DELETE FROM pseudo'
+        DBase.Dbase(self).TblEdit(Dsql)
+        # build sql to add rows to table
+        Insql = '''INSERT INTO pseudo (loop_num, points, lines)
+         VALUES(?,?,?);'''
+        # convert the tuple inside the dictionary to a string
+        Indata = [(i[0], str(i[1][0]), str(i[1][1]))
+                   for i in list(self.Pseudo.items())]
+        DBase.Dbase(self).Daddrows(Insql, Indata)
+
     def OnExit(self, evt):
         Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
         if self.cursr_set is True:
-            cursr.close()
-            db.close
+            self.cursr.close()
+            self.db.close
         self.Destroy()
 
 

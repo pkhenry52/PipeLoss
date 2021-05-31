@@ -1,8 +1,32 @@
 import wx
+import wx.lib.mixins.gridlabelrenderer as glr
+import wx.grid as gridlib
+
+
+class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
+    def __init__(self, *args, **kw):
+        gridlib.Grid.__init__(self, *args, **kw)
+        glr.GridWithLabelRenderersMixin.__init__(self)
+
+
+class RowLblRndr(glr.GridLabelRenderer):
+    '''This function is needed to change the cell colors in the
+    grid after data has been saved'''
+    def __init__(self, bgcolor):
+        self._bgcolor = bgcolor
+
+    def Draw(self, grid, dc, rect, row):
+        dc.SetBrush(wx.Brush(self._bgcolor))
+        dc.SetPen(wx.TRANSPARENT_PEN)
+        dc.DrawRectangle(rect)
+        hAlign, vAlign = grid.GetRowLabelAlignment()
+        text = grid.GetRowLabelValue(row)
+        self.DrawBorder(grid, dc, rect)
+        self.DrawText(grid, dc, rect, text, hAlign, vAlign)
 
 
 class NodeFrm(wx.Frame):
-    def __init__(self, parent, node, cord, node_lst, node_dict, elevs_dict, pumps_dict):
+    def __init__(self, parent, node, cord, node_lst, node_dict, elevs_dict, pumps_dict, tanks_dict):
 
         self.rad_bt = []
         self.chk_bx = []
@@ -14,6 +38,7 @@ class NodeFrm(wx.Frame):
         self.nodes = node_dict    # the dictionary of nodes
         self.elevs = elevs_dict
         self.pumps = pumps_dict
+        self.tanks = tanks_dict
         self.node_lst = set(node_lst)  # set of the lines associated with node
         self.node = node    # the node label which has been selected
         self.saved = False
@@ -209,17 +234,16 @@ class NodeFrm(wx.Frame):
 
         for rbsizer in rbsizers:
             self.sizer.Add((10, 10))
-            self.sizer.Add(rbsizer, 0)       
-        
+            self.sizer.Add(rbsizer, 0)
+
         pnl_sizer =wx.BoxSizer(wx.HORIZONTAL)
         self.pnl1 = wx.Panel(self)
         pnl1_sizer = wx.BoxSizer(wx.VERTICAL)
         btn_lbls = ['Intersection of Multiple\nLines As List Above',
-                    'Back Pressure Valve',
-                    'Pressure Regulating Valve',
+                    'Supply Tank / Reservoir',
                     'Centrifugal Pump\nand Supply Tank']
 
-        self.type_rbb = wx.RadioBox(self.pnl1, 
+        self.type_rbb = wx.RadioBox(self.pnl1,
                                     label=
                                     'Specify type of node point;',
                                     style=wx.RA_SPECIFY_COLS,
@@ -229,20 +253,20 @@ class NodeFrm(wx.Frame):
         self.Bind(wx.EVT_RADIOBOX, self.OnRadioBx)
         pnl1_sizer.Add(self.type_rbb, 0)
         self.pnl1.SetSizer(pnl1_sizer)
-        
+
         self.pnl2 = wx.Panel(self)
         pnl2_sizer = wx.BoxSizer(wx.VERTICAL)
         unt_chcs = ['USGPM & feet',
                     'ft^3/s & feet',
                     'm^3/h & meters']
-        
+
         unt_sizer = wx.BoxSizer(wx.HORIZONTAL)
         unt_lbl = wx.StaticText(self.pnl2, label='Units')
         self.unt_bx = wx.Choice(self.pnl2, choices=unt_chcs, size=(-1, 30))
         unt_sizer.Add(unt_lbl, 0, wx.ALIGN_BOTTOM | wx.RIGHT, 10)
         unt_sizer.Add(self.unt_bx, 0, wx.ALIGN_CENTER)
 
-        tk_sizer=wx.BoxSizer(wx.HORIZONTAL)
+        tk_sizer = wx.BoxSizer(wx.HORIZONTAL)
         tk_lbl = wx.StaticText(self.pnl2, label='Tank Fluid\nElevation')
         flw_lbl = wx.StaticText(self.pnl2,
                                 label='Pump Operating Points\n Flow\t\t\tTDH')
@@ -251,10 +275,13 @@ class NodeFrm(wx.Frame):
 
         v = [' '] * 8
         if self.node in self.pumps:
-            self.type_rbb.SetSelection(3)
+            self.type_rbb.SetSelection(2)
             v = self.pumps[self.node]
             self.unt_bx.SetSelection(int(v[0]))
- 
+            self.pnl2.Show()
+        else:
+            self.pnl2.Hide()
+
         self.elev = wx.TextCtrl(self.pnl2, value=str(v[1]))
         hrz1 = wx.StaticText(self.pnl2, label = ' ')
         hrz2 = wx.StaticText(self.pnl2, label = ' ')
@@ -275,9 +302,25 @@ class NodeFrm(wx.Frame):
         pnl2_sizer.Add(dt_sizer, 0, wx.ALIGN_LEFT)
 
         self.pnl2.SetSizer(pnl2_sizer)
-        self.pnl2.Hide()
+
+        self.pnl3 = wx.Panel(self)
+        res_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        tk_lbl = wx.StaticText(self.pnl3, label='Tank Fluid\nElevation')
+        self.tk_elev = wx.TextCtrl(self.pnl3, value='')
+        res_sizer.Add(tk_lbl,0,wx.LEFT, 15)
+        res_sizer.Add(self.tk_elev, 0, wx.LEFT, 10)
+        if self.node in self.tanks:
+            self.type_rbb.SetSelection(1)
+            self.tk_elev.SetValue(str(self.tanks[self.node][0]))
+            self.pnl3.Show()
+        else:
+            self.pnl3.Hide()
+
+        self.pnl3.SetSizer(res_sizer)
+
         pnl_sizer.Add(self.pnl1, 1, wx.TOP | wx.LEFT, 15)
         pnl_sizer.Add(self.pnl2, 1, wx.TOP | wx.RIGHT, 15)
+        pnl_sizer.Add(self.pnl3, 1, wx.TOP | wx.RIGHT, 15)
 
         self.sizer.Add(pnl_sizer, 0)
 
@@ -295,15 +338,46 @@ class NodeFrm(wx.Frame):
 
         self.sizer.SetSizeHints(self)
         self.SetSizer(self.sizer)
-        if self.node in self.pumps:
-            self.OnRadioBx(None)
+#        if self.node in self.pumps:
+#            self.OnRadioBx(None)
         self.Show(True)
 
     def OnRadioBx(self, evt):
         # rb = evt.GetEventObject()
         self.typ = self.type_rbb.GetSelection()
-        if self.typ == 3:
-            self.pnl2.Show()
+        if self.typ == 2:
+            if len(self.node_lst) > 1:
+                wx.MessageBox(
+                    'Operation not be completed\n \
+                    Pumps can only be\nlocated at the end of \
+                    \na line and not a junction', 'Info',
+                    wx.OK | wx.ICON_ERROR)
+                self.type_rbb.SetSelection(0)
+            else:
+                self.pnl3.Hide()
+                self.pnl2.Show()
+                self.sizer.SetSizeHints(self)
+                self.SetSizer(self.sizer)
+                self.Layout()
+                self.Refresh()
+        elif self.typ == 1:
+            if len(self.node_lst) > 1:
+                wx.MessageBox(
+                    'Operation not be completed./n \
+                    Tanks can only be\nlocated at the end of \
+                    \na line and not a junction', 'Info',
+                    wx.OK | wx.ICON_ERROR)
+                self.type_rbb.SetSelection(0)
+            else:
+                self.pnl2.Hide()
+                self.pnl3.Show()
+                self.sizer.SetSizeHints(self)
+                self.SetSizer(self.sizer)
+                self.Layout()
+                self.Refresh()
+        elif self.typ == 0:
+            self.pnl2.Hide()
+            self.pnl3.Hide()
             self.sizer.SetSizeHints(self)
             self.SetSizer(self.sizer)
             self.Layout()
@@ -325,11 +399,11 @@ class NodeFrm(wx.Frame):
     def OnSave(self, evt):
         # if the first item in the node type is
         # selected as just an intercestion point
-        if self.typ == 0:
-            self.SaveNode()
-        elif self.typ == 3:
-            self.SaveNode()
+        self.SaveNode()
+        if self.typ == 2:
             self.SavePump()
+        elif self.typ == 1:
+            self.SaveTank()
 
     def SaveNode(self):
         '''saves the data if the node is just
@@ -338,7 +412,8 @@ class NodeFrm(wx.Frame):
         lst2 = []
         lst3 = []
         lst4 = []
-        # cycle through the radio buttons and get the value of in first row
+
+        # cycle through the radio buttons and get the value in first row
         m = 1
         for item in range(1, len(self.rad_bt), 2):
             dirct = 1
@@ -363,16 +438,17 @@ class NodeFrm(wx.Frame):
                 tpl = []
                 for tp in self.nodes[self.cmn_lns[ln_lbl]]:
                     if tp[0]==ln_lbl:
+                        print('SAVE TO NODES')
                         tpl.append(ln_lbl)
                         tpl.append(abs(dirct-1))
-                        tpl.append(tp[2])
-                        tpl.append(tp[3])
+                        tpl.append(flow)
+                        tpl.append(unts)
                         self.nodes[self.cmn_lns[ln_lbl]][n] = tuple(tpl)
                     n += 1
             lst2.append(dirct)
             lst3.append(flow)
             lst4.append(unts)
-
+       
         # make a list containing the line label, flow direction and volume
         ln_dirct = list(zip(lst1, lst2, lst3, lst4))
         # add information to the nodes dictionary
@@ -391,18 +467,29 @@ class NodeFrm(wx.Frame):
                     tmp = endpt2
                     endpt2 = endpt1
                     endpt1 = tmp
-                self.parent.DrawArrow(endpt1, endpt2, ln[0])
+                
+                x0, y0 = self.parent.pts[endpt1]
+                x1, y1 = self.parent.pts[endpt2]
+
+                self.parent.DrawArrow(x0, y0, x1, y1, ln[0])
+
+        bg_clr = 'lightgreen'
+        if len(self.chk_bx) == 1:
+            if self.chk_bx[0].GetValue() == 1:
+                bg_clr = 'yellow'
+                row = ord(ln_lbl) - 65
+                self.parent.grd.SetRowLabelRenderer(row, RowLblRndr(bg_clr))
 
         # change the grid cell color to green to indicate data is complete
         for ltr in self.node_lst:
             if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
                 self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        0, 'lightgreen')
+                                                        0, bg_clr)
             else:
                 self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        1, 'lightgreen')
+                                                        1, bg_clr)
                 self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        2, 'lightgreen')
+                                                        2, bg_clr)
 
         # add the elevation information to the node elevation dictionary
         lst_elev = [self.info4.GetValue(), self.unt4.GetSelection()]
@@ -411,7 +498,7 @@ class NodeFrm(wx.Frame):
     def SavePump(self):
         # if the pump has not already been drawn then draw
         if self.node not in self.pumps:
-            self.parent.DrawPump(self.node)
+            self.parent.DrawPump(self.node,True)
 
         self.pumps[self.node] = [int(self.unt_bx.GetSelection()),
                                  float(self.elev.GetValue()),
@@ -421,6 +508,13 @@ class NodeFrm(wx.Frame):
                                  float(self.tdh1.GetValue()),
                                  float(self.tdh2.GetValue()),
                                  float(self.tdh3.GetValue())]
+
+    def SaveTank(self):
+        if self.node not in self.tanks:
+            self.parent.DrawPump(self.node,False)
+        
+        self.tanks[self.node] = [float(self.tk_elev.GetValue()),
+                                 int(self.unt4.GetSelection())]
 
     def OnClose(self, evt):
         self.Destroy()
