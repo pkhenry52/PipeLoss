@@ -366,7 +366,6 @@ class InputForm(wx.Frame):
     def DBloops(self):
         # enter the data base information for the loops and put it into
         # the Loops dictionaary
-#        pol_dc = {}
         data_sql = 'SELECT * FROM loops'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -375,7 +374,6 @@ class InputForm(wx.Frame):
             for k,v in self.Loops.items():
                 self.Ln_Select = v[1]
                 self.AddLoop(k)
-#                pol_dc[k] = self.SetRotation(v[0][0], v[0][1], k)
                 self.SetRotation(v[0][0], v[0][1], k)
         self.Ln_Select = []
 
@@ -492,8 +490,11 @@ class InputForm(wx.Frame):
 
         if self.pts=={}:
             self.pts['origin'] = [0, 0]
-            txt = self.ax.text(0, 0, 'origin', picker=True,
-                               color=self.colours['purple'])
+            txt=self.ax.annotate('origin',(0,0),
+                    color=self.colours['purple'],
+                    textcoords='offset points',
+                    xytext=(3,3), ha='left',
+                    picker=True)
             self.plt_txt['origin'] = txt
 
         # use the specified row and get the values for the 3
@@ -600,15 +601,21 @@ class InputForm(wx.Frame):
         # locate the center of the new line for the label location
         # and populate the dictionay with the control information
         x_mid, y_mid = ((x[0]+x[1])/2, (y[0]+y[1])/2)
-        Txt = self.ax.text(x_mid, y_mid, LnLbl, picker=True,
-                           color=self.colours[color_name])
+        Txt=self.ax.annotate(LnLbl,(x_mid, y_mid),
+                            color=self.colours[color_name],
+                            textcoords='offset points',
+                            xytext=(3,3), ha='left',
+                            picker=True)
         self.plt_Txt[LnLbl] = Txt
 
         # label the end point of the line in lower case
         # and populate the dictionay with the control information
         if New_EndPt is True:
-            txt = self.ax.text(x[1], y[1], LnLbl.lower(),
-                               picker=True, color=self.colours[color_name])
+            txt = self.ax.annotate(LnLbl.lower(), (x[1], y[1]),
+                                color=self.colours[color_name],
+                                textcoords='offset points',
+                                xytext=(3,3), ha='left',
+                                picker=True)
             self.plt_txt[LnLbl.lower()] = txt
 
         self.canvas.draw()
@@ -631,67 +638,83 @@ class InputForm(wx.Frame):
             # draw the pump
             an = np.linspace(0, 2 * np.pi, 100)
             pump = self.ax.plot(rx * r * np.cos(an) + Cx, ry * r * np.sin(an) + Cy,
-                            color='k', picker=True)
+                            color='k')#, picker=True)
  
         # determine the orientation of the tank
         xcord = xmax - x_lg / 2
         ycord = ymax - y_lg / 2
         if Cx > xcord and Cy > ycord:
             if pump:
-                # lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
-                #                       color='k', picker=True)
-                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
-                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
-                                       color='k', picker=True)                                        
+                lp_pump = self.ax.annotate('Pump', (Cx + ry * 1.02, Cy),
+                                       color='k',
+                                       textcoords='offset points',
+                                       xytext=(3,3), ha='left')
+                                       
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
             y_rect = [Cy + i * ry for i in [1.2,2.2,2.2,1.2,1.2]]
             y_pipe = [Cy, Cy + 1.2 * ry]
-            lp_tank = self.ax.text(Cx + rx * 1.5, Cy + (2.2 + 1.2)/2 * ry, 'Tank',
-                                   color='k')
+            lp_tank = self.ax.annotate('Tank',
+                                       (Cx + rx * 1.5,
+                                        Cy + (2.2 + 1.2)/2 * ry),
+                                       color='k',
+                                       textcoords='offset points',
+                                       xytext=(3,3), ha='left')
+
         elif Cx > xcord and Cy <= ycord:
             if pump:
-                # lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
-                #                       color='k', picker=True)
-                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
-                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
-                                       color='k', picker=True)                                        
+                lp_pump = self.ax.annotate('Pump', (Cx - ry * 4, Cy),
+                                       color='k',
+                                       textcoords='offset points',
+                                       xytext=(-5,-13), ha='left')
+                                       
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
             y_rect = [Cy + i * ry for i in [-1.2,0,0,-1.2,-1.2]]
             y_pipe = [Cy, Cy - 1.2 * ry]
-            lp_tank = self.ax.text(Cx + rx * 1.5, Cy - 1.2/2 * ry, 'Tank',
-                                   color='k')          
+            lp_tank = self.ax.annotate('Tank',
+                                       (Cx + rx * 1.5, Cy - 1.2/2 * ry),
+                                       color='k',
+                                       textcoords='offset points',
+                                       xytext=(3,3), ha='left')
+         
         elif Cx <= xcord and Cy <= ycord:
             if pump:
-                # lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
-                #                       color='k', picker=True)
-                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
-                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
-                                       color='k', picker=True)                
+                lp_pump = self.ax.annotate('Pump', (Cx + ry * 1.02, Cy),
+                                       color='k',
+                                       textcoords='offset points',
+                                       xytext=(3,3), ha='left')
+             
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
             y_rect = [Cy + i * ry for i in [-1.2,-1.2,0,0,-1.2]]
             y_pipe = [Cy, Cy - 1.2 * ry]
-            lp_tank = self.ax.text(Cx - rx * .7, Cy - (.7 + 1.2)/2 * ry, 'Tank',
-                                   color='k')
+            lp_tank = self.ax.annotate('Tank',
+                                       (Cx - rx * .7, Cy - (.7 + 1.2)/2 * ry),
+                                       color='k',
+                                       textcoords='offset points',
+                                       xytext=(3,3), ha='left')
+
         else:
             if pump:
-                # lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
-                #                       color='k', picker=True)
-                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
-                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
-                                       color='k', picker=True) 
+                lp_pump = self.ax.annotate('Pump', (Cx - ry * 4, Cy),
+                                       color='k',
+                                       textcoords='offset points',
+                                       xytext=(1,3), ha='center')
+
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
             y_rect = [Cy + i * ry for i in [1.2,1.2,2.2,2.2,1.2]]
             y_pipe = [Cy, Cy + 1.2 * ry]
-            lp_tank = self.ax.text(Cx - rx * .7, Cy + (1.2 + 2.2)/2 * ry, 'Tank',
-                                   color='k')
+            lp_tank = self.ax.annotate('Tank',
+                                       (Cx - rx * .7, Cy + (1.2 + 2.2)/2 * ry),
+                                       color='k',
+                                       textcoords='offset points',
+                                       xytext=(3,3), ha='left')
             
         # draw the tank and pipe
         tank = self.ax.plot(x_rect, y_rect, color='k')
-        pipe = self.ax.plot(x_pipe, y_pipe, color='k', picker=True)
+        pipe = self.ax.plot(x_pipe, y_pipe, color='k')#, picker=True)
         # save the plot information
         if pump:
             self.plt_pump[nd_lbl] = [pump, tank, pipe, lp_pump, lp_tank]
@@ -701,9 +724,6 @@ class InputForm(wx.Frame):
         self.canvas.draw()
 
     def DrawArrow(self, x0, y0, x1, y1, LnLbl):
-        # get the end point coordinates
-#        x0, y0 = self.pts[endpt1]
-#        x1, y1 = self.pts[endpt2]
         # use the grid size to determine proper arrow head length and width
         xmin, xmax = self.ax.get_xlim()
         ymin, ymax = self.ax.get_ylim()
@@ -741,7 +761,11 @@ class InputForm(wx.Frame):
         hw = (ymax - ymin) / 70
         hl = (xmax - xmin) / 70
         
-        vlv_lbl = self.ax.text(x-hl, y-hw, txt_lbl, color='black')
+        vlv_lbl=self.ax.annotate(txt_lbl,(x-hl,y-hl),
+                                 color='black',
+                                 textcoords='offset points',
+                                 xytext=(10,10), ha='left')
+
         self.plt_vlv_lbl[ln_lbl] = vlv_lbl
         self.canvas.draw()
 
@@ -749,8 +773,6 @@ class InputForm(wx.Frame):
         self.plt_pseudo[num] = []
         self.plt_psarow[num] = []
         for n in range(len(lst_pts)-1):
-#            lbl = new_lns[n]
-
             gap = 0.05
             x0 = lst_pts[n][0] - gap
             x1 = lst_pts[n+1][0] - gap
@@ -961,12 +983,12 @@ class InputForm(wx.Frame):
             mrk = 15
         # plot the circle
         crc = self.ax.plot(r * np.cos(an)+Cx, r * np.sin(an)+Cy,
-                           color='k', picker=True)
+                           color='k')#, picker=True)
         self.crcl[num] = crc
 
         # add the arrow head to circle
         arow = self.ax.plot(Cx-r, Cy, '^', ls='-', ms=mrk,
-                            color='k', picker=True)
+                            color='k')#, picker=True)
         self.arrw[num] = arow
 
         # number the loop circle
@@ -1304,9 +1326,6 @@ to a tank, pump or contain a control valve"
                     # the end point of the line either
                     # upstream for BPV or downstream for PRV needs to be specified as pt1
                     lst_pts.append(self.pts[pt1])
-#                else:
-#                    lst_pts.append(self.pts[pt2])
-#                    lst_pts.append(self.pts[pt1])
 
                 # cycle through the lines selected and
                 # add the new end points to the point list
@@ -1569,8 +1588,11 @@ to a tank, pump or contain a control valve"
         redraw_pts.remove('origin')
 
         # draw the origin location on the chart
-        txt = self.ax.text(0, 0, 'origin', picker=True,
-                           color=self.colours['purple'])
+        txt = self.ax.annotate('origin', (0,0),
+                                color=self.colours['purple'],
+                                textcoords='offset points',
+                                xytext=(3,3), ha='left',
+                                picker=True)
 
         # redraw the lines and labels
         # step through the line list
@@ -1589,13 +1611,19 @@ to a tank, pump or contain a control valve"
             # determine the mid point of the line and
             # lable it with the key
             x_mid, y_mid = [(x0+x1)/2, (y0+y1)/2]
-            Txt = self.ax.text(x_mid, y_mid, key,
-                               picker=True, color=self.colours[color_name])
+            Txt=self.ax.annotate(key,(x_mid, y_mid),
+                                color=self.colours[color_name],
+                                textcoords='offset points',
+                                xytext=(3,3), ha='left',
+                                picker=True)
             self.plt_Txt[key] = Txt
-            # determin if the node point has already been labeled if so skip 
+            # determine if the node point has already been labeled if so skip 
             if pt1 in redraw_pts:
-                txt = self.ax.text(x1, y1, pt1, picker=True,
-                                   color=self.colours[color_name])
+                txt = self.ax.annotate(pt1, (x1, y1),
+                                       color=self.colours[color_name],
+                                       textcoords='offset points',
+                                       xytext=(3,3), ha='left',
+                                       picker=True)
                 self.plt_txt[pt1] = txt
                 redraw_pts.remove(pt1)
 
