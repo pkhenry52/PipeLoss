@@ -532,7 +532,10 @@ class PipeFrm(wx.Frame):
                 else:
                     # selected valve is PRV
                     vlv_typ = 0
-                self.parent.DrawValve(*self.parent.vlv_pts(self.lbl, loc, lg, vlv_typ))
+                unts = self.nb.GetPage(0).unt_bx.GetSelection()
+                press = self.nb.GetPage(0).set_press.GetValue()
+                self.parent.vlvs[self.lbl] = [vlv_typ, unts, loc, press, lg]
+                self.parent.DrawValve(self.lbl, *self.parent.vlv_pts(self.lbl))
             else:
                 self.parent.RemoveVlv(self.lbl)
 

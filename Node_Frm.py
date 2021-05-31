@@ -306,11 +306,12 @@ class NodeFrm(wx.Frame):
         self.pnl3 = wx.Panel(self)
         res_sizer = wx.BoxSizer(wx.HORIZONTAL)
         tk_lbl = wx.StaticText(self.pnl3, label='Tank Fluid\nElevation')
-        self.tk_elev = wx.TextCtrl(self.pnl3, value=str(v[1]))
+        self.tk_elev = wx.TextCtrl(self.pnl3, value='')
         res_sizer.Add(tk_lbl,0,wx.LEFT, 15)
         res_sizer.Add(self.tk_elev, 0, wx.LEFT, 10)
         if self.node in self.tanks:
             self.type_rbb.SetSelection(1)
+            self.tk_elev.SetValue(str(self.tanks[self.node][0]))
             self.pnl3.Show()
         else:
             self.pnl3.Hide()

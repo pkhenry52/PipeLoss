@@ -619,13 +619,13 @@ class InputForm(wx.Frame):
         ymin, ymax = self.ax.get_ylim()
 
         # determine length of x and y axis'
-        x_lg = xmax-xmin
+        x_lg = xmax - xmin
         y_lg = ymax - ymin
 
         # set a percentage of the graph sizes for the pump radius
         rx = .05 * x_lg
         ry = .05 * y_lg
-        r = max(rx, ry)
+        r = max(rx*5/x_lg, ry*5/y_lg)
 
         if pump:
             # draw the pump
@@ -638,8 +638,11 @@ class InputForm(wx.Frame):
         ycord = ymax - y_lg / 2
         if Cx > xcord and Cy > ycord:
             if pump:
-                lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
-                                       color='k', picker=True)
+                # lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
+                #                       color='k', picker=True)
+                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+                                       color='k', picker=True)                                        
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
             y_rect = [Cy + i * ry for i in [1.2,2.2,2.2,1.2,1.2]]
@@ -648,8 +651,11 @@ class InputForm(wx.Frame):
                                    color='k')
         elif Cx > xcord and Cy <= ycord:
             if pump:
-                lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
-                                       color='k', picker=True)
+                # lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
+                #                       color='k', picker=True)
+                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+                                       color='k', picker=True)                                        
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
             y_rect = [Cy + i * ry for i in [-1.2,0,0,-1.2,-1.2]]
@@ -658,8 +664,11 @@ class InputForm(wx.Frame):
                                    color='k')          
         elif Cx <= xcord and Cy <= ycord:
             if pump:
-                lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
-                                       color='k', picker=True)
+                # lp_pump = self.ax.text(Cx + ry * 1.02, Cy, 'Pump',
+                #                       color='k', picker=True)
+                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+                                       color='k', picker=True)                
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
             y_rect = [Cy + i * ry for i in [-1.2,-1.2,0,0,-1.2]]
@@ -668,8 +677,11 @@ class InputForm(wx.Frame):
                                    color='k')
         else:
             if pump:
-                lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
-                                       color='k', picker=True)
+                # lp_pump = self.ax.text(Cx - ry * 4, Cy, 'Pump',
+                #                       color='k', picker=True)
+                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+                                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+                                       color='k', picker=True) 
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
             y_rect = [Cy + i * ry for i in [1.2,1.2,2.2,2.2,1.2]]
@@ -737,7 +749,7 @@ class InputForm(wx.Frame):
         self.plt_pseudo[num] = []
         self.plt_psarow[num] = []
         for n in range(len(lst_pts)-1):
-            lbl = new_lns[n]
+#            lbl = new_lns[n]
 
             gap = 0.05
             x0 = lst_pts[n][0] - gap
