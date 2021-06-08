@@ -68,9 +68,9 @@ class InputForm(wx.Frame):
 
         self.colours = mcolors.CSS4_COLORS
 
-        self.lns = []
-        self.lop = []
-        self.ends = []
+#        self.lns = []
+#        self.lop = []
+#        self.ends = []
         self.loop_pts = []
         self.cursr_set = False
 
@@ -149,7 +149,7 @@ class InputForm(wx.Frame):
         mb = wx.MenuBar()
 
         fileMenu = wx.Menu()
-        fileMenu.Append(101, '&New')
+        fileMenu.Append(101, '&Calculate')
         fileMenu.Append(103, '&Save To Database')
         fileMenu.AppendSeparator()
         fileMenu.Append(104, '&Exit')
@@ -168,6 +168,7 @@ class InputForm(wx.Frame):
         mb.Append(deleteMenu, '&Delete Element')
         self.SetMenuBar(mb)
 
+        self.Bind(wx.EVT_MENU, self.OnCalc, id=101)
         self.Bind(wx.EVT_MENU, self.OnExit, id=104)
         self.Bind(wx.EVT_MENU, self.OnDB_Save, id=103)
 
@@ -415,7 +416,6 @@ class InputForm(wx.Frame):
                 row = ord(self.nodes[lbl][0][0]) - 65
                 self.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
 
-    
             node_lines = set([item[0] for item in run_tpl
                               if lbl in item[1][0]])
             # for every line indicated color the coresponding grid cell
@@ -645,10 +645,15 @@ class InputForm(wx.Frame):
         ycord = ymax - y_lg / 2
         if Cx > xcord and Cy > ycord:
             if pump:
-                lp_pump = self.ax.annotate('Pump', (Cx + ry * 1.02, Cy),
+#                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
+#                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
+#                        color='k', picker=True) 
+                lp_pump = self.ax.annotate('Pump', 
+                                           (rx * r * np.cos(np.pi) + Cx,
+                                            ry * r * np.sin(np.pi/2) + Cy),
                                        color='k',
                                        textcoords='offset points',
-                                       xytext=(3,3), ha='left')
+                                       xytext=(3,3), ha='right')
                                        
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
@@ -663,10 +668,12 @@ class InputForm(wx.Frame):
 
         elif Cx > xcord and Cy <= ycord:
             if pump:
-                lp_pump = self.ax.annotate('Pump', (Cx - ry * 4, Cy),
+                lp_pump = self.ax.annotate('Pump',
+                                           (rx * r * np.cos(np.pi) + Cx,
+                                            ry * r * np.sin(np.pi/2) + Cy),
                                        color='k',
                                        textcoords='offset points',
-                                       xytext=(-5,-13), ha='left')
+                                       xytext=(-5,-15), ha='right')
                                        
             x_rect = [Cx + i * rx for i in [.7,.7,1.5,1.5,.7]]
             x_pipe = [Cx, Cx + .7 * rx]
@@ -680,10 +687,12 @@ class InputForm(wx.Frame):
          
         elif Cx <= xcord and Cy <= ycord:
             if pump:
-                lp_pump = self.ax.annotate('Pump', (Cx + ry * 1.02, Cy),
-                                       color='k',
-                                       textcoords='offset points',
-                                       xytext=(3,3), ha='left')
+                lp_pump = self.ax.annotate('Pump', 
+                                           (rx * r * np.cos(np.pi) + Cx,
+                                            ry * r * np.sin(np.pi/2) + Cy),
+                                           color='k',
+                                           textcoords='offset points',
+                                           xytext=(15,-15), ha='left')
              
             x_rect = [Cx + i * rx for i in [-.7,-1.5,-1.5,-.7,-.7]]
             x_pipe = [Cx, Cx - .7 * rx]
@@ -693,7 +702,7 @@ class InputForm(wx.Frame):
                                        (Cx - rx * .7, Cy - (.7 + 1.2)/2 * ry),
                                        color='k',
                                        textcoords='offset points',
-                                       xytext=(3,3), ha='left')
+                                       xytext=(3,-8), ha='left')
 
         else:
             if pump:
@@ -747,10 +756,6 @@ class InputForm(wx.Frame):
         self.canvas.draw()
 
     def DrawValve(self, ln_lbl, x, y, pt1):
-        # plot a red diamond at the valve location
-        vlv = self.ax.plot(x, y, c='red', markersize=10, marker='d')
-        self.plt_vlv[ln_lbl] = vlv
-
         if self.vlvs[ln_lbl][0] == 1:
             txt_lbl = 'BPV'
         elif self.vlvs[ln_lbl][0] == 0:
@@ -760,8 +765,12 @@ class InputForm(wx.Frame):
         ymin, ymax = self.ax.get_ylim()
         hw = (ymax - ymin) / 70
         hl = (xmax - xmin) / 70
-        
-        vlv_lbl=self.ax.annotate(txt_lbl,(x-hl,y-hl),
+
+        # plot a red diamond at the valve location
+        vlv = self.ax.plot(x, y, c='red', markersize=10, marker='d')
+        self.plt_vlv[ln_lbl] = vlv
+
+        vlv_lbl=self.ax.annotate(txt_lbl,(x-hl,y-hw),
                                  color='black',
                                  textcoords='offset points',
                                  xytext=(10,10), ha='left')
@@ -825,6 +834,8 @@ class InputForm(wx.Frame):
         self.canvas.draw()
         self.Refresh()
         self.Update()
+
+        self.vlvs.pop(ln_lbl, None)
 
     def RemoveLine(self, set_lns):
         # reset the delete warning flag
@@ -1047,8 +1058,8 @@ class InputForm(wx.Frame):
         self.plt_pump[lbl][2].remove()
         del self.plt_pump[lbl]
         self.canvas.draw()
-        # remove the pump from the dictionary
-        self.pumps.pop(lbl, None)
+        # remove the tank from the dictionary
+        self.tanks.pop(lbl, None)
 
     def OnLeftSelect(self, event):
         if isinstance(event.artist, Text):
@@ -1550,6 +1561,7 @@ to a tank, pump or contain a control valve"
                     if typ == 1:
                         pt1 = pt2
                 # calulate the length of the line
+                x_mid = (x_0 + x_1) / 2
                 d = ((x_1 - x_0)**2 + (y_1 - y_0)**2)**.5
                 # determine the ratio of the distance the
                 # valve is along the line
@@ -1558,8 +1570,14 @@ to a tank, pump or contain a control valve"
                 else:
                     t = (float(lg)-float(loc)) / float(lg)
                 # calulate the point location for the valve
+                # if the location is the middle of the line
+                # than it will conflict with the line arrow and lable
                 x = ((1 - t) * x_0 + t * x_1)
                 y = ((1 - t) * y_0 + t * y_1)
+                if x == x_mid:
+                    x = ((1 - t/1.2) * x_0 + t/1.2 * x_1)
+                    y = ((1 - t/1.2) * y_0 + t/1.2 * y_1)
+
         return(x, y, pt1)
 
     def Node(self, nd_lbl):
@@ -1568,7 +1586,8 @@ to a tank, pump or contain a control valve"
         cord = self.pts[nd_lbl]
         node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
 
-        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes, self.elevs, self.pumps, self.tanks)
+        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes,
+                         self.elevs, self.pumps, self.tanks)
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -1668,11 +1687,11 @@ to a tank, pump or contain a control valve"
 
         for ln_lbl in self.vlvs:
             self.DrawValve(ln_lbl, *self.vlv_pts(ln_lbl))
-        
+
         for key in self.Pseudo:
             dat = self.Pseudo[key]
             self.DrawPseudo(key, dat[0], dat[1])
-        
+
         self.Ln_Select = []
         self.Loop_Select = False
 
@@ -1686,6 +1705,7 @@ to a tank, pump or contain a control valve"
         self.pseudoDB()
         self.pumpDB()
         self.tankDB()
+        self.valveDB()
 
     def nodesDB(self):
         # clear data from table
@@ -1711,7 +1731,8 @@ to a tank, pump or contain a control valve"
         Dsql = 'DELETE FROM Pump'
         DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
-        Insql = 'INSERT INTO Pump (pumpID, units, fluid_elev, flow1, flow2, flow3, tdh1, tdh2, tdh3) VALUES(?,?,?,?,?,?,?,?,?);'
+        Insql = ('''INSERT INTO Pump (pumpID, units, fluid_elev, flow1, flow2, flow3,
+        tdh1, tdh2, tdh3) VALUES(?,?,?,?,?,?,?,?,?);''')
         Indata = []
         for k, v in self.pumps.items():
             ls = list(v)
@@ -1790,8 +1811,11 @@ to a tank, pump or contain a control valve"
                    for i in list(self.Pseudo.items())]
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
-    def OnExit(self, evt):
+    def OnCalc(self, evt):
         Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
+
+    def OnExit(self, evt):
+#        Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
         if self.cursr_set is True:
             self.cursr.close()
             self.db.close
@@ -1856,6 +1880,7 @@ class OpenFile(wx.Dialog):
         self.filename = self.file_name.GetPath()
         if isinstance(self.filename, str):
             self.cont.Enable()
+        self.parent.cursr_set = True
         evt.Skip()
 
     def OnNew(self, evt):

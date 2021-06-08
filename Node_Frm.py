@@ -42,7 +42,7 @@ class NodeFrm(wx.Frame):
         self.node_lst = set(node_lst)  # set of the lines associated with node
         self.node = node    # the node label which has been selected
         self.saved = False
-        self.typ = 0
+
         self.parent = parent
 
         ttl = 'Node "' + node + ' ' + str(cord) + '" Flow Information.'
@@ -81,17 +81,10 @@ class NodeFrm(wx.Frame):
         if self.node in self.elevs:
             self.info4.SetValue(str(self.elevs[self.node][0]))
             self.unt4.SetSelection(self.elevs[self.node][1])
+        else:
+            self.unt4.SetSelection(0)
 
         self.sizer.Add(elevsizer, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 20)
-
-        ''' this is not needed here
-        # convert elevation to feet
-        unt = self.nb.GetPage(old).unt4.GetSelection()
-        if unt == 0:
-            elev = self.nb.GetPage(old).info4.GetValue()
-        elif unt == 1:
-            elev = self.nb.GetPage(old).info4.GetValue() * 3.281
-            '''
 
         hdrsizer = wx.BoxSizer(wx.HORIZONTAL)
         hdr1 = wx.StaticText(self, label='Flow\nInto\nNode',
@@ -280,6 +273,7 @@ class NodeFrm(wx.Frame):
             self.unt_bx.SetSelection(int(v[0]))
             self.pnl2.Show()
         else:
+            self.unt_bx.SetSelection(0)
             self.pnl2.Hide()
 
         self.elev = wx.TextCtrl(self.pnl2, value=str(v[1]))
@@ -343,12 +337,12 @@ class NodeFrm(wx.Frame):
         self.Show(True)
 
     def OnRadioBx(self, evt):
-        # rb = evt.GetEventObject()
-        self.typ = self.type_rbb.GetSelection()
-        if self.typ == 2:
+        print('button hit')
+        typ = self.type_rbb.GetSelection()
+        if typ == 2:
             if len(self.node_lst) > 1:
                 wx.MessageBox(
-                    'Operation not be completed\n \
+                    'Operation cannot be completed\n \
                     Pumps can only be\nlocated at the end of \
                     \na line and not a junction', 'Info',
                     wx.OK | wx.ICON_ERROR)
@@ -360,10 +354,10 @@ class NodeFrm(wx.Frame):
                 self.SetSizer(self.sizer)
                 self.Layout()
                 self.Refresh()
-        elif self.typ == 1:
+        elif typ == 1:
             if len(self.node_lst) > 1:
                 wx.MessageBox(
-                    'Operation not be completed./n \
+                    'Operation cannot be completed./n \
                     Tanks can only be\nlocated at the end of \
                     \na line and not a junction', 'Info',
                     wx.OK | wx.ICON_ERROR)
@@ -375,7 +369,7 @@ class NodeFrm(wx.Frame):
                 self.SetSizer(self.sizer)
                 self.Layout()
                 self.Refresh()
-        elif self.typ == 0:
+        elif typ == 0:
             self.pnl2.Hide()
             self.pnl3.Hide()
             self.sizer.SetSizeHints(self)
@@ -400,9 +394,9 @@ class NodeFrm(wx.Frame):
         # if the first item in the node type is
         # selected as just an intercestion point
         self.SaveNode()
-        if self.typ == 2:
+        if self.type_rbb.GetSelection() == 2:
             self.SavePump()
-        elif self.typ == 1:
+        elif self.type_rbb.GetSelection() == 1:
             self.SaveTank()
 
     def SaveNode(self):

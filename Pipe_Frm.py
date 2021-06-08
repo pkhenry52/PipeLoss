@@ -99,24 +99,23 @@ class PipeFrm(wx.Frame):
 
     def __init__(self, parent, lbl):
 
-        self.lbl = lbl
-        ttl = 'Pipe & Fittings for ' + self.lbl
+        ttl = 'Pipe & Fittings for ' + lbl
 
         super().__init__(parent, title=ttl, size=(850, 930), style=wx.DEFAULT_FRAME_STYLE | wx.STAY_ON_TOP)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.parent = parent
 
-        self.InitUI()
+        self.InitUI(lbl)
 
-    def InitUI(self):
+    def InitUI(self, lbl):
         '''This is the main frame holding the notebook pages'''
         # The Pipe Frm is the only form which upadtes the
         # database as infomation is entered
         self.dia = 0
         self.ff = 0
         self.data_good = False
-
+        self.lbl = lbl
         self.nb = wx.Notebook(self)
 
         self.nb.units = ['inches', 'feet', 'meters', 'centimeters', 'millimeters']
@@ -157,6 +156,27 @@ class PipeFrm(wx.Frame):
                 self.nb.GetPage(0).unt2.SetSelection(data[7])
                 self.nb.GetPage(0).info3.SetSelection(data[3])
                 self.data_good = data[4]
+            else:
+                self.nb.GetPage(0).unt1.SetSelection(0)
+                self.nb.GetPage(0).unt2.SetSelection(1)
+                self.nb.GetPage(0).info3.SetSelection(1)
+
+            if self.lbl in self.parent.vlvs:
+                typ, unt, loc, setpress, lg = self.parent.vlvs[self.lbl]
+                self.nb.GetPage(0).pnl2.Show()
+                self.nb.GetPage(0).set_press.SetValue(str(setpress))
+                self.nb.GetPage(0).locate.SetValue(str(loc))
+                self.nb.GetPage(0).unt_bx.SetSelection(unt)
+                if typ == 1:
+                    self.nb.GetPage(0).bpv_chk.SetValue(True)
+                    self.nb.GetPage(0).prv_chk.SetValue(False)
+                    self.nb.GetPage(0).vlv_lbl.SetLabel('Upstream Pipe Length')
+                elif typ == 0:
+                    self.nb.GetPage(0).bpv_chk.SetValue(False)
+                    self.nb.GetPage(0).prv_chk.SetValue(True)
+                    self.nb.GetPage(0).vlv_lbl.SetLabel('Downstream Pipe Length')
+            else:
+                self.nb.GetPage(0).unt_bx.SetSelection(2)
 
         self.SetMenuBar(menubar)
         self.Centre()
@@ -526,14 +546,16 @@ class PipeFrm(wx.Frame):
             if self.nb.GetPage(0).add_vlv is True:
                 loc = self.nb.GetPage(0).locate.GetValue()
                 lg = self.nb.GetPage(0).info2.GetValue()
-                if self.nb.GetPage(0).prv_chk.GetValue() == 1:
-                    # selected valve is BPV
-                    vlv_typ = 1
-                else:
+                if self.nb.GetPage(0).prv_chk.GetValue() is True:
                     # selected valve is PRV
                     vlv_typ = 0
+                else:
+                    # selected valve is BPV
+                    vlv_typ = 1
                 unts = self.nb.GetPage(0).unt_bx.GetSelection()
                 press = self.nb.GetPage(0).set_press.GetValue()
+                if self.nb.GetPage(0).vlv_chg == True:
+                    self.parent.RemoveVlv(self.lbl)
                 self.parent.vlvs[self.lbl] = [vlv_typ, unts, loc, press, lg]
                 self.parent.DrawValve(self.lbl, *self.parent.vlv_pts(self.lbl))
             else:
@@ -548,6 +570,7 @@ class General(wx.Panel):
 
         self.parent = parent
         self.add_vlv = False
+        self.vlv_chg = False
 
         chcs_1 = self.parent.units
         chcs_2 = self.parent.mtr
@@ -578,7 +601,7 @@ class General(wx.Panel):
         chk_sizer = wx.BoxSizer(wx.VERTICAL)
         self.prv_chk = wx.CheckBox(self, id=1, label='Add a Pressure Relief Valve',
                                    style=wx.ALIGN_RIGHT)
-        self.bpv_chk = wx.CheckBox(self, id=0, label='or Back Pressure Valve',
+        self.bpv_chk = wx.CheckBox(self, id=2, label='or Back Pressure Valve',
                                    style=wx.ALIGN_RIGHT)
         self.prv_chk.SetValue(False)
         self.bpv_chk.SetValue(False)
@@ -593,7 +616,7 @@ class General(wx.Panel):
         pnl2_sizer = wx.BoxSizer(wx.VERTICAL)
         unt_chcs = ['psig',
                     'KPa',
-                    'feet fluid']
+                    'feet']
 
         unt_sizer = wx.BoxSizer(wx.HORIZONTAL)
         hrz2 = wx.StaticText(self.pnl2, label = 'Valve Set Pressure')
@@ -606,7 +629,7 @@ class General(wx.Panel):
         unt_sizer.Add(self.unt_bx, 0, wx.LEFT, 10)
 
         vlv_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.vlv_lbl = wx.StaticText(self.pnl2, label='Downstream Pipe Length')
+        self.vlv_lbl = wx.StaticText(self.pnl2, label=' ')
         self.locate = wx.TextCtrl(self.pnl2, value='')
         vlv_sizer.Add(self.vlv_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 25)
         vlv_sizer.Add(self.locate, 0, wx.LEFT, 15)
@@ -627,21 +650,33 @@ class General(wx.Panel):
 
     def Onvlv(self, evt):
         if evt.GetEventObject().GetId() == 1:
+            print('past pt 1')
             self.bpv_chk.SetValue(False)
             if self.prv_chk.GetValue() is False:
+                print('past pt 2A')
                 self.add_vlv = False
                 self.pnl2.Hide()
             else:
+                print('past pt 2B')
                 self.pnl2.Show()
+                print(self.vlv_lbl.GetLabel())
+                if self.vlv_lbl.GetLabel() == 'Upstream Pipe Length':
+                    print('changed valve')
+                    self.vlv_chg = True
                 self.vlv_lbl.SetLabel('Downstream Pipe Length')
                 self.add_vlv = True
         else:
             self.prv_chk.SetValue(False)
             if self.bpv_chk.GetValue() is False:
+                print('past pt 3A')
                 self.add_vlv = False
                 self.pnl2.Hide()
             else:
+                print('past pt 3B')
                 self.pnl2.Show()
+                if self.vlv_lbl.GetLabel() == 'Downstream Pipe Length':
+                    print('changed valve')
+                    self.vlv_chg = True
                 self.vlv_lbl.SetLabel('Upstream Pipe Length')
                 self.add_vlv = True
         self.sizer.SetSizeHints(self)
