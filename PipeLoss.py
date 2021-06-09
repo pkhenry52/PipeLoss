@@ -1340,7 +1340,7 @@ to a tank, pump or contain a control valve"
                     # upstream for BPV or downstream
                     # for PRV needs to be specified as pt1
                     lst_pts.append(self.pts[pt1])
-        '''if valve type is PRV then use pt2'''
+                '''if valve type is PRV then use pt2'''
 
                 # cycle through the lines selected and
                 # add the new end points to the point list
