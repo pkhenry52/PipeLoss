@@ -782,11 +782,15 @@ class InputForm(wx.Frame):
         self.plt_pseudo[num] = []
         self.plt_psarow[num] = []
         for n in range(len(lst_pts)-1):
-            gap = 0.05
-            x0 = lst_pts[n][0] - gap
-            x1 = lst_pts[n+1][0] - gap
-            y0 = lst_pts[n][1] - gap
-            y1 = lst_pts[n+1][1] - gap
+            xmin, xmax = self.ax.get_xlim()
+            ymin, ymax = self.ax.get_ylim()
+            hw = (ymax - ymin) / 70
+            hl = (xmax - xmin) / 50
+
+            x0 = lst_pts[n][0] - hw
+            x1 = lst_pts[n+1][0] - hw
+            y0 = lst_pts[n][1] - hw
+            y1 = lst_pts[n+1][1] - hw
 
             # draw thw lines parallel to the flow lines
             # if the line is vertical
@@ -802,10 +806,7 @@ class InputForm(wx.Frame):
             self.plt_pseudo[num].append(psln)
 
             # draw the arrow heads on the psuedo lines
-            xmin, xmax = self.ax.get_xlim()
-            ymin, ymax = self.ax.get_ylim()
-            hw = (ymax - ymin) / 70
-            hl = (xmax - xmin) / 50
+
             # specify an arrow head location just off center of the line
             xa = .4 * x1 + .6 * x0
             ya = .4 * y1 + .6 * y0
@@ -822,9 +823,10 @@ class InputForm(wx.Frame):
             self.plt_psarow[num].append(arow)
 
             if n == int((len(lst_pts)-1) / 2):
-                lp_num = self.ax.text(xa-gap, ya-gap, num, color='magenta', picker=True)
+                lp_num = self.ax.text(xa-hw, ya-hw, num, color='magenta', picker=True)
                 self.plt_lpnum[num] = lp_num
 
+        self.Loop_Select = False
         self.canvas.draw()
 
     def RemoveVlv(self, ln_lbl):
@@ -1335,8 +1337,10 @@ to a tank, pump or contain a control valve"
                     # the valve point needs to be sa ved as coordinates
                     lst_pts.append((x, y))
                     # the end point of the line either
-                    # upstream for BPV or downstream for PRV needs to be specified as pt1
+                    # upstream for BPV or downstream
+                    # for PRV needs to be specified as pt1
                     lst_pts.append(self.pts[pt1])
+        '''if valve type is PRV then use pt2'''
 
                 # cycle through the lines selected and
                 # add the new end points to the point list
