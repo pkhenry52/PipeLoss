@@ -778,7 +778,7 @@ class InputForm(wx.Frame):
         self.plt_vlv_lbl[ln_lbl] = vlv_lbl
         self.canvas.draw()
 
-    def DrawPseudo(self, num, lst_pts, new_lns):
+    def DrawPseudo(self, num, lst_pts):
         self.plt_pseudo[num] = []
         self.plt_psarow[num] = []
         for n in range(len(lst_pts)-1):
@@ -1197,55 +1197,77 @@ to a tank, pump or contain a control valve"
             # selected to develop pseudo loop
             loop_typ = 1
 
+        # if this is a closed loop confirm that the
+        # selected line does not contain a control valve
+        if loop_typ == 0 and lbl in self.vlvs:
+            msg1 = 'A closed or real loop cannot have a '
+            msg2 = '\nline containing a control valve.'
+            dialog = wx.MessageDialog(self, msg1 + msg2,
+                                        'Faulty Line Selection',
+                                        wx.OK | wx.ICON_ERROR)
+            dialog.ShowModal()
+            dialog.Destroy()
+            # add the line now and delete it from Ln_Select
+            # after exiting FOR loop
+            self.Ln_Select.append(lbl)
+            for  ln in self.Ln_Select:
+                rnd = np.random.randint(len(self.clrs))
+                color_name = self.clrs[rnd]
+                self.plt_lines[ln][0].set_color(self.colours[color_name])
+            self.canvas.draw()
+            self.loop.SetLabel('Select\nReal Loop\nLines')
+            self.Loop_Select = False
+            self.Ln_Select = []
+            return
+
         for pt in self.runs[lbl][0]:
             if pt in self.tanks or pt in self.pumps:
                 # if the end point of the line is the point
                 # at which the pump or tank is located do not
                 # add it to the list of points LnPts
                 continue
-            elif lbl in self.vlvs:
-                if loop_typ == 0:
-                    msg1 = 'A closed or real loop cannot have a '
-                    msg2 = '\nline containing a control valve.'
-                    dialog = wx.MessageDialog(self, msg1 + msg2,
-                                              'Faulty Line Selection',
-                                              wx.OK | wx.ICON_ERROR)
-                    dialog.ShowModal()
-                    dialog.Destroy()
-                    # add the line now and delete it from Ln_Select
-                    # after exiting FOR loop
-                    self.Ln_Select.append(lbl)
-                    for  ln in self.Ln_Select:
-                        rnd = np.random.randint(len(self.clrs))
-                        color_name = self.clrs[rnd]
-                        self.plt_lines[ln][0].set_color(self.colours[color_name])
-                    self.canvas.draw()
-                    self.loop.SetLabel('Select\nReal Loop\nLines')
-                    self.Ln_Select = []
-                    return
-                # check if line contains a valve
-                ptv = False
+
+            if lbl in self.vlvs:
+                # check to see if the selected line flow is into
+                # or out of the upstream node
                 for ln in self.nodes[pt]:
                 # find the selected line in the nodes list
                     if ln[0] == lbl:
-                        if ln[1] == 1 and self.vlvs[lbl][0] == 1:
-                        # this is the case where the flow is out
-                        # of the node toward a BPV
-                            ptv = True
-                        elif ln[1] == 0 and self.vlvs[lbl][0] == 0:
-                        # this is the case where the flow is into
-                        # the node away from a PRV
-                            ptv = True
-                        break
-                if ptv:
-                    msg = 'Next line selected must intersect at node ' + pt
-                    dialog = wx.MessageDialog(self, msg, 'Next Line',
-                                            wx.OK | wx.ICON_INFORMATION)
-                    dialog.ShowModal()
-                    dialog.Destroy()
-                else:
-                    continue
+                        if (ln[1] == 1 and self.vlvs[lbl][0] == 1) or \
+                        (ln[1] == 0 and self.vlvs[lbl][0] == 0):
+                             # this is the case where the flow is out
+                            # of the node toward a BPV
+                            # OR
+                            # this is the case where the flow is into
+                            # the node away from a PRV
+                            if self.Ln_Select == []:
+                                msg = 'Next line selected must intersect at node ' + pt
+                                dialog = wx.MessageDialog(self, msg, 'Next Line',
+                                                        wx.OK | wx.ICON_INFORMATION)
+                                dialog.ShowModal()
+                                dialog.Destroy()
 
+                        elif (ln[1] == 0 and self.vlvs[lbl][0] == 1) or \
+                        (ln[1] == 1 and self.vlvs[lbl][0] == 0):
+                            msg1 = 'The line selected approaches the '
+                            msg2 = 'control valve from the wrong side.'
+                            dialog = wx.MessageDialog(self, msg1+ msg2, 'Faulty Line Selection',
+                                                    wx.OK | wx.ICON_INFORMATION)
+                            dialog.ShowModal()
+                            dialog.Destroy()
+                            # add the line now and delete it from Ln_Select
+                            # after exiting FOR loop
+                            self.Ln_Select.append(lbl)
+                            for  ln in self.Ln_Select:
+                                rnd = np.random.randint(len(self.clrs))
+                                color_name = self.clrs[rnd]
+                                self.plt_lines[ln][0].set_color(self.colours[color_name])
+                            self.canvas.draw()
+                            self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
+                            self.Loop_Select = False
+                            self.Ln_Select = []
+                            return
+          
             # build a list of all the selected line end points
             # do not includ any point which designate a tank or pump
             LnPts.append(self.pts[pt])
@@ -1268,9 +1290,10 @@ to a tank, pump or contain a control valve"
                 self.loop_pts.remove(pt)
             else:
                 self.loop_pts.append(pt)
-
+        print('loop pts=',self.loop_pts)
         # confirm all end points have been duplicated and loop closed
         if len(self.loop_pts) == 0:
+            print('all lines selected')
             # determine which type of loop is being drawn
             if loop_typ == 0:
                 self.loop.SetLabel('Select\nReal Loop\nLines')
@@ -1292,7 +1315,7 @@ to a tank, pump or contain a control valve"
             # from this point on all lines have been selected
             # code is concerned with the completed list of lines Ln_Select
 
-            # first part of if is for the real loop drawing
+            # first part of if loop is for the real loop drawing
             if loop_typ == 0:
 
                 # determine the centroid of the polygon and the distance to the
@@ -1314,7 +1337,7 @@ to a tank, pump or contain a control valve"
 
                 self.DrawLoop(Cx, Cy, r, loop_num)
 
-            # second part for pseudo loops
+            # second part of if loop is for pseudo loops
             else:
                 lst_pts = []
                 # starting with the first line in Ln_Select
@@ -1323,24 +1346,29 @@ to a tank, pump or contain a control valve"
                 pt1, pt2 = self.runs[self.Ln_Select.pop(0)][0]
 
                 # set the node point of the tank or pump as the
-                # first point in the loop pt1
+                # first point in the loop pt1 and
+                # pt2 is the start point for the next line
                 if pt1 in self.tanks or pt1 in self.pumps:
                     lst_pts.append(self.pts[pt1])
-                    pt1 = pt2
+                    lst_pts.append(self.pts[pt2])
+                elif pt2 in self.tanks or pt2 in self.pumps:
+                    lst_pts.append(self.pts[pt2])
                     lst_pts.append(self.pts[pt1])
-                elif new_lns[0] in self.vlvs:
-                    # first find the coordinates for the valve
+                    pt2 = pt1
+
+                # confirm that the line is in the list of valves
+                if new_lns[0] in self.vlvs:
+                    # find the coordinates for the valve
                     for ln in self.nodes[pt1]:
                         if ln[0] == new_lns[0]:
-                            x, y, pt = self.vlv_pts(new_lns[0])
+                            x, y, pt2 = self.vlv_pts(new_lns[0])
                             break
-                    # the valve point needs to be sa ved as coordinates
+                    # the valve point needs to be saved as coordinates
                     lst_pts.append((x, y))
                     # the end point of the line either
                     # upstream for BPV or downstream
                     # for PRV needs to be specified as pt1
-                    lst_pts.append(self.pts[pt1])
-                '''if valve type is PRV then use pt2'''
+                    lst_pts.append(self.pts[pt2])
 
                 # cycle through the lines selected and
                 # add the new end points to the point list
@@ -1349,11 +1377,11 @@ to a tank, pump or contain a control valve"
                     for l in self.Ln_Select:
                         # locate the line which connects to the
                         # last point
-                        if pt1 in self.runs[l][0]:
-                            # if the point pt1 defines a line containing a
+                        if pt2 in self.runs[l][0]:
+                            # if the point pt2 defines a line containing a
                             # valve it must be the last line in the loop
                             if l in self.vlvs:
-                                x, y, pt1 = self.vlv_pts(l)
+                                x, y, pt2 = self.vlv_pts(l)
                                 new_lns.append(l)
                                 lst_pts.append((x, y))
                                 self.Ln_Select.remove(l)
@@ -1364,9 +1392,9 @@ to a tank, pump or contain a control valve"
                             # to append to lst_pts
                             if flag is True:
                                 break
-                            idx = int(np.cos(self.runs[l][0].index(pt1)
+                            idx = int(np.cos(self.runs[l][0].index(pt2)
                                         *(np.pi/2)))
-                            pt1 = self.runs[l][0][idx]
+                            pt2 = self.runs[l][0][idx]
                             self.Ln_Select.remove(l)
                             lst_pts.append(self.pts[self.runs[l][0][idx]])
                             new_lns.append(l)
@@ -1375,7 +1403,7 @@ to a tank, pump or contain a control valve"
                     rnd = np.random.randint(len(self.clrs))
                     color_name = self.clrs[rnd]
                     self.plt_lines[ln][0].set_color(self.colours[color_name])
-                self.DrawPseudo(loop_num, lst_pts, new_lns)
+                self.DrawPseudo(loop_num, lst_pts)
 
     def AddLoop(self, loop_num):
         '''generate the consecutive list of points making up the polygon
@@ -1564,7 +1592,7 @@ to a tank, pump or contain a control valve"
                     y_1 = self.pts[pt1][1]
                     if typ == 1:
                         pt1 = pt2
-                # calulate the length of the line
+                # calculate the length of the line
                 x_mid = (x_0 + x_1) / 2
                 d = ((x_1 - x_0)**2 + (y_1 - y_0)**2)**.5
                 # determine the ratio of the distance the
@@ -1573,7 +1601,7 @@ to a tank, pump or contain a control valve"
                     t = float(loc) / float(lg)
                 else:
                     t = (float(lg)-float(loc)) / float(lg)
-                # calulate the point location for the valve
+                # calculate the point location for the valve
                 # if the location is the middle of the line
                 # than it will conflict with the line arrow and lable
                 x = ((1 - t) * x_0 + t * x_1)
@@ -1694,7 +1722,7 @@ to a tank, pump or contain a control valve"
 
         for key in self.Pseudo:
             dat = self.Pseudo[key]
-            self.DrawPseudo(key, dat[0], dat[1])
+            self.DrawPseudo(key, dat[0])
 
         self.Ln_Select = []
         self.Loop_Select = False
