@@ -121,6 +121,7 @@ class InputForm(wx.Frame):
         # dictionary for the tracking of the pseudo loops by number
         # with list of points and lines
         self.Pseudo ={}
+        self.wrg_pt = ''
         # dictionary of the points moving around a given loop
         self.poly_pts = {}
         # dictionary of nodes indicating key as node and value lst indicating
@@ -825,7 +826,7 @@ class InputForm(wx.Frame):
             if n == int((len(lst_pts)-1) / 2):
                 lp_num = self.ax.text(xa-hw, ya-hw, num, color='magenta', picker=True)
                 self.plt_lpnum[num] = lp_num
-
+        self.wrg_pt = ''
         self.Loop_Select = False
         self.canvas.draw()
 
@@ -1063,9 +1064,9 @@ class InputForm(wx.Frame):
         # remove the tank from the dictionary
         self.tanks.pop(lbl, None)
 
-    def OnLeftSelect(self, event):
-        if isinstance(event.artist, Text):
-            text = event.artist
+    def OnLeftSelect(self, evt):
+        if isinstance(evt.artist, Text):
+            text = evt.artist
             lbl = text.get_text()
             # if line label is selected do one of three things;
             # pull up the line specification form,
@@ -1074,7 +1075,7 @@ class InputForm(wx.Frame):
             if lbl.isupper():
                 if self.Loop_Select:
                     # take line lbl and go to Loop function
-                    self.Loop(lbl)
+                    self.wrg_pt = self.Loop(lbl, self.wrg_pt)
                 elif self.dlt_line:
                     self.RemoveLine(set(lbl))
                 else:
@@ -1180,9 +1181,10 @@ to a tank, pump or contain a control valve"
             else:
                 self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
                 self.Loop_Select = False
+                self.wrg_pt = ''
                 self.Ln_Select = []
 
-    def Loop(self, lbl):
+    def Loop(self, lbl, wrg_pt):
         ''' build the loops made up of selected lines
         when all the end points have been duplicated the loop is closed'''
 	    # temporary list of the points in a loop
@@ -1202,22 +1204,12 @@ to a tank, pump or contain a control valve"
         if loop_typ == 0 and lbl in self.vlvs:
             msg1 = 'A closed or real loop cannot have a '
             msg2 = '\nline containing a control valve.'
-            dialog = wx.MessageDialog(self, msg1 + msg2,
-                                        'Faulty Line Selection',
-                                        wx.OK | wx.ICON_ERROR)
-            dialog.ShowModal()
-            dialog.Destroy()
-            # add the line now and delete it from Ln_Select
-            # after exiting FOR loop
-            self.Ln_Select.append(lbl)
+            self.WarnLoop(lbl, msg1 + msg2, 'real')
             for  ln in self.Ln_Select:
                 rnd = np.random.randint(len(self.clrs))
                 color_name = self.clrs[rnd]
                 self.plt_lines[ln][0].set_color(self.colours[color_name])
-            self.canvas.draw()
-            self.loop.SetLabel('Select\nReal Loop\nLines')
-            self.Loop_Select = False
-            self.Ln_Select = []
+            self.wrg_pt = ''
             return
 
         for pt in self.runs[lbl][0]:
@@ -1226,6 +1218,19 @@ to a tank, pump or contain a control valve"
                 # at which the pump or tank is located do not
                 # add it to the list of points LnPts
                 continue
+
+            if pt == wrg_pt:
+                msg1 = 'The line selected approaches the '
+                msg2 = 'control valve from the wrong side.'
+                self.WarnLoop(lbl, msg1 + msg2, 'pseudo')
+                for  ln in self.Ln_Select:
+                    rnd = np.random.randint(len(self.clrs))
+                    color_name = self.clrs[rnd]
+                    self.plt_lines[ln][0].set_color(self.colours[color_name])
+                print(self.Ln_Select, self.wrg_pt)
+#                self.wrg_pt = ''
+#                self.loop_pts = []
+                return
 
             if lbl in self.vlvs:
                 # check to see if the selected line flow is into
@@ -1249,34 +1254,31 @@ to a tank, pump or contain a control valve"
 
                         elif (ln[1] == 0 and self.vlvs[lbl][0] == 1) or \
                         (ln[1] == 1 and self.vlvs[lbl][0] == 0):
-                            msg1 = 'The line selected approaches the '
-                            msg2 = 'control valve from the wrong side.'
-                            dialog = wx.MessageDialog(self, msg1+ msg2, 'Faulty Line Selection',
-                                                    wx.OK | wx.ICON_INFORMATION)
-                            dialog.ShowModal()
-                            dialog.Destroy()
-                            # add the line now and delete it from Ln_Select
-                            # after exiting FOR loop
-                            self.Ln_Select.append(lbl)
-                            for  ln in self.Ln_Select:
-                                rnd = np.random.randint(len(self.clrs))
-                                color_name = self.clrs[rnd]
-                                self.plt_lines[ln][0].set_color(self.colours[color_name])
-                            self.canvas.draw()
-                            self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
-                            self.Loop_Select = False
-                            self.Ln_Select = []
-                            return
-          
+                            self.wrg_pt = pt
+                            if self.wrg_pt in self.loop_pts:
+                                msg1 = 'The line selected approaches the '
+                                msg2 = 'control valve from the wrong side.'
+                                self.WarnLoop(lbl, msg1 + msg2, 'pseudo')
+                                for  ln in self.Ln_Select:
+                                    rnd = np.random.randint(len(self.clrs))
+                                    color_name = self.clrs[rnd]
+                                    self.plt_lines[ln][0].set_color(self.colours[color_name])
+                                print(self.Ln_Select, self.wrg_pt)
+#                                self.wrg_pt = ''
+#                                self.loop_pts = []
+                                return
             # build a list of all the selected line end points
-            # do not includ any point which designate a tank or pump
-            LnPts.append(self.pts[pt])
+            # do not include any point which designate a tank or pump
+            if pt != self.wrg_pt:
+                LnPts.append(pt)
 
         if lbl in self.Ln_Select:
             # if line was previously selected, deselect it
             # remove line lbl from selected line list
             self.Ln_Select.remove(lbl)
             self.plt_lines[lbl][0].set_color(self.colours[color_name])
+            if lbl in self.vlvs:
+                self.wrg_pt = ''
         else:  # a new line is selected
             self.Ln_Select.append(lbl)
             self.plt_lines[lbl][0].set_color('k')
@@ -1285,15 +1287,14 @@ to a tank, pump or contain a control valve"
 
         # if line end points are in the list of line points already selected
         # remove it, if it is not add it to the list
-        for pt in LnPts:
-            if pt in self.loop_pts:
-                self.loop_pts.remove(pt)
+        for pnt in LnPts:
+            if pnt in self.loop_pts:
+                self.loop_pts.remove(pnt)
             else:
-                self.loop_pts.append(pt)
-        print('loop pts=',self.loop_pts)
+                self.loop_pts.append(pnt)
+
         # confirm all end points have been duplicated and loop closed
         if len(self.loop_pts) == 0:
-            print('all lines selected')
             # determine which type of loop is being drawn
             if loop_typ == 0:
                 self.loop.SetLabel('Select\nReal Loop\nLines')
@@ -1404,6 +1405,32 @@ to a tank, pump or contain a control valve"
                     color_name = self.clrs[rnd]
                     self.plt_lines[ln][0].set_color(self.colours[color_name])
                 self.DrawPseudo(loop_num, lst_pts)
+                self.wrg_pt = ''
+        return self.wrg_pt
+
+    def WarnLoop(self, lbl, msg, typ):
+        dialog = wx.MessageDialog(self, msg, 'Faulty Line Selection',
+                                wx.OK | wx.ICON_INFORMATION)
+        dialog.ShowModal()
+        dialog.Destroy()
+        # add the line now and delete it from Ln_Select
+        # after exiting FOR loop
+        self.Ln_Select.append(lbl)
+        for  ln in self.Ln_Select:
+            rnd = np.random.randint(len(self.clrs))
+            color_name = self.clrs[rnd]
+            self.plt_lines[ln][0].set_color(self.colours[color_name])
+        self.canvas.draw()
+        if typ == 'real':
+            self.loop.SetLabel('Select\nReal Loop\nLines')
+        elif typ == 'pseudo':
+            self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
+        self.Loop_Select = False
+        print(self.Ln_Select, self.wrg_pt)
+        self.loop_pts = []
+        self.Ln_Select = []
+        self.wrg_pt = ''
+        return
 
     def AddLoop(self, loop_num):
         '''generate the consecutive list of points making up the polygon
