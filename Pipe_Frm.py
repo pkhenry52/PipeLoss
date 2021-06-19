@@ -650,32 +650,24 @@ class General(wx.Panel):
 
     def Onvlv(self, evt):
         if evt.GetEventObject().GetId() == 1:
-            print('past pt 1')
             self.bpv_chk.SetValue(False)
             if self.prv_chk.GetValue() is False:
-                print('past pt 2A')
                 self.add_vlv = False
                 self.pnl2.Hide()
             else:
-                print('past pt 2B')
                 self.pnl2.Show()
-                print(self.vlv_lbl.GetLabel())
                 if self.vlv_lbl.GetLabel() == 'Upstream Pipe Length':
-                    print('changed valve')
                     self.vlv_chg = True
                 self.vlv_lbl.SetLabel('Downstream Pipe Length')
                 self.add_vlv = True
         else:
             self.prv_chk.SetValue(False)
             if self.bpv_chk.GetValue() is False:
-                print('past pt 3A')
                 self.add_vlv = False
                 self.pnl2.Hide()
             else:
-                print('past pt 3B')
                 self.pnl2.Show()
                 if self.vlv_lbl.GetLabel() == 'Downstream Pipe Length':
-                    print('changed valve')
                     self.vlv_chg = True
                 self.vlv_lbl.SetLabel('Upstream Pipe Length')
                 self.add_vlv = True

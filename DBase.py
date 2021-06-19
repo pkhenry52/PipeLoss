@@ -37,7 +37,6 @@ class Dbase(object):
         '''Call the function to delete the values in
         the database table.  Error trapping will occure
         in the call def delete_data'''
-
         if type(val) != str:
             DeQuery = ("DELETE FROM " + table + " WHERE "
                        + field + " = " + str(val))

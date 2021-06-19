@@ -337,7 +337,6 @@ class NodeFrm(wx.Frame):
         self.Show(True)
 
     def OnRadioBx(self, evt):
-        print('button hit')
         typ = self.type_rbb.GetSelection()
         if typ == 2:
             if len(self.node_lst) > 1:
@@ -432,7 +431,6 @@ class NodeFrm(wx.Frame):
                 tpl = []
                 for tp in self.nodes[self.cmn_lns[ln_lbl]]:
                     if tp[0]==ln_lbl:
-                        print('SAVE TO NODES')
                         tpl.append(ln_lbl)
                         tpl.append(abs(dirct-1))
                         tpl.append(flow)

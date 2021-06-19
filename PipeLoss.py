@@ -68,9 +68,6 @@ class InputForm(wx.Frame):
 
         self.colours = mcolors.CSS4_COLORS
 
-#        self.lns = []
-#        self.lop = []
-#        self.ends = []
         self.loop_pts = []
         self.cursr_set = False
 
@@ -646,9 +643,6 @@ class InputForm(wx.Frame):
         ycord = ymax - y_lg / 2
         if Cx > xcord and Cy > ycord:
             if pump:
-#                lp_pump = self.ax.text(rx * r * np.cos(np.pi) + Cx,
-#                       ry * r * np.sin(np.pi/2) + Cy, 'Pump',
-#                        color='k', picker=True) 
                 lp_pump = self.ax.annotate('Pump', 
                                            (rx * r * np.cos(np.pi) + Cx,
                                             ry * r * np.sin(np.pi/2) + Cy),
@@ -1040,29 +1034,38 @@ class InputForm(wx.Frame):
         # reset the warning flag
         self.dlt_pump = False
 
-        # remove the graphics elements
-        self.plt_pump[lbl][0][0].remove()
-        self.plt_pump[lbl][1][0].remove()
-        self.plt_pump[lbl][2][0].remove()
-        self.plt_pump[lbl][3].remove()
-        self.plt_pump[lbl][4].remove()
-        del self.plt_pump[lbl]
-        self.canvas.draw()
-        # remove the pump from the dictionary
-        self.pumps.pop(lbl, None)
+        if lbl in self.pumps:
+            # remove the graphics elements
+            self.plt_pump[lbl][0][0].remove()
+            self.plt_pump[lbl][1][0].remove()
+            self.plt_pump[lbl][2][0].remove()
+            self.plt_pump[lbl][3].remove()
+            self.plt_pump[lbl][4].remove()
+            del self.plt_pump[lbl]
+            # remove the pump from the dictionary
+            self.pumps.pop(lbl, None)
+        else:
+            # remove the graphics elements
+            self.plt_pump[lbl][0][0].remove()
+            self.plt_pump[lbl][1][0].remove()
+            self.plt_pump[lbl][2].remove()
+            del self.plt_pump[lbl]
+            # remove the tank from the dictionary
+            self.tanks.pop(lbl, None)
+        
+        for l in self.runs:
+            # locate the line which connects to the
+            # pump or tank
+            if lbl in self.runs[l][0]:
+                break
 
-    def RemoveTank(self, lbl):
-        # reset the warning flag
-        self.dlt_pump = False
+        # remove the line data from the Kt database tables
+        # i.e General, Fitting, ManVlv1 etc
+        for tbl in ['ChkVlv', 'General', 'Fittings', 'EntExt',
+                    'ManVlv1', 'ManVlv2', 'WldElb']:
+            DBase.Dbase(self).TblDelete(tbl, l, 'ID')
 
-        # remove the graphics elements
-        self.plt_pump[lbl][0][0].remove()
-        self.plt_pump[lbl][1][0].remove()
-        self.plt_pump[lbl][2].remove()
-        del self.plt_pump[lbl]
         self.canvas.draw()
-        # remove the tank from the dictionary
-        self.tanks.pop(lbl, None)
 
     def OnLeftSelect(self, evt):
         if isinstance(evt.artist, Text):
@@ -1205,11 +1208,6 @@ to a tank, pump or contain a control valve"
             msg1 = 'A closed or real loop cannot have a '
             msg2 = '\nline containing a control valve.'
             self.WarnLoop(lbl, msg1 + msg2, 'real')
-            for  ln in self.Ln_Select:
-                rnd = np.random.randint(len(self.clrs))
-                color_name = self.clrs[rnd]
-                self.plt_lines[ln][0].set_color(self.colours[color_name])
-            self.wrg_pt = ''
             return
 
         for pt in self.runs[lbl][0]:
@@ -1219,17 +1217,10 @@ to a tank, pump or contain a control valve"
                 # add it to the list of points LnPts
                 continue
 
-            if pt == wrg_pt:
+            if pt == wrg_pt and len(self.nodes[pt]) <= 2:
                 msg1 = 'The line selected approaches the '
-                msg2 = 'control valve from the wrong side.'
+                msg2 = '\ncontrol valve from the wrong side.'
                 self.WarnLoop(lbl, msg1 + msg2, 'pseudo')
-                for  ln in self.Ln_Select:
-                    rnd = np.random.randint(len(self.clrs))
-                    color_name = self.clrs[rnd]
-                    self.plt_lines[ln][0].set_color(self.colours[color_name])
-                print(self.Ln_Select, self.wrg_pt)
-#                self.wrg_pt = ''
-#                self.loop_pts = []
                 return
 
             if lbl in self.vlvs:
@@ -1240,7 +1231,7 @@ to a tank, pump or contain a control valve"
                     if ln[0] == lbl:
                         if (ln[1] == 1 and self.vlvs[lbl][0] == 1) or \
                         (ln[1] == 0 and self.vlvs[lbl][0] == 0):
-                             # this is the case where the flow is out
+                            # this is the case where the flow is out
                             # of the node toward a BPV
                             # OR
                             # this is the case where the flow is into
@@ -1257,19 +1248,16 @@ to a tank, pump or contain a control valve"
                             self.wrg_pt = pt
                             if self.wrg_pt in self.loop_pts:
                                 msg1 = 'The line selected approaches the '
-                                msg2 = 'control valve from the wrong side.'
+                                msg2 = '\ncontrol valve from the wrong side.'
                                 self.WarnLoop(lbl, msg1 + msg2, 'pseudo')
-                                for  ln in self.Ln_Select:
-                                    rnd = np.random.randint(len(self.clrs))
-                                    color_name = self.clrs[rnd]
-                                    self.plt_lines[ln][0].set_color(self.colours[color_name])
-                                print(self.Ln_Select, self.wrg_pt)
-#                                self.wrg_pt = ''
-#                                self.loop_pts = []
                                 return
             # build a list of all the selected line end points
             # do not include any point which designate a tank or pump
-            if pt != self.wrg_pt:
+            if pt == self.wrg_pt and \
+              len(self.nodes[pt]) > 2 and \
+              len(self.Ln_Select) > 1:
+                LnPts.append(pt)
+            elif pt != self.wrg_pt:
                 LnPts.append(pt)
 
         if lbl in self.Ln_Select:
@@ -1426,11 +1414,13 @@ to a tank, pump or contain a control valve"
         elif typ == 'pseudo':
             self.pseudo.SetLabel('Select\nPseudo Loop\nLines')
         self.Loop_Select = False
-        print(self.Ln_Select, self.wrg_pt)
+        for  ln in self.Ln_Select:
+            rnd = np.random.randint(len(self.clrs))
+            color_name = self.clrs[rnd]
+            self.plt_lines[ln][0].set_color(self.colours[color_name])
         self.loop_pts = []
         self.Ln_Select = []
         self.wrg_pt = ''
-        return
 
     def AddLoop(self, loop_num):
         '''generate the consecutive list of points making up the polygon

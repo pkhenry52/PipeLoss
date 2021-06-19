@@ -156,7 +156,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
             rho_mix = rho_2
         else:
             # calculate the liquid mixture density and vicosity
-            print(type(dt[5]), type(rho_1), type(dt[10]), type(rho_2))
             x_1 = (dt[5] * rho_1) /((dt[5] * rho_1) + (dt[10] * rho_2))
             x_2 = (dt[10] * rho_2) /((dt[5] * rho_1) + (dt[10] * rho_2))
             rho_mix = (x_1 / rho_1 + x_2 / rho_2) ** -1           
@@ -204,22 +203,33 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
         # STEP 1 is to define the node matrices
         # these do not change during the calculations
-        Nj = self.node_matrix()
+        node_var, node_cof = self.node_matrix()
+        Nj = len(node_cof)
+        self.var_arry = node_var
+        self.coef_arry = node_cof
 
         # STEP 2 use the Hazen-Williams equation
         # to determine an initial Kp values once the Q's are calculated
         # then a new Kp will be calculated using the friction factors
         self.Kp_Le()
 
-        # use the preliminary Kp values to determine the loop energy equations
-        loop_var, loop_cof = self.loop_matrix()
+        # use the preliminary Kp values to determine the
+        # loop energy equations
+        if self.parent.poly_pts != {}:
+            loop_var, loop_cof = self.loop_matrix()
+            self.var_arry = self.var_arry + loop_var
+            self.coef_arry = self.coef_arry + loop_cof 
 
         # then develop the matrices for the various pumps
-        trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
+        if self.parent.pumps != {}:
+            trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
+            self.var_arry = self.var_arry + trans_var 
+            self.coef_arry = self.coef_arry + trans_cof
 
-        pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
-        self.var_arry = self.var_arry + loop_var + trans_var + pseudo_var
-        self.coef_arry = self.coef_arry + loop_cof + trans_cof + pseudo_cof
+        if self.parent.Pseudo != {}:
+            pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
+            self.var_arry = self.var_arry + pseudo_var
+            self.coef_arry = self.coef_arry + pseudo_cof
 
         # Array values for the lines ['B', 'D', 'E', 'F', 'G', 'H', 'I']
         # Ar = np.array([
@@ -259,12 +269,12 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
         # STEP 7 calculate the new flow values
         # put the flow and line labels into a dictionary
-        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
+        Flows = self.Ke_adjust(Nj)
 
         # and calculate the new Velocity, Re, f and new Kp values
         self.Iterate_Flow(Flows)
         Q_old = Flows.copy()
-        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
+        Flows = self.Ke_adjust(Nj)
 
         Q_avg = {}
         for k in Flows:
@@ -275,13 +285,13 @@ If this is a homogenous fluid specify "% by vol" as 100')
         # to find new coef for the energy equation
         # based on the equation K = Ki * Qi ^ (ni - 1)
         self.Kp_Iterated(Q_avg)
-        Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
+        Flows = self.Ke_adjust(Nj)
 
-        for iters in range(5):
+        for iters in range(10):
             # and calculate the new Velocity, Re, f and new Kp values
             self.Iterate_Flow(Q_avg)
             Q_old = Flows.copy()
-            Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
+            Flows = self.Ke_adjust(Nj)
 
             Q_avg = {}
             for k in Flows:
@@ -292,7 +302,7 @@ If this is a homogenous fluid specify "% by vol" as 100')
             # to find new coef for the energy equation
             # based on the equation K = Ki * Qi ^ (ni - 1)
             self.Kp_Iterated(Q_avg)
-            Flows = self.Ke_adjust(Nj, Np, trans_var, trans_cof, A_var, k_cof)
+            Flows = self.Ke_adjust(Nj)
             # test the variation of the flows if the next iteration
             # does not change then the last values are valid
             sigma = self.Iterate_Test(Flows, Q_old)
@@ -394,7 +404,7 @@ If this is a homogenous fluid specify "% by vol" as 100')
             # this defines the variable arry for the transformation
             # equation where -1 is the flow indicator for the actual
             # discharge pipe and +1 is the indicator or the pump flow
-            var_matx = [0] * len(self.var_arry[0])
+            var_matx = [0] * (len(self.var_dic) + N_pmp)
             ln_lbl = self.parent.nodes[k][0][0]
             var_matx[self.var_dic[ln_lbl]] = -1
             var_matx[n - N_pmp] = 1
@@ -410,11 +420,14 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
     def node_matrix(self):
         print('\n Called node matrix')
+        node_var = []
+        node_cof = []
         N_pmp = len(self.parent.pumps)
         # generate the matrix for each node
         for val in self.parent.nodes.values():
             if len(val) > 1:
-                nd_matx = [0]*(len(self.var_dic) + N_pmp - 1)
+                '''following line causes issue when there are no pumps at line 423'''
+                nd_matx = [0]*(len(self.var_dic) + N_pmp) # - 1)
                 coeff = 0
                 for k, v1, v2, v3 in val:
                     if v2 == 0:
@@ -432,27 +445,23 @@ If this is a homogenous fluid specify "% by vol" as 100')
                         coeff = v2 *cos(pi*v1)
                 # collect the array of node coeficients
                 # ie the value of any comsumption at the node
-                self.coef_arry.append(coeff)
+                node_cof.append(coeff)
                 # add the node matrix to the main variable array
-                # [[0, -1.0, 1.0, 0, 0, 0, 0, 0],
-                # [0, 0, -1.0, -1.0, 1.0, 0, -1.0, 0],
-                # [0, 0, 0, 0, -1.0, -1.0, 0, 1.0],
-                # [-1.0, 1.0, 0, 1.0, 0, 1.0, 0, 0]]
-                for n in range(N_pmp):
-                    nd_matx.append(0)
-                self.var_arry.append(nd_matx)
+                # [[0, -1.0, 1.0, 0, 0, 0, 0],
+                # [0, 0, -1.0, -1.0, 1.0, 0, -1.0],
+                # [0, 0, 0, 0, -1.0, -1.0, 0],
+                # [-1.0, 1.0, 0, 1.0, 0, 1.0, 0]]
+                node_var.append(nd_matx)
     
         # +++++ Note this code to be changed to delete
         # specific node if solution is not found after first iteration+++++
         # the final array for the nodes removing the last node
         if N_pmp == 0:
-            del self.var_arry[-1]
-            del self.coef_arry[-1]
+            del node_var[-1]
+            del node_cof[-1]
 
-        Nj = len(self.coef_arry)
-
-        print('initial matrices = ', self.var_arry, '\n', self.coef_arry)
-        return Nj
+        print('initial matrices = ', node_var, '\n', node_cof)
+        return node_var, node_cof
 
     def Kp_Le(self):
         gravity = 32.2  # ft/s^2
@@ -504,19 +513,19 @@ If this is a homogenous fluid specify "% by vol" as 100')
             # specify the coresponding e value for the selected material
             matr = itm[3]
             if matr == 0:
-                Chw = 150
+                Chw = 150    # PVC
                 e = .000084    # inches
             elif matr == 1:
-                Chw = 130
+                Chw = 130    # A53 / A106
                 e = .0018
             elif matr == 2:
-                Chw = 120
-                e = .09
+                Chw = 120    # Concrete
+                e = .066
             elif matr == 3:
-                Chw = 140
+                Chw = 140    # Tubing
                 e = .00006
             elif matr == 4:
-                Chw = 125
+                Chw = 125    # Galvanized
                 e = .006
 
             Dia = dia / 12    # ft
@@ -540,9 +549,10 @@ If this is a homogenous fluid specify "% by vol" as 100')
 #        self.K = {'D':[4.71,1.96], 'E':[.402,1.85],'F':[1.37,1.90],
 #        'B':[.264,1.95],'G':[1.14,1.95],'I':[11.30,1.97],'H':[3.35,1.98]}
 
-    def Ke_adjust(self, Nj, Np, trans_var, trans_cof, A_var, k_cof):
+    def Ke_adjust(self, Nj):
 
         loop_var, loop_cof = self.loop_matrix()
+        trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
         pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
 
         self.var_arry = self.var_arry[:Nj] + loop_var + trans_var + pseudo_var
@@ -737,6 +747,7 @@ If this is a homogenous fluid specify "% by vol" as 100')
         # calculate the new Kp values using n and the old Kp & Flows
         # then replace the corresponding Kp value in the energy equations
         for key, val in self.K.items():
+            print('Pipe corresponding K and n values', list(self.K.items()))
             Kp_iter = val[0] * abs(Flows[key])**(val[1]-1)
             self.K[key] = [Kp_iter, val[1]]
 
