@@ -589,9 +589,12 @@ class General(wx.Panel):
 
         self.info1 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
         self.unt1 = wx.Choice(self, choices=chcs_1)
+        self.unt1.SetSelection(0)
         self.info2 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
         self.unt2 = wx.Choice(self, choices=chcs_1)
+        self.unt2.SetSelection(1)
         self.info3 = wx.Choice(self, choices=chcs_2)
+        self.info3.SetSelection(1)
         blk3 = wx.StaticText(self, label=' ')
 
         grd.AddMany([(hdr1), (self.info1), (self.unt1),
