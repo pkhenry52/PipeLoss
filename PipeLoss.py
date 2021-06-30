@@ -52,8 +52,8 @@ class InputForm(wx.Frame):
     def __init__(self):
 
         super().__init__(None, wx.ID_ANY,
-                         title='Plot Lines',
-                         size=(1300, 840))
+                         title='Plot Lines')
+#                         , size=(1300, 840))
 
         # set up a list of dark colors suitable for the graph
         self.clrs = ['indianred', 'darkred', 'red',
@@ -268,6 +268,7 @@ class InputForm(wx.Frame):
 
         self.Center()
         self.Show()
+        self.Maximize(True)
 
         dlg = OpenFile(self)
         dlg.ShowModal()
@@ -491,7 +492,7 @@ class InputForm(wx.Frame):
             txt=self.ax.annotate('origin',(0,0),
                     color=self.colours['purple'],
                     textcoords='offset points',
-                    xytext=(3,3), ha='left',
+                    xytext=(3,3), ha='right',
                     picker=True)
             self.plt_txt['origin'] = txt
 
@@ -1659,7 +1660,7 @@ to a tank, pump or contain a control valve"
         txt = self.ax.annotate('origin', (0,0),
                                 color=self.colours['purple'],
                                 textcoords='offset points',
-                                xytext=(3,3), ha='left',
+                                xytext=(3,3), ha='right',
                                 picker=True)
 
         # redraw the lines and labels
