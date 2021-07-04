@@ -313,6 +313,7 @@ class InputForm(wx.Frame):
         if tbl_data != []:
             self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
             no_data = False
+        print(self.pts)
         return no_data
 
     def DBlines(self):
@@ -321,7 +322,8 @@ class InputForm(wx.Frame):
         data_sql = 'SELECT * FROM lines'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
-            self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}        
+            self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}
+        print(self.runs)
 
     def DBnodes(self):
         # download the data entered in the node_frm and put it into
@@ -330,6 +332,7 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
+        print(self.nodes)
 
     def DBelevs(self):
         # download the data entered in the node_frm and put it into
@@ -337,7 +340,8 @@ class InputForm(wx.Frame):
         data_sql = 'SELECT * FROM elevs'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
-            self.elevs = {i[0]:[i[1],i[2]] for i in tbl_data}       
+            self.elevs = {i[0]:[i[1],i[2]] for i in tbl_data}
+        print(self.elevs)
 
     def DBpumps(self):
         # download the data entered in the node_frm and put it into
@@ -376,6 +380,7 @@ class InputForm(wx.Frame):
                 self.AddLoop(k)
                 self.SetRotation(v[0][0], v[0][1], k)
         self.Ln_Select = []
+        print(self.Loops)
 
     def DBpseudo(self):
         data_sql = 'SELECT * FROM pseudo'
@@ -1574,10 +1579,9 @@ to a tank, pump or contain a control valve"
         if rot < 0:
             poly = list(reversed(poly))
             self.Ln_Select = list(reversed(self.Ln_Select))
-
+        print(self.Ln_Select)
         poly.pop(-1)
         self.poly_pts[loop_num] = poly
-
         return poly
 
     def vlv_pts(self, ln_lbl):
