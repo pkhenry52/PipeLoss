@@ -610,6 +610,10 @@ If this is a homogenous fluid specify "% by vol" as 100')
             ho_cof[k] = ho, n - N_pmp
             trans_var.append(var_matx)
             trans_cof.append(cof_arry)
+            print('pump number = ', k)
+            print('pump trans var = ', trans_var)
+            print('pump trans cof = ', trans_cof)
+            print('pump variables A, ho = ', A_var, ho_cof)
             n += 1
         return trans_var, trans_cof, A_var, ho_cof
 
@@ -698,7 +702,8 @@ If this is a homogenous fluid specify "% by vol" as 100')
                         k_matx[v] = 0.0
             loop_var.append(k_matx)
             loop_cof.append(0)
-        print('loop_var = ', loop_var)
+        print('loop var = ', loop_var)
+        print('loop cof = ', loop_cof)
         return loop_var, loop_cof
 
     def pseudo_matrix(self, A_var, ho_cof):
@@ -795,6 +800,8 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
             pseudo_var.append(k_matx)
             pseudo_cof.append(Elev)
+            print('pseudo loop var = ', pseudo_var)
+            print('pseudo lopp cof = ', pseudo_cof)
         return pseudo_var, pseudo_cof
 
     def Varify(self, Nl, Np, Nn, Ncl, Npl):

@@ -313,7 +313,6 @@ class InputForm(wx.Frame):
         if tbl_data != []:
             self.pts = {i[0]:literal_eval(i[1]) for i in tbl_data}
             no_data = False
-        print(self.pts)
         return no_data
 
     def DBlines(self):
@@ -323,7 +322,6 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.runs = {i[0]:[tuple(literal_eval(i[1])), i[2]] for i in tbl_data}
-        print(self.runs)
 
     def DBnodes(self):
         # download the data entered in the node_frm and put it into
@@ -332,7 +330,6 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.nodes = {i[0]:literal_eval(i[1]) for i in tbl_data}
-        print(self.nodes)
 
     def DBelevs(self):
         # download the data entered in the node_frm and put it into
@@ -341,7 +338,6 @@ class InputForm(wx.Frame):
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
             self.elevs = {i[0]:[i[1],i[2]] for i in tbl_data}
-        print(self.elevs)
 
     def DBpumps(self):
         # download the data entered in the node_frm and put it into
@@ -378,9 +374,8 @@ class InputForm(wx.Frame):
             for k,v in self.Loops.items():
                 self.Ln_Select = v[1]
                 self.AddLoop(k)
-                self.SetRotation(v[0][0], v[0][1], k)
+#                self.SetRotation(v[0][0], v[0][1], k)
         self.Ln_Select = []
-        print(self.Loops)
 
     def DBpseudo(self):
         data_sql = 'SELECT * FROM pseudo'
@@ -1543,43 +1538,40 @@ to a tank, pump or contain a control valve"
         poly = self.poly_pts[loop_num]
         poly.append(poly[0])
 
-        for n in range(0, len(poly)-1):
+        for n in range(len(poly)-1):
             btm = poly[n+1][0] - poly[n][0]
             top = poly[n+1][1] - poly[n][1]
-            if btm != 0:
-                m = top / btm
+            if btm == 0:
+                xL = poly[n][0]
+                if xL > Cx and top > 0:
+                    rot -= 1
+                elif xL > Cx and top < 0:
+                    rot += 1
+                elif xL < Cx and top > 0:
+                    rot += 1
+                elif xL < Cx and top < 0:
+                    rot -= 1
             else:
-                m = 0
-            yL = m * (Cx - poly[n][0]) + poly[n][1]
-            if yL > Cy:
-                if (m < 0 and btm > 0) or (m > 0 and btm > 0):
-                    rot += 1
+                m = top / btm
+                if m == 0:
+                    yL = poly[n][1]
                 else:
-                    rot -= 1
-            elif yL < Cy:
-                if (m < 0 and btm < 0) or (m > 0 and btm < 0):
+                    yL = m * (Cx - poly[n][0]) + poly[n][1]
+
+                if yL > Cy and btm < 0:
                     rot += 1
-                else:
+                elif yL > Cy and btm < 0:
                     rot -= 1
-            elif m == 0:
-                if top == 0:  # vertical line
-                    if ((poly[n][0] > Cx and top < 0) or
-                        (poly[n][0] < Cx and top > 0)):
-                        rot += 1
-                    else:
-                        rot -= 1
-                else:  # horizintal line
-                    if ((poly[n][1] > Cy and btm > 0) or
-                        (poly[n][1] < Cy and btm < 0)):
-                        rot += 1
-                    else:
-                        rot -= 1
+                elif yL < Cy and btm > 0:
+                    rot -= 1
+                elif yL < Cy and btm < 0:
+                    rot += 1                    
+
         # if the rotation is counter clockwise reverse the
         # points and the line order
         if rot < 0:
             poly = list(reversed(poly))
             self.Ln_Select = list(reversed(self.Ln_Select))
-        print(self.Ln_Select)
         poly.pop(-1)
         self.poly_pts[loop_num] = poly
         return poly
