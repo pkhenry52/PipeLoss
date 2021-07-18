@@ -147,8 +147,8 @@ class InputForm(wx.Frame):
         mb = wx.MenuBar()
 
         fileMenu = wx.Menu()
-        fileMenu.Append(101, '&Calculate')
         fileMenu.Append(103, '&Save To Database')
+        fileMenu.Append(101, '&Calculate')
         fileMenu.AppendSeparator()
         fileMenu.Append(104, '&Exit')
 
@@ -829,6 +829,15 @@ class InputForm(wx.Frame):
         if ln_lbl in self.plt_vlv:
             self.plt_vlv.pop(ln_lbl)[0].remove()
             self.plt_vlv_lbl.pop(ln_lbl).remove()
+
+        # for each pseudo loop see if the control valve is part of it
+        for num in self.Pseudo:
+            # if the CV is present in a pseudo loop then the loop needs
+            # to be removed if the vavle has changed or been deleted
+            if ln_lbl in self.Pseudo[num][1]:
+                self.RemoveLoop(num)
+                break
+
         self.canvas.draw()
         self.Refresh()
         self.Update()
@@ -1029,7 +1038,7 @@ class InputForm(wx.Frame):
             self.plt_pseudo.pop(num, None)
             self.canvas.draw()
             # remove the items from the appropriate lists and dictionaries
-            self.Pseudo.pop(num, None)      
+            self.Pseudo.pop(num, None)
 
     def RemovePump(self, lbl):
         # reset the warning flag
@@ -1079,7 +1088,7 @@ class InputForm(wx.Frame):
             if lbl.isupper():
                 if self.Loop_Select:
                     # take line lbl and go to Loop function
-                    self.wrg_pt = self.Loop(lbl, self.wrg_pt)
+                    self.Loop(lbl) #, self.wrg_pt)
                 elif self.dlt_line:
                     self.RemoveLine(set(lbl))
                 else:
@@ -1188,14 +1197,15 @@ to a tank, pump or contain a control valve"
                 self.wrg_pt = ''
                 self.Ln_Select = []
 
-    def Loop(self, lbl, wrg_pt):
+    def Loop(self, lbl):  # , wrg_pt):
         ''' build the loops made up of selected lines
         when all the end points have been duplicated the loop is closed'''
 	    # temporary list of the points in a loop
         LnPts = []
         rnd = np.random.randint(len(self.clrs))
         color_name = self.clrs[rnd]
-
+#        self.wrg_pt = wrg_pt
+        print('wrong point already set = ', self.wrg_pt)
         if 'C' in self.loop.GetLabel():
             # selected to develop real loop
             loop_typ = 0
@@ -1209,6 +1219,10 @@ to a tank, pump or contain a control valve"
             msg1 = 'A closed or real loop cannot have a '
             msg2 = '\nline containing a control valve.'
             self.WarnLoop(lbl, msg1 + msg2, 'real')
+            for lbl in self.Ln_Select:
+                self.plt_lines[lbl][0].set_color(self.colours[color_name])
+            self.Ln_Select = []
+            self.wrg_pt = ''
             return
 
         for pt in self.runs[lbl][0]:
@@ -1217,12 +1231,16 @@ to a tank, pump or contain a control valve"
                 # at which the pump or tank is located do not
                 # add it to the list of points LnPts
                 continue
-
-            if pt == wrg_pt and len(self.nodes[pt]) <= 2:
+            if (pt == self.wrg_pt and len(self.nodes[pt]) <= 2) or \
+               (pt == self.wrg_pt and len(self.Ln_Select) <= 1):
                 msg1 = 'The line selected approaches the '
                 msg2 = '\ncontrol valve from the wrong side.'
                 self.WarnLoop(lbl, msg1 + msg2, 'pseudo')
-                return
+                for lbl in self.Ln_Select:
+                    self.plt_lines[lbl][0].set_color(self.colours[color_name])
+                self.Ln_Select = []
+                self.wrg_pt = ''
+                return            
 
             if lbl in self.vlvs:
                 # check to see if the selected line flow is into
@@ -1243,14 +1261,18 @@ to a tank, pump or contain a control valve"
                                                         wx.OK | wx.ICON_INFORMATION)
                                 dialog.ShowModal()
                                 dialog.Destroy()
-
                         elif (ln[1] == 0 and self.vlvs[lbl][0] == 1) or \
                         (ln[1] == 1 and self.vlvs[lbl][0] == 0):
                             self.wrg_pt = pt
+                            print('HIT wrong point = ', self.wrg_pt)
                             if self.wrg_pt in self.loop_pts:
                                 msg1 = 'The line selected approaches the '
                                 msg2 = '\ncontrol valve from the wrong side.'
                                 self.WarnLoop(lbl, msg1 + msg2, 'pseudo')
+                                for lbl in self.Ln_Select:
+                                    self.plt_lines[lbl][0].set_color(self.colours[color_name])
+                                self.Ln_Select = []
+                                self.wrg_pt = ''
                                 return
             # build a list of all the selected line end points
             # do not include any point which designate a tank or pump
@@ -1279,8 +1301,11 @@ to a tank, pump or contain a control valve"
         for pnt in LnPts:
             if pnt in self.loop_pts:
                 self.loop_pts.remove(pnt)
-            else:
+            elif pnt != self.wrg_pt:
                 self.loop_pts.append(pnt)
+
+#        if len(self.Ln_Select) > 1 and (self.wrg_pt in self.loop_pts):
+#            self.loop_pts.remove(self.wrg_pt)
 
         # confirm all end points have been duplicated and loop closed
         if len(self.loop_pts) == 0:
@@ -1354,7 +1379,7 @@ to a tank, pump or contain a control valve"
                             x, y, pt2 = self.vlv_pts(new_lns[0])
                             break
                     # the valve point needs to be saved as coordinates
-                    lst_pts.append((x, y))
+                    lst_pts.append([x, y])
                     # the end point of the line either
                     # upstream for BPV or downstream
                     # for PRV needs to be specified as pt1
@@ -1373,7 +1398,7 @@ to a tank, pump or contain a control valve"
                             if l in self.vlvs:
                                 x, y, pt2 = self.vlv_pts(l)
                                 new_lns.append(l)
-                                lst_pts.append((x, y))
+                                lst_pts.append([x, y])
                                 self.Ln_Select.remove(l)
                                 flag = True
                                 break
@@ -1395,7 +1420,7 @@ to a tank, pump or contain a control valve"
                     self.plt_lines[ln][0].set_color(self.colours[color_name])
                 self.DrawPseudo(loop_num, lst_pts)
                 self.wrg_pt = ''
-        return self.wrg_pt
+#        return self.wrg_pt
 
     def WarnLoop(self, lbl, msg, typ):
         dialog = wx.MessageDialog(self, msg, 'Faulty Line Selection',
@@ -1611,9 +1636,9 @@ to a tank, pump or contain a control valve"
                 d = ((x_1 - x_0)**2 + (y_1 - y_0)**2)**.5
                 # determine the ratio of the distance the
                 # valve is along the line
-                if typ == 0:
+                if typ == 0:   # PRV
                     t = float(loc) / float(lg)
-                else:
+                else:    # BPV
                     t = (float(lg)-float(loc)) / float(lg)
                 # calculate the point location for the valve
                 # if the location is the middle of the line
@@ -1947,6 +1972,7 @@ class OpenFile(wx.Dialog):
         mt_file = os.path.join(mt_dir, 'mt.db')
 
         if isinstance(self.filename, str):
+            self.file_name.SetPath(self.filename)
             shutil.copy(mt_file, self.filename)
             self.cont.Enable()
         evt.Skip()

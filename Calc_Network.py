@@ -2,7 +2,6 @@ import wx
 import numpy as np
 import sqlite3
 
-#from wx.core import IntersectRect
 import DBase
 from math import cos, pi, log10, log, exp
 
@@ -191,7 +190,7 @@ If this is a homogenous fluid specify "% by vol" as 100')
         Ncl = 0
         Npl = 0
         Np = 0
-        iters = 15
+        iters = 25
         iter_num = 0
         completed = False
 
@@ -263,7 +262,8 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
         # Cof = np.array([4.45,-2.23,-3.34,-3.34,4.45,0.,0.])
         Cof = np.array(self.coef_arry)
-
+        print('\ninitial var array = ', self.var_arry)
+        print('\ninitial coef array = ', self.coef_arry)
         # STEP 3 solve for the initial flow values
         Q1 = np.linalg.solve(Ar, Cof)
 
@@ -278,17 +278,15 @@ If this is a homogenous fluid specify "% by vol" as 100')
         while True:
             if iter_num == 0:
                 Qsum = self.Iterate_Flow(Flows, iter_num)
-                # STEP 6 calculate the new flow values
-                # put the flow and line labels into a dictionary
                 Flows = self.Q1_Calc(Nn)
                 iter_num += 1
             elif Qsum > .001 and iter_num < iters:
-                # STEP 4 and 5 calculate the Velocity, Re, f and new Kp values
                 Qsum = self.Iterate_Flow(Flows, iter_num)
                 iter_num += 1
-                # STEP 6 calculate the new flow values
-                # put the flow and line labels into a dictionary
                 Flows = self.Q1_Calc(Nn)
+            elif iter_num >= iters:
+                completed = False
+                break
             else:
                 completed = True
                 break
@@ -303,7 +301,8 @@ If this is a homogenous fluid specify "% by vol" as 100')
                 dia = self.D_e[ln][0]
                 Dia = dia / 12
                 lgth = (self.D_e[ln][4] + self.D_e[ln][5])
-                e = self.D_e[ln][1] / dia
+                # convert absolute roughness to relative roughness
+                er = self.D_e[ln][1] / dia
                 vel = .408 * gpm / dia**2
                 Re = 123.9 * dia * vel * self.density / self.abs_vis
                 if Re <= 2100:
@@ -311,13 +310,13 @@ If this is a homogenous fluid specify "% by vol" as 100')
                     hL = .0962 * self.abs_vis * lgth * vel / (dia**2 * self.density)
                     delta_P = (.000668 * self.abs_vis * lgth * vel / dia**2)
                 else:
-                    f = 1 / (1.14 - 2*log10(e))**2
-                    PAR =  vel *(.125 * f)**.5 * Dia * e / self.kin_vis
+                    f = 1 / (1.14 - 2*log10(er))**2
+                    PAR = vel *(.125 * f)**.5 * Dia * er / self.kin_vis
                     if PAR <= 65:
                         MCT = 0
                         while True:
                             # Colebrook Friction Factor for turbulent flow
-                            ARG = e + 9.35 / (Re * f**.5)
+                            ARG = er + 9.35 / (Re * f**.5)
                             FF = (1 / f**.5) - 1.14 + 2 * log10(ARG)
                             DF = 1 / (2 * f * f**.5) + ELOG / 2 * (f * f**.5 * ARG * Re)
                             DIF = FF / DF
@@ -343,6 +342,8 @@ If this is a homogenous fluid specify "% by vol" as 100')
                 print('Flow Velocity (ft/sec) = ', vel)
         else:
             print('Unable to iterate network to a solution')
+            print('number of iterations = ', iter_num)
+            print('Qsum = ', Qsum)
 
     def Iterate_Flow(self, Flows, iter_num):
         # percentage variation in range of flow estimates
@@ -351,6 +352,9 @@ If this is a homogenous fluid specify "% by vol" as 100')
         gravity = 32.2
         Qsum = 100
         ELOG = 9.35 * log10(2.71828183)
+
+        if iter_num > 0:
+            Qsum = 0
 
         for ln, flow in Flows.items():
             # start by using the 'flow' calculated in
@@ -361,7 +365,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
             # after the first iteration change values to:
             # where the 'Calc_Flow' is the iterated value for the flow
             if iter_num > 0:
-                Qsum = 0
                 Avg_Flow = (self.Q_old[ln] + Calc_Flow) / 2
                 Qsum = Qsum + abs(self.Q_old[ln] - Calc_Flow)
             # upgrade the 'flow' value to the avg of the
@@ -371,9 +374,10 @@ If this is a homogenous fluid specify "% by vol" as 100')
             DeltaQ = Avg_Flow * DeltaQ_Percent
             Avg_Flow = abs(Avg_Flow)
 
-            dia, er, AR, ARL, Lgth, _ = self.D_e[ln]
-            Dia = dia / 12
+            dia, e, AR, ARL, Lgth, _ = self.D_e[ln]
 
+            Dia = dia / 12
+            er = e / dia
             V1 = (Avg_Flow - DeltaQ) / AR
             if V1 < .001:
                 V1 = .002
@@ -390,18 +394,20 @@ If this is a homogenous fluid specify "% by vol" as 100')
 #                F = (F1+F2) / 2
                 EXPP = 1.0
                 Kp = 2 * gravity * self.kin_vis * ARL / Dia
+                if ln in self.parent.vlvs:
+                    Kp = Kp * self.parent.vlvs[ln][2] / Lgth
                 self.K[ln] = [Kp, EXPP]
                 continue
             else:
-                F = 1 / (1.14 - 2*log10(er/dia))**2
-                PAR =  (VE *(.125 * F)**.5 * Dia * er / dia)/ self.kin_vis
-                if PAR <= 65:
+                F = 1 / (1.14 - 2*log10(er))**2
+                PAR =  (VE * (.125 * F)**.5 * Dia * er) / self.kin_vis
+                if PAR <= 120:
                     RE = RE1
                     for MM in range(0, 2):
                         MCT = 0
                         while True:
                             # Colebrook Friction Factor for turbulent flow
-                            ARG = er/dia + 9.35 / (RE * F**.5)
+                            ARG = er + 9.35 / (RE * F**.5)
                             FF = (1 / F**.5) - 1.14 + 2 * log10(ARG)
                             DF = 1 / (2 * F**1.5) + (ELOG / 2 * F**1.5) / (ARG * RE)
                             DIF = FF / DF
@@ -421,12 +427,16 @@ If this is a homogenous fluid specify "% by vol" as 100')
                     EP = 1 - BE
                     EXPP = EP + 1
                     Kp = AE * ARL * Avg_Flow**EP
+                    if ln in self.parent.vlvs:
+                        print(Kp, self.parent.vlvs[ln][2], Lgth)
+                        Kp = Kp * self.parent.vlvs[ln][2] / Lgth
                 else:
                     EXPP = 2
                     Le = self.dct[ln] * Dia / F
                     ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
                     Kp = F * ARL *Avg_Flow**2
-
+                    if ln in self.parent.vlvs:
+                        Kp = Kp * self.parent.vlvs[ln][2] / Lgth
                 self.K[ln] = [Kp, EXPP]
 
             self.D_e[ln][3] = ARL
@@ -442,7 +452,8 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
         self.var_arry = self.var_arry[:Nn] + loop_var + trans_var + pseudo_var
         self.coef_arry = self.coef_arry[:Nn] + loop_cof + trans_cof + pseudo_cof
-
+        print('\niteration values of var array = ', self.var_arry)
+        print('\niteration values of cof array = ', self.coef_arry)
         Ar = np.array(self.var_arry)
         Cof = np.array(self.coef_arry)
 
@@ -497,9 +508,9 @@ If this is a homogenous fluid specify "% by vol" as 100')
                 lgth = lgth / 30.48
             else:
                 Lgth = float(itm[2]) / 304.8
-                lgth = lgth / 304.8
+                lgth = lgth / 304.8    
 
-            # specify the coresponding e value for the selected material
+            # specify the coresponding absolute e value for the selected material
             matr = itm[3]
             if matr == 0:   # PVC
                 e = .000084    # inches
@@ -516,59 +527,33 @@ If this is a homogenous fluid specify "% by vol" as 100')
 #                e = .006
 # following lines are to be deleted
 # for testing example 1 only
-#            e = .0102
+#            e = .0102   # value greater then .0175 and program does not converge
 # for testing example 3 only
 #            e = .010
 # for testing example 5 only
 #            e = .012
-
+# for testing example 2 only
+            e = .02
+            Chw = 100  # this can be changed but has limited effect on
+            # final out come typical is between 100 and 140
             Dia = dia / 12    # ft
             AR = pi * Dia**2 / 4  # ft^2
             n_exp = 0
             f = (1.14 - 2 * log10(e/dia))**-2
-
             Le = self.dct[lbl] * Dia / f    # ft
-            # Kp based on initial calculation using Chw = 100
-            Kp = .0009517 * (Lgth + Le) / Dia**4.87
-
-            if lgth > 0:
-                Kp = Kp * lgth / Lgth
-                Lgth = lgth
-
+            Kp = 4.73 * (Lgth + Le) / (Dia**4.87 * Chw**1.852)
             ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
+
+            # lgth > 0 indicates there is a control valve in the line
+            if lbl in self.parent.vlvs:
+                Kp = Kp * lgth / Lgth
+
             self.D_e[lbl] = [dia, e, AR, ARL, Lgth, Le]
             self.K[lbl] = [Kp, n_exp]
-            print(self.D_e[lbl][1])
-
-    def Iterate_Test(self, Qa, Qb):
-        # convert the two dictionary of flows into ordered lists,
-        # since the keys are the same they can be sorted together
-        Qa_lst = []
-        Qb_lst = []
-
-        for k in sorted(Qa):
-            Qa_lst.append(Qa[k])
-            Qb_lst.append(Qb[k])
-        diff = np.abs(np.subtract(np.abs(np.array(Qa_lst)),
-                      np.abs(np.array(Qb_lst))))
-        # find the average of the differences between all the flows
-        mu = sum(diff) / len(diff)
-        numer = sum((diff - mu)**2)
-        denom = len(Qa_lst)-1
-        sigma = numer / denom
-        return sigma
-
-    def Kp_Iterated(self, Flows):
-        # calculate the new Kp values using n and the old Kp & Flows
-        # then replace the corresponding Kp value in the energy equations
-        for key, val in self.K.items():
-            Kp_iter = val[0] * abs(Flows[key])**(val[1]-1)
-            self.K[key] = [Kp_iter, val[1]]
 
     def pump_matrix(self):
         trans_var = []
         trans_cof = []
-
         N_pmp = len(self.parent.pumps)
         A_var = {}
         ho_cof = {}
@@ -588,16 +573,15 @@ If this is a homogenous fluid specify "% by vol" as 100')
             elif v[0] == 2:
                 f = .0098
                 t = 3.28
+            pump_Flow = np.array([v[2]*f,v[3]*f,v[4]*f])
+            pump_TDH = np.array([v[5]*t,v[6]*t,v[7]*t])
 
-            pump_Ar = np.array([v[2],v[3],v[4]])
-            pump_Cof = np.array([v[5],v[6],v[7]])
-
-            A, B, Ho = np.polyfit(pump_Ar, pump_Cof, 2)
+            A, B, Ho = np.polyfit(pump_Flow, pump_TDH, 2)
 
             # ho is the head generated by the pump
-            ho = Ho -B / (4 * A)
+            ho = Ho - B / (4 * A)
             # this is the coef value in the transformation equation
-            cof_arry = -1 * (B / (2 * A))
+            cof_arry = (B / (2 * A))
             # this defines the variable arry for the transformation
             # equation where -1 is the flow indicator for the actual
             # discharge pipe and +1 is the indicator or the pump flow
@@ -610,10 +594,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
             ho_cof[k] = ho, n - N_pmp
             trans_var.append(var_matx)
             trans_cof.append(cof_arry)
-            print('pump number = ', k)
-            print('pump trans var = ', trans_var)
-            print('pump trans cof = ', trans_cof)
-            print('pump variables A, ho = ', A_var, ho_cof)
             n += 1
         return trans_var, trans_cof, A_var, ho_cof
 
@@ -691,7 +671,7 @@ If this is a homogenous fluid specify "% by vol" as 100')
                         break
             # run through the matrix of all the lines mapped
             # in the plot as specified as part of a node in order to specify
-            # the index location for the Kp vaiable in the loop equations
+            # the index location for the Kp variable in the loop equations
             # and combine the sign of the direction arrow with the
             # calculated Kp for the line
             for k,v in self.var_dic.items():
@@ -702,8 +682,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
                         k_matx[v] = 0.0
             loop_var.append(k_matx)
             loop_cof.append(0)
-        print('loop var = ', loop_var)
-        print('loop cof = ', loop_cof)
         return loop_var, loop_cof
 
     def pseudo_matrix(self, A_var, ho_cof):
@@ -721,17 +699,27 @@ If this is a homogenous fluid specify "% by vol" as 100')
             Elev = 0
             skip_0 = False
             skip_1 = False
+            rev_sgn = 1
 
             k_matx = [0]*(len(self.var_dic)+len(self.parent.pumps))
             alpha_poly_pts = []
+
+            # lines starting with a control valve shift the
+            # start point and line one position therefore
+            # the coefficient signs must be reversed
+            if self.parent.Pseudo[num][1][0] in self.parent.vlvs:
+                rev_sgn = -1
+            # self.Pseudo= {3:[[ 
+                            #  [11.0, 9.0],[11.0, 4.0], [5.0, -9.0], (3.25, -3.75)],
+                            #  ['D', 'E', 'F']]}
+            # get the corresponding alpha point for
+            # each coordinate in the Pseudo loop
             for v in self.parent.Pseudo[num][0]:
                 if tuple(v) in inv_pts:
                     alpha_poly_pts.append(inv_pts[tuple(v)])
 
-            # loop lines  ['E', 'F', 'D', 'C'] loop number 1
             for n, ln in enumerate(self.parent.Pseudo[num][1]):
                 nd1 = alpha_poly_pts[n]
-
                 if ln in self.parent.vlvs:
                     # convert values of elevation to feet of water
                     if self.parent.vlvs[ln][1] == 0:
@@ -740,50 +728,63 @@ If this is a homogenous fluid specify "% by vol" as 100')
                         cnvrt = .3346
                     elif self.parent.vlvs[ln][1] == 2:
                         cnvrt = 1
-
+                    # get the set pressure for any control valve
                     if n == 0:
-                        Elev = self.parent.vlvs[ln][3] * cnvrt
+                        Elev = float(self.parent.vlvs[ln][3]) * cnvrt
                         skip_0 = True
                     else:
-                        Elev = -1 * self.parent.vlvs[ln][3] * cnvrt
+                        Elev = -1 * float(self.parent.vlvs[ln][3]) * cnvrt
                         skip_1 = True
 
                 for val in self.parent.nodes[nd1]:
                     if ln in val:
-                        k_matx[self.var_dic[ln]] = cos(pi*val[1]) * -1
+                        print(f'line {ln} at node {nd1}')
+                        print('into node is 0 out is 1 = ',val[1])
+                        if val[1] == 0:
+                            k_matx[self.var_dic[ln]] = -1 * rev_sgn
+                        elif val[1] == 1:
+                            k_matx[self.var_dic[ln]] = 1 * rev_sgn
+                        print('sign for node ', k_matx[self.var_dic[ln]])
                         break
+            print('\nk matrix flow value ', k_matx)
 
-            sgn = 1
+#            sgn = 1
             m = 0
             for pt in alpha_poly_pts:
+                # when m = 0 or the last point is at a tank or pump
+                # if it is the first point then the elevation is +
                 if (m == 0 and skip_0 is False) or \
                    (m == len(alpha_poly_pts)-1 and skip_1 is False):
                     if m == 0:
                         sgn = 1
                     else:
                         sgn = -1
-
+                    # convert the elevations at the node to feet
                     if pt in self.parent.elevs:
                         if self.parent.elevs[pt][1] == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-                        Elev = Elev + float(self.parent.elevs[pt][0]) * cnvrt * sgn
 
+                        Elev = Elev + self.parent.elevs[pt][0] * cnvrt * sgn
+                    # convert the pump elevation to feet
                     if pt in self.parent.pumps:
                         if self.parent.pumps[pt][0] == 0:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-                        Elev = Elev + float(self.parent.pumps[pt][1]) * cnvrt * sgn
-                        k_matx[A_var[pt][1]] = A_var[pt][0] * sgn
+
+                        Elev = Elev + self.parent.pumps[pt][1] * cnvrt * sgn
+                        k_matx[A_var[pt][1]] = A_var[pt][0] * sgn * -1
+
                         Elev = Elev + ho_cof[pt][0] * sgn
+            
                     elif pt in self.parent.tanks:
                         if self.parent.tanks[pt][1] == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-                        Elev = Elev + float(self.parent.tanks[pt][0]) * cnvrt * sgn
+                        Elev = Elev + self.parent.tanks[pt][0] * cnvrt * sgn
                 m += 1
 
             # run through the matrix of all the lines mapped
@@ -797,11 +798,9 @@ If this is a homogenous fluid specify "% by vol" as 100')
                         k_matx[v] = self.K[k][0] * k_matx[v]
                     else:
                         k_matx[v] = 0.0
-
             pseudo_var.append(k_matx)
             pseudo_cof.append(Elev)
-            print('pseudo loop var = ', pseudo_var)
-            print('pseudo lopp cof = ', pseudo_cof)
+        print(pseudo_var, pseudo_cof)
         return pseudo_var, pseudo_cof
 
     def Varify(self, Nl, Np, Nn, Ncl, Npl):

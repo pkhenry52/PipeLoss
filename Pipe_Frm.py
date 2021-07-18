@@ -302,9 +302,15 @@ class PipeFrm(wx.Frame):
 
                 if self.nb.GetPage(old).prv_chk.GetValue() or \
                 self.nb.GetPage(old).bpv_chk.GetValue():
+                    if self.nb.GetPage(0).prv_chk.GetValue() is True:
+                    # selected valve is PRV
+                        vlv_typ = 0
+                    else:
+                    # selected valve is BPV
+                        vlv_typ = 1
                     CVlv_list = []
                     CVlv_list.append(self.lbl)
-                    CVlv_list.append(self.nb.GetPage(old).prv_chk.GetValue())
+                    CVlv_list.append(vlv_typ)
                     CVlv_list.append(self.nb.GetPage(old).unt_bx.GetSelection())
                     CVlv_list.append(float(self.nb.GetPage(old).locate.GetValue()))
                     CVlv_list.append(float(self.nb.GetPage(old).set_press.GetValue()))
@@ -549,7 +555,7 @@ class PipeFrm(wx.Frame):
                 if self.nb.GetPage(0).prv_chk.GetValue() is True:
                     # selected valve is PRV
                     vlv_typ = 0
-                else:
+                elif self.nb.GetPage(0).bpv_chk.GetValue() is True:
                     # selected valve is BPV
                     vlv_typ = 1
                 unts = self.nb.GetPage(0).unt_bx.GetSelection()
@@ -652,7 +658,9 @@ class General(wx.Panel):
         self.SetSizer(self.sizer)
 
     def Onvlv(self, evt):
-        if evt.GetEventObject().GetId() == 1:
+# need to delete any psuedo loops associated
+# with the line if the valve type is changed
+        if evt.GetEventObject().GetId() == 1:   # PRV
             self.bpv_chk.SetValue(False)
             if self.prv_chk.GetValue() is False:
                 self.add_vlv = False
@@ -663,7 +671,7 @@ class General(wx.Panel):
                     self.vlv_chg = True
                 self.vlv_lbl.SetLabel('Downstream Pipe Length')
                 self.add_vlv = True
-        else:
+        else:   # BPV
             self.prv_chk.SetValue(False)
             if self.bpv_chk.GetValue() is False:
                 self.add_vlv = False

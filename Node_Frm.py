@@ -197,6 +197,7 @@ class NodeFrm(wx.Frame):
 
             chs_bx = wx.Choice(self, id_num+4, choices=chcs_1, size=(-1, 30))
             chs_bx.Enable(False)
+            chs_bx.SetSelection(0)
 
             if txtbx != 0:
                 chs_bx.Enable()
