@@ -170,7 +170,7 @@ class NodeFrm(wx.Frame):
                         rdbtn = bool(i[1]-1)
                         txtbx = i[2]
                         chsbx = i[3]
-            # if the line is not part of another defined node 
+            # if the line is not part of another defined node
             # and it is in the self.node_lst list of lines
             # and it has been defined then use those values
             elif ln in d:
@@ -441,7 +441,7 @@ class NodeFrm(wx.Frame):
             lst2.append(dirct)
             lst3.append(flow)
             lst4.append(unts)
-       
+
         # make a list containing the line label, flow direction and volume
         ln_dirct = list(zip(lst1, lst2, lst3, lst4))
         # add information to the nodes dictionary
@@ -460,7 +460,7 @@ class NodeFrm(wx.Frame):
                     tmp = endpt2
                     endpt2 = endpt1
                     endpt1 = tmp
-                
+
                 x0, y0 = self.parent.pts[endpt1]
                 x1, y1 = self.parent.pts[endpt2]
 
@@ -505,7 +505,7 @@ class NodeFrm(wx.Frame):
     def SaveTank(self):
         if self.node not in self.tanks:
             self.parent.DrawPump(self.node,False)
-        
+
         self.tanks[self.node] = [float(self.tk_elev.GetValue()),
                                  int(self.unt4.GetSelection())]
 

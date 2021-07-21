@@ -552,15 +552,21 @@ class InputForm(wx.Frame):
                 # it can only be point2 as numeric
                 else:
                     points2.append(float(pt))
-            else:
-                continue
+#            else:
+#                continue
 
         points.append(points1)
         points.append(points2)
 
         # confirm that point2 has two values in tuple and
-        # that it has a label associated with it
+        # that it has no label associated with it
         if len(points2) == 2:
+            # create a reverse dictionary of self.pts to search by coordinates
+            rev_pts = {}
+            for k, v in self.pts.items():
+                v = tuple(v)
+                rev_pts[v] = k
+
             if nd_pt2 == '':
                 # this will provide the next available node letter
                 nds = [*self.pts]
@@ -569,11 +575,24 @@ class InputForm(wx.Frame):
                 if points2 == [0, 0]:
                     New_EndPt = False
                     nd_pt2 = 'origin'
+                # if the coordinates for an existing point are entered
+                # into the grid then change to coordinates to that alpha point
+                # and set New_EndPt to false so the point is not printed on
+                # the graph twice
+                elif tuple(points2) in rev_pts:
+                    nd_pt2 = rev_pts[tuple(points2)]
+                    New_EndPt = False
+                    self.grd.SetCellValue(row, 1, nd_pt2)
+                    self.grd.SetCellValue(row, 2, '')
+                # if the node lable has already been used based on the
+                # lowercase of the line lbl then find the next available letter
                 elif LnLbl.lower() in nds:
                     for i in range(97, 123):
                         if chr(i) not in nds:
                             nd_pt2 = chr(i)
                             break
+                # all else passed then use the line lbl lowercase
+                # for the node label
                 else:
                     nd_pt2 = LnLbl.lower()
 

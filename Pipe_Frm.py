@@ -119,7 +119,9 @@ class PipeFrm(wx.Frame):
         self.nb = wx.Notebook(self)
 
         self.nb.units = ['inches', 'feet', 'meters', 'centimeters', 'millimeters']
-        self.nb.mtr = ['PVC', 'A53 / A106', 'Concrete', 'Tubing', 'Galvanized']
+        self.nb.mtr = ['PVC', 'A53 / A106', 'Concrete Smooth', 'Concrete Rough',
+                       'Copper Tubing', 'Drawn Tube', 'Galvanized',
+                       'Stainless Steel', 'Rubber Lined']
 
         self.nb.AddPage(General(self.nb), 'General Pipe\n Information')
         self.nb.AddPage(ManVlv1(self.nb),
@@ -272,18 +274,26 @@ class PipeFrm(wx.Frame):
                 else:
                     self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 25.4
 
-                # specify the coresponding e value for the selected material
+                # specify the coresponding e value in inches for the selected material
                 matr = self.nb.GetPage(old).info3.GetSelection()
-                if matr == 0:
-                    e = .000084
-                elif matr == 1:
-                    e = .0018
-                elif matr == 2:
-                    e = .09
-                elif matr == 3:
-                    e = .00006
-                elif matr == 4:
-                    e = .006               
+                if matr == 0:    # PVC
+                    e = .000006
+                elif matr == 1:   # A53 / A106
+                    e = .0024
+                elif matr == 2:   # Concrete Smooth
+                    e = .00157
+                elif matr == 3:   # Concrete Rough
+                    e = .07874
+                elif matr == 4:   # Copper Tube
+                    e = .02402
+                elif matr == 5:   # Drawn Tube
+                    e = .000006
+                elif matr == 6:    # Galvanized
+                    e = .00591
+                elif matr == 7:   # Stainless
+                    e = .000008
+                elif matr == 8:   # Rubber Lined
+                    e = .00039
 
                 # define what this equation for pipe friction loss is.
                 self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2

@@ -1,7 +1,5 @@
 import wx
 import numpy as np
-import sqlite3
-
 import DBase
 from math import cos, pi, log10, log, exp
 
@@ -512,19 +510,24 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
             # specify the coresponding absolute e value for the selected material
             matr = itm[3]
-            if matr == 0:   # PVC
-                e = .000084    # inches
+            if matr == 0:    # PVC
+                e = .000006
             elif matr == 1:   # A53 / A106
-                e = .015
-#                e = .0018
-            elif matr == 2:   # Concrete
-                e = .01
-#                e = .066
-            elif matr == 3:   # Tubing
-                e = .00006
-            elif matr == 4:   # Galvanized
-                e = .009
-#                e = .006
+                e = .0024
+            elif matr == 2:   # Concrete Smooth
+                e = .00157
+            elif matr == 3:   # Concrete Rough
+                e = .07874
+            elif matr == 4:   # Copper Tube
+                e = .02402
+            elif matr == 5:   # Drawn Tube
+                e = .000006
+            elif matr == 6:    # Galvanized
+                e = .00591
+            elif matr == 7:   # Stainless
+                e = .000008
+            elif matr == 8:   # Rubber Lined
+                e = .00039
 # following lines are to be deleted
 # for testing example 1 only
 #            e = .0102   # value greater then .0175 and program does not converge
