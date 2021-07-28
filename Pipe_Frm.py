@@ -119,7 +119,7 @@ class PipeFrm(wx.Frame):
         self.nb = wx.Notebook(self)
 
         self.nb.units = ['inches', 'feet', 'meters', 'centimeters', 'millimeters']
-        self.nb.mtr = ['PVC', 'A53 / A106', 'Concrete Smooth', 'Concrete Rough',
+        self.nb.mtr = ['Plastic', 'A53 / A106', 'Concrete Smooth', 'Concrete Rough',
                        'Copper Tubing', 'Drawn Tube', 'Galvanized',
                        'Stainless Steel', 'Rubber Lined']
 
@@ -156,12 +156,13 @@ class PipeFrm(wx.Frame):
                 self.nb.GetPage(0).unt1.SetSelection(data[6])
                 self.nb.GetPage(0).info2.SetValue(str(data[2]))
                 self.nb.GetPage(0).unt2.SetSelection(data[7])
-                self.nb.GetPage(0).info3.SetSelection(data[3])
+                self.nb.GetPage(0).info3.SetValue(str(data[3]))
+                self.nb.GetPage(0).unt3.SetSelection(data[8])
                 self.data_good = data[4]
             else:
                 self.nb.GetPage(0).unt1.SetSelection(0)
                 self.nb.GetPage(0).unt2.SetSelection(1)
-                self.nb.GetPage(0).info3.SetSelection(1)
+                self.nb.GetPage(0).unt3.SetSelection(0)
 
             if self.lbl in self.parent.vlvs:
                 typ, unt, loc, setpress, lg = self.parent.vlvs[self.lbl]
@@ -275,25 +276,17 @@ class PipeFrm(wx.Frame):
                     self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 25.4
 
                 # specify the coresponding e value in inches for the selected material
-                matr = self.nb.GetPage(old).info3.GetSelection()
-                if matr == 0:    # PVC
-                    e = .000006
-                elif matr == 1:   # A53 / A106
-                    e = .0024
-                elif matr == 2:   # Concrete Smooth
-                    e = .00157
-                elif matr == 3:   # Concrete Rough
-                    e = .07874
-                elif matr == 4:   # Copper Tube
-                    e = .02402
-                elif matr == 5:   # Drawn Tube
-                    e = .000006
-                elif matr == 6:    # Galvanized
-                    e = .00591
-                elif matr == 7:   # Stainless
-                    e = .000008
-                elif matr == 8:   # Rubber Lined
-                    e = .00039
+                unt = self.nb.GetPage(old).unt3.GetSelection()
+                if unt == 1:
+                    e = float(self.nb.GetPage(old).info3.GetValue())
+                elif unt == 0:
+                    e = float(self.nb.GetPage(old).info3.GetValue()) * 12
+                elif unt == 2:
+                    e = float(self.nb.GetPage(old).info3.GetValue()) * 39.37
+                elif unt == 3:
+                    e = float(self.nb.GetPage(old).info3.GetValue()) / 2.54
+                else:
+                    e = float(self.nb.GetPage(old).info3.GetValue()) / 25.4
 
                 # define what this equation for pipe friction loss is.
                 self.ff = (1.14 - 2 * log10(e / (self.dia/12)))**-2
@@ -303,11 +296,12 @@ class PipeFrm(wx.Frame):
                 UpQuery = self.BldQuery(old_pg, new_data)
                 ValueList.append(str(self.nb.GetPage(old).info1.GetValue()))
                 ValueList.append(self.nb.GetPage(old).info2.GetValue())
-                ValueList.append(self.nb.GetPage(old).info3.GetSelection())
+                ValueList.append(self.nb.GetPage(old).info3.GetValue())
                 ValueList.append(self.data_good)
                 ValueList.append(Kt0)
                 ValueList.append(self.nb.GetPage(old).unt1.GetSelection())
                 ValueList.append(self.nb.GetPage(old).unt2.GetSelection())
+                ValueList.append(self.nb.GetPage(old).unt3.GetSelection())
                 DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
 
                 if self.nb.GetPage(old).prv_chk.GetValue() or \
@@ -589,18 +583,31 @@ class General(wx.Panel):
         self.vlv_chg = False
 
         chcs_1 = self.parent.units
-        chcs_2 = self.parent.mtr
+        row_lst = [['Plastics', '0.0015', '0.00006'],
+                   ['A53\nA106', '0.0610', '0.00240'],
+                   ['Concrete\nSmooth', '0.0400', '0.00157'],
+                   ['Concrete\nRough', '2.00', '0.07874'],
+                   ['Copper\nTube', '0.6100', '0.02402'],
+                   ['Drawn\nTube', '0.0015', '0.00006'],
+                   ['Galvanized', '0.1500','0.00591'],
+                   ['Stainless\nSteel', '0.0020', '0.00008'],
+                   ['Rubber\nLined', '0.0100', '0.039']]
 
-        # put the buttons in a sizer
+        # one sizer to fit them all
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-        
+
+        # top outer sizer for top2 and grd1
+        top1_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # top inner sizer for grd and static text box
+        top2_sizer = wx.BoxSizer(wx.VERTICAL)
         grd = wx.FlexGridSizer(3,3,10,10)
 
         hdr1 = wx.StaticText(self, label='Diameter',
                              style=wx.ALIGN_LEFT)
         hdr2 = wx.StaticText(self, label='Length',
                              style=wx.ALIGN_LEFT)
-        hdr3 = wx.StaticText(self, label='Material',
+        hdr3 = wx.StaticText(self, label='Absolute\nRoughness',
                              style=wx.ALIGN_CENTER)
 
         self.info1 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
@@ -609,13 +616,51 @@ class General(wx.Panel):
         self.info2 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
         self.unt2 = wx.Choice(self, choices=chcs_1)
         self.unt2.SetSelection(1)
-        self.info3 = wx.Choice(self, choices=chcs_2)
-        self.info3.SetSelection(1)
-        blk3 = wx.StaticText(self, label=' ')
+        self.info3 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
+        self.unt3 = wx.Choice(self, choices=chcs_1)
+        self.unt3.SetSelection(0)
 
         grd.AddMany([(hdr1), (self.info1), (self.unt1),
                      (hdr2), (self.info2), (self.unt2),
-                     (hdr3), (self.info3), (blk3)])
+                     (hdr3), (self.info3), (self.unt3)])
+
+        msg1 = 'This table shows suggested design values for the Absolute\n'
+        msg2 = ' or Specific roughness, for various pipe materials.\n'
+        msg3 = ' These values are sited from;\n\n'
+        msg4 = ' \t- The Hydraulic Institute, Engineering Data Book.\n'
+        msg5 = ' \t- Various vendor data compiled by SAIC, 1998\n'
+        msg6 = ' \t- F.M. White, Fluid Mechanics, 7th edition'
+        msg = msg1 + msg2 + msg3 + msg4 + msg5 + msg6
+        info_txt = wx.StaticText(self, label = msg,
+                                 style = wx.ALIGN_LEFT)
+
+        top2_sizer.Add(grd, 0, wx.LEFT, 20)
+        top2_sizer.Add((10,50))
+        top2_sizer.Add(info_txt, 0, wx.LEFT, 20)
+
+        # build the information grid for absolute roughness
+        grd1 = gridlib.Grid(self, -1)
+        grd1.CreateGrid(9, 3)
+        grd1.EnableEditing(False)
+        grd1.SetRowLabelSize(1)
+
+        grd1.SetColLabelValue(0, "Pipe\nMaterial")
+        grd1.SetColLabelValue(1, "mm")
+        grd1.SetColLabelValue(2, "inch")
+        
+        grd_row = 0
+        for items in row_lst:
+            grd1.SetRowSize(grd_row, 40)
+            grd_col = 0
+            for item in items:
+                grd1.SetColSize(grd_col, 90)
+                grd1.SetCellAlignment(grd_row, grd_col, wx.ALIGN_CENTER, wx.ALIGN_CENTER)
+                grd1.SetCellValue(grd_row, grd_col, item)
+                grd_col += 1
+            grd_row += 1
+
+        top1_sizer.Add(grd1, 0, wx.LEFT, 35)
+        top1_sizer.Add(top2_sizer, 0, wx.LEFT, 20)
 
         chk_sizer = wx.BoxSizer(wx.VERTICAL)
         self.prv_chk = wx.CheckBox(self, id=1, label='Add a Pressure Relief Valve',
@@ -660,7 +705,7 @@ class General(wx.Panel):
         self.pnl2.SetSizer(pnl2_sizer)
 
         self.sizer.Add((5, 50))
-        self.sizer.Add(grd, flag=wx.ALIGN_CENTER, border=15)
+        self.sizer.Add(top1_sizer, border=15)
         self.sizer.Add((10, 25))
         self.sizer.Add(chk_sizer)
         self.sizer.Add(self.pnl2, 0, wx.TOP, 30)

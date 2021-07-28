@@ -11,12 +11,9 @@ from matplotlib.backends.backend_wxagg import \
 from matplotlib.backends.backend_wx import \
     NavigationToolbar2Wx as NavigationToolbar
 from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
 from matplotlib.text import Text
 import matplotlib.colors as mcolors
 import numpy as np
-from math import sin
-from scipy.interpolate import interp1d, make_interp_spline
 import DBase
 import Node_Frm
 import Pipe_Frm
@@ -52,8 +49,8 @@ class InputForm(wx.Frame):
     def __init__(self):
 
         super().__init__(None, wx.ID_ANY,
-                         title='Plot Lines')
-#                         , size=(1300, 840))
+                         title='Plot Lines',
+                         size=(1300, 840))
 
         # set up a list of dark colors suitable for the graph
         self.clrs = ['indianred', 'darkred', 'red',
@@ -182,7 +179,7 @@ class InputForm(wx.Frame):
 
         # add the sizer for the left side widgets
         sizerL = wx.BoxSizer(wx.VERTICAL)
-        # add the grid and then set it ot he left panel
+        # add the grid and then set it to the left panel
         self.grd = LftGrd(self)
         # define the grid to be 3 columns and 26 rows
         self.grd.CreateGrid(26, 3)
@@ -552,8 +549,6 @@ class InputForm(wx.Frame):
                 # it can only be point2 as numeric
                 else:
                     points2.append(float(pt))
-#            else:
-#                continue
 
         points.append(points1)
         points.append(points2)
@@ -1223,8 +1218,7 @@ to a tank, pump or contain a control valve"
         LnPts = []
         rnd = np.random.randint(len(self.clrs))
         color_name = self.clrs[rnd]
-#        self.wrg_pt = wrg_pt
-        print('wrong point already set = ', self.wrg_pt)
+
         if 'C' in self.loop.GetLabel():
             # selected to develop real loop
             loop_typ = 0
@@ -1234,7 +1228,7 @@ to a tank, pump or contain a control valve"
 
         # if this is a closed loop confirm that the
         # selected line does not contain a control valve
-        if loop_typ == 0 and lbl in self.vlvs:
+        if loop_typ == 0 and (lbl in self.vlvs):
             msg1 = 'A closed or real loop cannot have a '
             msg2 = '\nline containing a control valve.'
             self.WarnLoop(lbl, msg1 + msg2, 'real')
@@ -1283,7 +1277,6 @@ to a tank, pump or contain a control valve"
                         elif (ln[1] == 0 and self.vlvs[lbl][0] == 1) or \
                         (ln[1] == 1 and self.vlvs[lbl][0] == 0):
                             self.wrg_pt = pt
-                            print('HIT wrong point = ', self.wrg_pt)
                             if self.wrg_pt in self.loop_pts:
                                 msg1 = 'The line selected approaches the '
                                 msg2 = '\ncontrol valve from the wrong side.'
@@ -1320,11 +1313,14 @@ to a tank, pump or contain a control valve"
         for pnt in LnPts:
             if pnt in self.loop_pts:
                 self.loop_pts.remove(pnt)
-            elif pnt != self.wrg_pt:
+            else:
                 self.loop_pts.append(pnt)
 
-#        if len(self.Ln_Select) > 1 and (self.wrg_pt in self.loop_pts):
-#            self.loop_pts.remove(self.wrg_pt)
+        # if the pseudo loop ends with a PRV then remove the wrg_pt
+        if len(self.Ln_Select) > 1 and \
+           (self.wrg_pt in self.loop_pts) and \
+           lbl in self.vlvs:
+            self.loop_pts.remove(self.wrg_pt)
 
         # confirm all end points have been duplicated and loop closed
         if len(self.loop_pts) == 0:
@@ -1439,7 +1435,6 @@ to a tank, pump or contain a control valve"
                     self.plt_lines[ln][0].set_color(self.colours[color_name])
                 self.DrawPseudo(loop_num, lst_pts)
                 self.wrg_pt = ''
-#        return self.wrg_pt
 
     def WarnLoop(self, lbl, msg, typ):
         dialog = wx.MessageDialog(self, msg, 'Faulty Line Selection',
@@ -1675,9 +1670,9 @@ to a tank, pump or contain a control valve"
         run_tpl = list(self.runs.items())
         cord = self.pts[nd_lbl]
         node_lines = [item[0] for item in run_tpl if nd_lbl in item[1][0]]
-
-        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines, self.nodes,
-                         self.elevs, self.pumps, self.tanks)
+        Node_Frm.NodeFrm(self, nd_lbl, cord, node_lines,
+                         self.nodes, self.elevs,
+                         self.pumps, self.tanks)
 
     def OnReDraw(self, evt):
         self.ReDraw()
@@ -1905,7 +1900,6 @@ to a tank, pump or contain a control valve"
         Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
 
     def OnExit(self, evt):
-#        Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
         if self.cursr_set is True:
             self.cursr.close()
             self.db.close

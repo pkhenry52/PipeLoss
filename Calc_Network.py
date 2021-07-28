@@ -2,6 +2,7 @@ import wx
 import numpy as np
 import DBase
 from math import cos, pi, log10, log, exp
+import DataOut
 
 # need to determine the correct number of loops to include in matrix
 class Calc(object):
@@ -59,7 +60,8 @@ class Calc(object):
                 msg = "No fluid density has been specified."
                 self.WarnData(msg)
                 return
-            elif (dt[1] != '' and dt[13] == -1) or (dt[6] != '' and dt[16] == -1):
+            elif (dt[1] != '' and dt[13] == -1) or (dt[6] != '' 
+                  and dt[16] == -1):
                 msg = "Fluid density units have not been specified"
                 self.WarnData(msg)
                 return
@@ -68,16 +70,17 @@ class Calc(object):
                 msg = "No fluid vicosity has been specified."
                 self.WarnData(msg)
                 return
-            elif (dt[2] != '' and dt[14] == -1 or dt[3] != '' and dt[15] == -1) \
-             or (dt[7] != '' and dt[17] == -1 or dt[8] != '' and dt[18] == -1):
+            elif (dt[2] != '' and dt[14] == -1 or dt[3] != ''
+                  and dt[15] == -1) or (dt[7] != '' and
+                  dt[17] == -1 or dt[8] != '' and dt[18] == -1):
                 msg = "Fluid vicosity units have not been specified."
                 self.WarnData(msg)
                 return
 
             if (dt[4] == '' and dt[5] == '' and dt[9] == '' and dt[10] == ''):
-                msg = ('No fluid concentration has been specified.  \
-If this is a homogenous fluid specify "% by vol" as 100')
-                self.WarnData(msg)
+                msg = 'No fluid concentration has been specified.  If this is'
+                msg2 = ' a homogenous fluid specify "% by vol" as 100'
+                self.WarnData(msg + msg2)
                 return
 
             if dt[11] != '' and dt[19] == -1:
@@ -206,7 +209,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
         # sort them then index them for matrix position
         # {'B': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'H': 5, 'I': 6}
         self.var_dic = dict((v,k) for k,v in enumerate(sorted(var_lst)))
-        print('unknown flows by pipe = ', self.var_dic)
         Nl = len(self.var_dic)
 
         # STEP 1 is to define the node matrices
@@ -253,15 +255,14 @@ If this is a homogenous fluid specify "% by vol" as 100')
         # [0.,0.,0.,0.,-1.,0.,-1.],
         # [0.,0.,1.,-1.,0.,-1.,0.],
         # [0.,0.,0.,0.,0.,1.,1.],
-        # [-0.26819644, 4.57925996, -0.40396739, -1.30345388, 0., 0., 0.]        ]
+        # [-0.26819644, 4.57925996, -0.40396739, -1.30345388, 0., 0., 0.]
         # [ 0., 0., 0.40396739, 0., 1.50099963, 3.09127342, -9.41131546]
         # ])
         Ar = np.array(self.var_arry)
 
         # Cof = np.array([4.45,-2.23,-3.34,-3.34,4.45,0.,0.])
         Cof = np.array(self.coef_arry)
-        print('\ninitial var array = ', self.var_arry)
-        print('\ninitial coef array = ', self.coef_arry)
+
         # STEP 3 solve for the initial flow values
         Q1 = np.linalg.solve(Ar, Cof)
 
@@ -290,8 +291,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
                 break
 
         if completed is True:
-            print('number of iterations = ', iter_num)
-            print('Qsum = ', Qsum)
             ELOG = 9.35 * log10(2.71828183)
             # calculate these for each pipe flow
             for ln, Q in self.Q_old.items():
@@ -305,7 +304,8 @@ If this is a homogenous fluid specify "% by vol" as 100')
                 Re = 123.9 * dia * vel * self.density / self.abs_vis
                 if Re <= 2100:
                     f = 64 / Re
-                    hL = .0962 * self.abs_vis * lgth * vel / (dia**2 * self.density)
+                    hL = (.0962 * self.abs_vis * lgth * vel /
+                          (dia**2 * self.density))
                     delta_P = (.000668 * self.abs_vis * lgth * vel / dia**2)
                 else:
                     f = 1 / (1.14 - 2*log10(er))**2
@@ -325,6 +325,12 @@ If this is a homogenous fluid specify "% by vol" as 100')
                     hL = .1863 * f * lgth * vel**2 / dia
                     delta_P = .001294 * f * lgth * self.density * vel**2 / dia
 
+
+                # this only calls up the warning dialog the actual deletion
+                # is handled in teh OnLeftSelect function call and RemoveLine
+            DataOut.DataOutPut(None, self.Q_old)
+
+            '''
                 print('\n+++++++++++++++++++++')
                 print('Line Label = ', ln,)
                 print('Density = ', self.density)
@@ -337,11 +343,13 @@ If this is a homogenous fluid specify "% by vol" as 100')
                 print('Pressure Drop (psi) = ', delta_P)
                 print('Renolds Number = ', Re)
                 print('Friction Factor = ', f)
-                print('Flow Velocity (ft/sec) = ', vel)
+                print('Flow Velocity (ft/sec) = ', vel)'''
         else:
             print('Unable to iterate network to a solution')
             print('number of iterations = ', iter_num)
             print('Qsum = ', Qsum)
+
+        self.Save_Output()
 
     def Iterate_Flow(self, Flows, iter_num):
         # percentage variation in range of flow estimates
@@ -389,7 +397,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
             if RE2 < 2100:
                 F1 = 64 / RE1
                 F2 = 64 / RE2
-#                F = (F1+F2) / 2
                 EXPP = 1.0
                 Kp = 2 * gravity * self.kin_vis * ARL / Dia
                 if ln in self.parent.vlvs:
@@ -426,7 +433,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
                     EXPP = EP + 1
                     Kp = AE * ARL * Avg_Flow**EP
                     if ln in self.parent.vlvs:
-                        print(Kp, self.parent.vlvs[ln][2], Lgth)
                         Kp = Kp * self.parent.vlvs[ln][2] / Lgth
                 else:
                     EXPP = 2
@@ -450,8 +456,6 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
         self.var_arry = self.var_arry[:Nn] + loop_var + trans_var + pseudo_var
         self.coef_arry = self.coef_arry[:Nn] + loop_cof + trans_cof + pseudo_cof
-        print('\niteration values of var array = ', self.var_arry)
-        print('\niteration values of cof array = ', self.coef_arry)
         Ar = np.array(self.var_arry)
         Cof = np.array(self.coef_arry)
 
@@ -508,35 +512,19 @@ If this is a homogenous fluid specify "% by vol" as 100')
                 Lgth = float(itm[2]) / 304.8
                 lgth = lgth / 304.8    
 
-            # specify the coresponding absolute e value for the selected material
-            matr = itm[3]
-            if matr == 0:    # PVC
-                e = .000006
-            elif matr == 1:   # A53 / A106
-                e = .0024
-            elif matr == 2:   # Concrete Smooth
-                e = .00157
-            elif matr == 3:   # Concrete Rough
-                e = .07874
-            elif matr == 4:   # Copper Tube
-                e = .02402
-            elif matr == 5:   # Drawn Tube
-                e = .000006
-            elif matr == 6:    # Galvanized
-                e = .00591
-            elif matr == 7:   # Stainless
-                e = .000008
-            elif matr == 8:   # Rubber Lined
-                e = .00039
-# following lines are to be deleted
-# for testing example 1 only
-#            e = .0102   # value greater then .0175 and program does not converge
-# for testing example 3 only
-#            e = .010
-# for testing example 5 only
-#            e = .012
-# for testing example 2 only
-            e = .02
+            # specify the corresponding absolute e in inches
+            unt = itm[8]
+            if unt == 0:
+                e = float(itm[3])
+            elif unt == 1:
+                e = float(itm[3]) * 12
+            elif unt == 2:
+                e = float(itm[3]) * 39.37
+            elif unt == 3:
+                e = float(itm[3]) / 2.54
+            elif unt == 4:
+                e = float(itm[3]) / 25.4
+
             Chw = 100  # this can be changed but has limited effect on
             # final out come typical is between 100 and 140
             Dia = dia / 12    # ft
@@ -741,17 +729,12 @@ If this is a homogenous fluid specify "% by vol" as 100')
 
                 for val in self.parent.nodes[nd1]:
                     if ln in val:
-                        print(f'line {ln} at node {nd1}')
-                        print('into node is 0 out is 1 = ',val[1])
                         if val[1] == 0:
                             k_matx[self.var_dic[ln]] = -1 * rev_sgn
                         elif val[1] == 1:
                             k_matx[self.var_dic[ln]] = 1 * rev_sgn
-                        print('sign for node ', k_matx[self.var_dic[ln]])
                         break
-            print('\nk matrix flow value ', k_matx)
 
-#            sgn = 1
             m = 0
             for pt in alpha_poly_pts:
                 # when m = 0 or the last point is at a tank or pump
@@ -803,7 +786,7 @@ If this is a homogenous fluid specify "% by vol" as 100')
                         k_matx[v] = 0.0
             pseudo_var.append(k_matx)
             pseudo_cof.append(Elev)
-        print(pseudo_var, pseudo_cof)
+
         return pseudo_var, pseudo_cof
 
     def Varify(self, Nl, Np, Nn, Ncl, Npl):
@@ -825,12 +808,15 @@ If this is a homogenous fluid specify "% by vol" as 100')
            self.parent.vlvs == {}:
             Nn = Nn - 1
             if Ncl < (Nl - Nn):
-                msg1 = 'A total of ' + str(Nu) + ' unknowns have been declared.'
+                msg1 = ('A total of ' + str(Nu) +
+                        ' unknowns have been declared.')
                 msg2 = 'There is a total of ' + str(Nn+1) + ' nodes defined.'
-                msg3 = 'This means there should be ' + str(Nl - Nn) + ' loops defined or '
-                msg4 = 'additional nodes need to be defined.  If a node is not shaded in '
+                msg3 = ('This means there should be ' + str(Nl - Nn) +
+                        ' loops defined or ')
+                msg4a = 'additional nodes need to be defined.'
+                msg4b = 'If a node is not shaded in '
                 msg5 = 'the grid it means it has not been defined.'
-                self.WarnData(msg1+msg2+msg3+msg4+msg5)
+                self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b + msg5)
                 return None
             else:
                 self.var_arry.pop(0)
@@ -841,21 +827,27 @@ If this is a homogenous fluid specify "% by vol" as 100')
               len(self.parent.tanks) +
               len(self.parent.vlvs)) == 1:
             if Ncl < Nl - Nn:
-                msg1 = 'A total of ' + str(Nu) + ' unknowns have been declared.'
+                msg1 = ('A total of ' + str(Nu) +
+                        ' unknowns have been declared.')
                 msg2 = 'There is a total of ' + str(Nn) + ' nodes defined.'
-                msg3 = 'This means there should be ' + str(Nl - Nn) + ' loops defined or '
-                msg4 = 'additional nodes need to be defined.  If a node is not shaded in '
+                msg3 = ('This means there should be ' + str(Nl - Nn) +
+                        ' loops defined or ')
+                msg4a = 'additional nodes need to be defined.'
+                msg4b = 'If a node is not shaded in '
                 msg5 = 'the grid it means it has not been defined.'
-                self.WarnData(msg1+msg2+msg3+msg4+msg5)
+                self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b + msg5)
                 return None
         # not enough data request additional information based on
         # multiple pumps, tanks and valves
         elif Nu > (Nn + Ncl + Npl + Np):
-            msg1 = 'A total of ' + str(Nu) + ' unknowns have been declared but only '
-            msg2 = str(Nn + Ncl + Npl + Np) + ' equations have been specified.  At least '
-            msg3 = (str(Nu - Nn - Ncl - Npl - Np) +
-            ' more equation(s) are needed by defining additional loops or nodes.')
-            self.WarnData(msg1+msg2+msg3)
+            msg1 = ('A total of ' + str(Nu) +
+                    ' unknowns have been declared but only ')
+            msg2 = (str(Nn + Ncl + Npl + Np) +
+                   ' equations have been specified.  At least ')
+            msg3 = str(Nu - Nn - Ncl - Npl - Np)
+            msg4a = ' more equation(s) are needed by defining'
+            msg4b = 'additional loops or nodes.'
+            self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b)
             return None
         elif Nu > (Nn + Ncl + Npl + Np):
             drp = Nu - (Nn + Ncl + Npl + Np)
@@ -864,7 +856,18 @@ If this is a homogenous fluid specify "% by vol" as 100')
                 self.coef_arry.pop(0)
             return (Nn - drp)
 
+    def Save_Output(self):
+        # clear data from table
+        Dsql = 'DELETE FROM output'
+        DBase.Dbase(self).TblEdit(Dsql)
+        # build sql to add rows to table
+        Insql = 'INSERT INTO output (ID, Flow) VALUES(?,?);'
+        # convert the tuple inside the dictionary to a string
+        Indata = [(i[0], str(i[1])) for i in list(self.Q_old.items())]
+        DBase.Dbase(self).Daddrows(Insql, Indata)
+
     def WarnData(self, msg):
-        dialog = wx.MessageDialog(self.parent, msg, 'Data Error', wx.OK|wx.ICON_ERROR)
+        dialog = wx.MessageDialog(self.parent, msg, 'Data Error',
+                                  wx.OK|wx.ICON_ERROR)
         dialog.ShowModal()
         dialog.Destroy()

@@ -26,7 +26,8 @@ class RowLblRndr(glr.GridLabelRenderer):
 
 
 class NodeFrm(wx.Frame):
-    def __init__(self, parent, node, cord, node_lst, node_dict, elevs_dict, pumps_dict, tanks_dict):
+    def __init__(self, parent, node, cord, node_lst, node_dict, elevs_dict,\
+                 pumps_dict, tanks_dict):
 
         self.rad_bt = []
         self.chk_bx = []
@@ -55,7 +56,6 @@ class NodeFrm(wx.Frame):
         self.InitUI()
 
     def InitUI(self):
-        new_data = True
         rdbtn = 0
         txtbx = 0
         ln_lst = set()
@@ -134,19 +134,22 @@ class NodeFrm(wx.Frame):
 
         # step 3) getting any line which terminate
         # with the queried end point
+        # and that have aready been defined at the opposite end
+        # line label: node at other end of line
+        # {'F': 'b', 'H': 'h', 'E': 'd', 'J': 'j'}
         self.cmn_lns = {}
         # for each key value (node) in self.nodes
-        # return the intersecting lines as node_lines
+        # return the intersecting line as node_line
         for nd_lbl in self.nodes:
             # skip the node of interest
             if nd_lbl != self.node:
-                node_lines = set([item[0] for \
+                node_line = set([item[0] for \
                     item in run_tpl if nd_lbl in item[1][0]])
                 # compare the list of lines for each node
                 # with the lines list for the queried node
                 # if there is a common line save it and the node (nd_lbl)
-                if list(node_lines.intersection(ln_lst)) != [] and ln_lst != {}:
-                    self.cmn_lns[list(node_lines.intersection
+                if list(node_line.intersection(ln_lst)) != [] and ln_lst != {}:
+                    self.cmn_lns[list(node_line.intersection
                                     (ln_lst))[0]] = nd_lbl
 
         n = 0
@@ -160,7 +163,6 @@ class NodeFrm(wx.Frame):
             if ln in self.node_lst.difference(ln_lst) is False:
                 rdbtn, txtbx, chsbx = d[ln]
                 txt_lbl = ''
-                new_data = False
             # check if line is part of the set
             # of lines listed at any other defined node
             elif ln in self.cmn_lns:
@@ -330,11 +332,9 @@ class NodeFrm(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnClose, xit)
 
         self.sizer.Add(btnsizer, 0)
-
         self.sizer.SetSizeHints(self)
         self.SetSizer(self.sizer)
-#        if self.node in self.pumps:
-#            self.OnRadioBx(None)
+
         self.Show(True)
 
     def OnRadioBx(self, evt):
@@ -406,6 +406,8 @@ class NodeFrm(wx.Frame):
         lst2 = []
         lst3 = []
         lst4 = []
+        alt_end_node = ''
+        cnspt_ln = ''
 
         # cycle through the radio buttons and get the value in first row
         m = 1
@@ -417,6 +419,7 @@ class NodeFrm(wx.Frame):
             ln_lbl = self.rad_bt[item-1].GetLabel()[-2]
             lst1.append(ln_lbl)
             if self.chk_bx[item-m].GetValue():
+                cnspt_ln = ln_lbl
                 if self.txt_bxs[item-m].GetValue() != '':
                     flow = float(self.txt_bxs[item-m].GetValue())
                     unts = self.chs_bxs[item-m].GetSelection()
@@ -466,23 +469,26 @@ class NodeFrm(wx.Frame):
 
                 self.parent.DrawArrow(x0, y0, x1, y1, ln[0])
 
-        bg_clr = 'lightgreen'
-        if len(self.chk_bx) == 1:
-            if self.chk_bx[0].GetValue() == 1:
-                bg_clr = 'yellow'
-                row = ord(ln_lbl) - 65
-                self.parent.grd.SetRowLabelRenderer(row, RowLblRndr(bg_clr))
+        if cnspt_ln != '':
+            row = ord(cnspt_ln) - 65
+            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
+            pt1, pt2 = self.parent.runs[cnspt_ln][0]
+            if pt1 != self.node:
+                alt_end_node = pt1
+            else:
+                alt_end_node = pt2
+            self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')                  
+            self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
 
         # change the grid cell color to green to indicate data is complete
         for ltr in self.node_lst:
-            if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
-                self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        0, bg_clr)
+            row = ord(ltr) - 65
+            if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0) or \
+               alt_end_node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
+                self.parent.grd.SetCellBackgroundColour(row, 0, 'lightgreen')
             else:
-                self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        1, bg_clr)
-                self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        2, bg_clr)
+                self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')                  
+                self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
 
         # add the elevation information to the node elevation dictionary
         lst_elev = [self.info4.GetValue(), self.unt4.GetSelection()]
