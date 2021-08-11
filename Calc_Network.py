@@ -2,7 +2,6 @@ import wx
 import numpy as np
 import DBase
 from math import cos, pi, log10, log, exp
-import DataOut
 
 # need to determine the correct number of loops to include in matrix
 class Calc(object):
@@ -22,7 +21,7 @@ class Calc(object):
         self.D_e = {}
         # {line label:[Kp values and exponent n]}
         self.K = {}
-        
+        # final flows by line lbl
         self.Q_old = {}
 
         self.dct = self.Kt_vals()
@@ -291,65 +290,14 @@ class Calc(object):
                 break
 
         if completed is True:
-            ELOG = 9.35 * log10(2.71828183)
-            # calculate these for each pipe flow
-            for ln, Q in self.Q_old.items():
-                gpm = Q * 448.83
-                dia = self.D_e[ln][0]
-                Dia = dia / 12
-                lgth = (self.D_e[ln][4] + self.D_e[ln][5])
-                # convert absolute roughness to relative roughness
-                er = self.D_e[ln][1] / dia
-                vel = .408 * gpm / dia**2
-                Re = 123.9 * dia * vel * self.density / self.abs_vis
-                if Re <= 2100:
-                    f = 64 / Re
-                    hL = (.0962 * self.abs_vis * lgth * vel /
-                          (dia**2 * self.density))
-                    delta_P = (.000668 * self.abs_vis * lgth * vel / dia**2)
-                else:
-                    f = 1 / (1.14 - 2*log10(er))**2
-                    PAR = vel *(.125 * f)**.5 * Dia * er / self.kin_vis
-                    if PAR <= 65:
-                        MCT = 0
-                        while True:
-                            # Colebrook Friction Factor for turbulent flow
-                            ARG = er + 9.35 / (Re * f**.5)
-                            FF = (1 / f**.5) - 1.14 + 2 * log10(ARG)
-                            DF = 1 / (2 * f * f**.5) + ELOG / 2 * (f * f**.5 * ARG * Re)
-                            DIF = FF / DF
-                            f = f + DIF
-                            MCT += 1
-                            if (abs(DIF) < .00001 or MCT > 15):
-                                break
-                    hL = .1863 * f * lgth * vel**2 / dia
-                    delta_P = .001294 * f * lgth * self.density * vel**2 / dia
-
-
-                # this only calls up the warning dialog the actual deletion
-                # is handled in teh OnLeftSelect function call and RemoveLine
-            DataOut.DataOutPut(None, self.Q_old)
-
-            '''
-                print('\n+++++++++++++++++++++')
-                print('Line Label = ', ln,)
-                print('Density = ', self.density)
-                print('Dynamic Vis. = ', self.abs_vis)
-                print('Kinematic Vis. = ', self.kin_vis)
-                print('Pipe Dia (inches) = ',dia)
-                print('Equivalent Length (ft) = ', lgth)
-                print('Flow rate (gpm) = ', gpm, '  (ft^3/s) = ', Q)
-                print("Head Loss (ft of fluid) = ", hL)
-                print('Pressure Drop (psi) = ', delta_P)
-                print('Renolds Number = ', Re)
-                print('Friction Factor = ', f)
-                print('Flow Velocity (ft/sec) = ', vel)'''
+            self.Save_Output()
+            return self.Q_old, self.D_e, self.density, self.kin_vis, self.abs_vis
         else:
-            print('Unable to iterate network to a solution')
-            print('number of iterations = ', iter_num)
-            print('Qsum = ', Qsum)
-
-        self.Save_Output()
+            msg1 = 'Unable to iterate network to a solution\n'
+            msg2 = 'total number of iterations completed = ' + str(iter_num)
+            msg3 = '.\nBased on presented information system cannot be solved.'
+            self.WarnData(msg1 + msg2 + msg3)
+            return
 
     def Iterate_Flow(self, Flows, iter_num):
         # percentage variation in range of flow estimates
@@ -752,7 +700,7 @@ class Calc(object):
                         else:
                             cnvrt = 1
 
-                        Elev = Elev + self.parent.elevs[pt][0] * cnvrt * sgn
+                        Elev = Elev + float(self.parent.elevs[pt][0]) * cnvrt * sgn
                     # convert the pump elevation to feet
                     if pt in self.parent.pumps:
                         if self.parent.pumps[pt][0] == 0:
@@ -760,17 +708,17 @@ class Calc(object):
                         else:
                             cnvrt = 1
 
-                        Elev = Elev + self.parent.pumps[pt][1] * cnvrt * sgn
+                        Elev = Elev + float(self.parent.pumps[pt][1]) * cnvrt * sgn
                         k_matx[A_var[pt][1]] = A_var[pt][0] * sgn * -1
 
                         Elev = Elev + ho_cof[pt][0] * sgn
             
                     elif pt in self.parent.tanks:
-                        if self.parent.tanks[pt][1] == 1:
+                        if int(self.parent.tanks[pt][1]) == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-                        Elev = Elev + self.parent.tanks[pt][0] * cnvrt * sgn
+                        Elev = Elev + float(self.parent.tanks[pt][0]) * cnvrt * sgn
                 m += 1
 
             # run through the matrix of all the lines mapped

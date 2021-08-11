@@ -680,7 +680,7 @@ class General(wx.Panel):
         pnl2_sizer = wx.BoxSizer(wx.VERTICAL)
         unt_chcs = ['psig',
                     'KPa',
-                    'feet']
+                    'feet water']
 
         unt_sizer = wx.BoxSizer(wx.HORIZONTAL)
         hrz2 = wx.StaticText(self.pnl2, label = 'Valve Set Pressure')

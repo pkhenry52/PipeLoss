@@ -67,6 +67,10 @@ class Dbase(object):
         # self.cursr.close()
         return data
 
+    def Filename(self):
+        for id_, name, filename in self.cursr.execute("PRAGMA database_list"):
+            return filename
+
     # close out the database
     def close_database(self):
         self.cursr.close()

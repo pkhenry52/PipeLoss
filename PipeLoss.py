@@ -19,6 +19,8 @@ import Node_Frm
 import Pipe_Frm
 import Calc_Network
 import Fluid_Frm
+import DataOut
+import Final_Rpt
 
 
 class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
@@ -146,6 +148,7 @@ class InputForm(wx.Frame):
         fileMenu = wx.Menu()
         fileMenu.Append(103, '&Save To Database')
         fileMenu.Append(101, '&Calculate')
+        fileMenu.Append(105, '&View Report')
         fileMenu.AppendSeparator()
         fileMenu.Append(104, '&Exit')
 
@@ -165,6 +168,7 @@ class InputForm(wx.Frame):
 
         self.Bind(wx.EVT_MENU, self.OnCalc, id=101)
         self.Bind(wx.EVT_MENU, self.OnExit, id=104)
+        self.Bind(wx.EVT_MENU, self.OnView, id=105)
         self.Bind(wx.EVT_MENU, self.OnDB_Save, id=103)
 
         self.Bind(wx.EVT_MENU, self.OnFluidData, id=301)
@@ -1897,7 +1901,26 @@ to a tank, pump or contain a control valve"
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def OnCalc(self, evt):
-        Calc_Network.Calc(self,self.cursr, self.db).Evaluation()
+        Qs, D_e, density, kin_vis, abs_vis = Calc_Network.Calc(self, self.cursr, self.db).Evaluation()
+        dlg = DataOut.DataOutPut(None, Qs)
+        self.data_save = dlg.ShowModal()
+        dlg.Destroy()
+
+        if self.data_save:
+            Final_Rpt.Report_Data(self, self.file_name, Qs, D_e, density, kin_vis, abs_vis).tbl_data()
+
+        msg1 = "The report data has been saved as\n"
+        msg2 = self.file_name[:-2] + 'pdf'
+        msg3 = '\nand can be viewed using the view command in\n'
+        msg4 = 'the File drop down menu.'
+        msg = msg1 + msg2 + msg3 + msg4
+        dialog = wx.MessageDialog(self, msg, 'Report Completed',
+                                  wx.OK|wx.ICON_INFORMATION)
+        dialog.ShowModal()
+        dialog.Destroy()
+
+    def OnView(self, evt):
+        PDFFrm(self)
 
     def OnExit(self, evt):
         if self.cursr_set is True:
@@ -1993,6 +2016,63 @@ class OpenFile(wx.Dialog):
     def OnClose(self, evt):
         self.EndModal(True)
         self.parent.Destroy()
+
+
+class PDFFrm(wx.Frame):
+    def __init__(self, parent):
+        wx.Frame.__init__(self, parent)
+        from wx.lib.pdfviewer import pdfViewer, pdfButtonPanel
+        self.Maximize(True)
+
+#        self.parent = parent
+        self.Bind(wx.EVT_CLOSE, self.OnCloseFrm)
+
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+        self.buttonpanel = pdfButtonPanel(self,  wx.ID_ANY,
+                                          wx.DefaultPosition,
+                                          wx.DefaultSize, 0)
+        vsizer.Add(self.buttonpanel, 0,
+                   wx.GROW | wx.LEFT | wx.RIGHT | wx.TOP, 5)
+        self.viewer = pdfViewer(self,  wx.ID_ANY, wx.DefaultPosition,
+                                wx.DefaultSize, wx.HSCROLL |
+                                wx.VSCROLL | wx.SUNKEN_BORDER)
+        vsizer.Add(self.viewer, 1, wx.GROW | wx.LEFT | wx.RIGHT |
+                   wx.BOTTOM, 5)
+        loadbutton = wx.Button(self,  wx.ID_ANY, "Load PDF file",
+                               wx.DefaultPosition, wx.DefaultSize, 0)
+        loadbutton.SetForegroundColour((255, 0, 0))
+        vsizer.Add(loadbutton, 0, wx.ALIGN_CENTER | wx.ALL, 5)
+        hsizer.Add(vsizer, 1, wx.GROW | wx.ALL, 5)
+        self.SetSizer(hsizer)
+        self.SetAutoLayout(True)
+
+        # introduce buttonpanel and viewer to each other
+        self.buttonpanel.viewer = self.viewer
+        self.viewer.buttonpanel = self.buttonpanel
+
+        self.Bind(wx.EVT_BUTTON, self.OnLoadButton, loadbutton)
+
+#        self.viewer.LoadFile('/home/paul/ProgramFiles/GraphPaper/Support/lined.pdf')
+
+        self.CenterOnParent()
+        self.GetParent().Enable(False)
+        self.Show(True)
+        self.__eventLoop = wx.GUIEventLoop()
+        self.__eventLoop.Run()
+
+    def OnLoadButton(self, event):
+        dlg = wx.FileDialog(self, wildcard="*.pdf")
+        if dlg.ShowModal() == wx.ID_OK:
+            wx.BeginBusyCursor()
+            self.viewer.LoadFile(dlg.GetPath())
+            wx.EndBusyCursor()
+        dlg.Destroy()
+
+    def OnCloseFrm(self, evt):
+        self.GetParent().Enable(True)
+        self.__eventLoop.Exit()
+        self.Destroy()
 
 
 # Run the program
