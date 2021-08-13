@@ -48,7 +48,7 @@ class Report_Data(object):
         rptdata2 = self.tbl_nodes()
 
         # information for the pump table
-        self.tbldata3 = [('Pump\nNode', 'TDH\nfeet', '\nmeters',
+        self.tbldata3 = [('Pump\nNode', 'Head\nfeet', '\nmeters',
                       'Flow\nUSGPM', '\nm^3/hr')]
 
         Colwdths3 = [6, 8, 8, 8, 8]
@@ -130,10 +130,9 @@ class Report_Data(object):
         # output of pressure at each node
         elev = self.parent.elevs
         self.node_press = {}
-        # get  all the nodes which are not consumption points
+        # get all the nodes which are not consumption points
         junct_nodes = [node for node, lines
                  in self.parent.nodes.items() if len(lines) > 1]
-
         # all the consumption, pump & tank supply lines
         consump_runs = {node:lines[0][0] for node, lines
                         in self.parent.nodes.items() if len(lines) == 1}
@@ -144,15 +143,16 @@ class Report_Data(object):
         flow_nodes = junct_nodes + pump_nodes + tank_nodes
         flow_nodes.sort()
         all_nodes = [node for node, _ in self.parent.nodes.items()]
-        # all the lines not connect to a pump yank or cunsumption line
+        # all the lines not connect to a pump tank or consumption line
         flow_lines = list(set(list(self.parent.runs.keys()))-set(consump_lines))
         # list of none junction comsumption nodes
         consump_nodes = list(set(all_nodes) - set(flow_nodes))
         consump_nodes.sort()
 
+        # if there is a pump of tank at the node
         if pump_nodes != [] or tank_nodes != []:
             to_do_nodes = []
-
+            done_nodes = []
             if pump_nodes != []:
                 for pmp in range(len(pump_nodes)):
                     # get the pump discharge head plus the fluid elevation
@@ -165,20 +165,22 @@ class Report_Data(object):
                         el = float(elev[start_nd][0]) * 3.3
 
                     ln = consump_runs[start_nd]
-                    hd = float(self.pump_tdh(start_nd, ln))
+                    hd = float(self.pump_tdh(start_nd, ln)[0])
                     self.node_press[start_nd] = hd + el
-
+                    done_nodes.append(start_nd)
                     # get the end points for the pump discharge line
                     pt1, pt2 = self.parent.runs[consump_runs[start_nd]][0]
 
                     if pt1 == start_nd:
-                        self.node_press[pt2] = self.node_press[start_nd] + el -\
+                        self.node_press[pt2] = self.node_press[start_nd] -\
                                           self.head_loss[consump_runs[start_nd]]
                         start_nd = pt2
+                        done_nodes.append(pt2)
                     else:
-                        self.node_press[pt1] = self.node_press[start_nd] + el - \
+                        self.node_press[pt1] = self.node_press[start_nd] - \
                                           self.head_loss[consump_runs[start_nd]]
                         start_nd = pt1
+                        done_nodes.append(pt1)
 
                     to_do_nodes.append(start_nd)
 
@@ -198,46 +200,49 @@ class Report_Data(object):
                         hd = v[0] * 3.28
                     else:
                         hd = v[0]
+
                     self.node_press[start_nd] = hd + el
+                    done_nodes.append(start_nd)
 
                     # get the end points for the pump discharge line
                     pt1, pt2 = self.parent.runs[consump_runs[start_nd]][0]
                     if pt1 == start_nd:
-                        self.node_press[pt2] = self.node_press[start_nd] + el - \
+                        self.node_press[pt2] = self.node_press[start_nd] - \
                                           self.head_loss[consump_runs[start_nd]]
                         start_nd = pt2
+                        done_nodes.append(pt2)
                     else:
-                        self.node_press[pt1] = self.node_press[start_nd] + el - \
+                        self.node_press[pt1] = self.node_press[start_nd] - \
                                           self.head_loss[consump_runs[start_nd]]
                         start_nd = pt1
+                        done_nodes.append(pt1)
 
                     to_do_nodes.append(start_nd)
 
             n = 0
+
             while len(to_do_nodes) > 0:
                 if n == 50:
                     break
-
                 start_nd = to_do_nodes[0]
-
                 # get all the flow lines at the node and
                 # direction of flow at node (1 is out)
                 nd_lines = [(ln[0], ln[1]) for ln in
                              self.parent.nodes[start_nd] if ln[2]==0]
-
                 # remove the start node from the to do nodes
                 # since it has been completed
-                to_do_nodes.remove(start_nd)                
+                to_do_nodes.remove(start_nd)
 
                 for line in nd_lines:
                     if line[0] in flow_lines:
                         # get the end points of the line
                         ends = list(self.parent.runs[line[0]][0])
                         # remove the start_nd from the line end points and
-                        # add the remaining pt to the to do list
+                        # add the remaining pt to the to do list of nodes
                         ends.remove(start_nd)
                         if ends[0] not in to_do_nodes:
                             to_do_nodes.extend(ends)
+      
                         # check that the specified flow direction is
                         # correct if it is not then reverse
                         # additon of the line loss
@@ -245,20 +250,27 @@ class Report_Data(object):
                             sgn = 1
                         else:
                             sgn = -1
+
+                        # determine if all the nodes have been completed
+                        if list(set(flow_nodes)-set(done_nodes)) == []:
+                            to_do_nodes = []
+                            break        
+
                         # add or subtract the line loss from the nodes pressure
                         # to pressure at the other end node
                         if line[1] == 1:
                             self.node_press[ends[0]] = (self.node_press[start_nd] - \
                                                    self.head_loss[line[0]] * sgn)
+                            done_nodes.append(ends[0])
                         elif line[1] == 0:
                             self.node_press[ends[0]] = (self.node_press[start_nd] + \
                                                   self.head_loss[line[0]] * sgn)
-
+                            done_nodes.append(ends[0])
                         flow_lines.remove(line[0])
 
-                        if flow_lines == [] or flow_nodes == []:
-                            to_do_nodes = []
-                            break
+                    if flow_lines == []:
+                        to_do_nodes = []
+                        break
                 n += 1
 
         for nd, val in self.node_press.items():
@@ -287,7 +299,7 @@ class Report_Data(object):
                 # get the pump discharge head plus the fluid elevation
                 start_nd = pump_nodes[pmp]
                 ln = consump_runs[start_nd]
-                hd = float(self.pump_tdh(start_nd, ln))
+                hd = float(self.pump_tdh(start_nd, ln)[1])
                 rptdata.append(start_nd)
                 rptdata.append(round(hd,3))
                 rptdata.append(round(hd * .3048,3))
@@ -299,7 +311,6 @@ class Report_Data(object):
         return self.tbldata3
 
     def tbl_Cvlvs(self):
-        print(self.node_press)
         for ln, cv in self.parent.vlvs.items():
 
             if cv[0] == 0:
@@ -340,6 +351,7 @@ class Report_Data(object):
 
         flow = self.Flows[ln]
 
-        TDH = (A * flow**2 + B * flow + Ho) + v[1]*t
+        Ho = (A * flow**2 + B * flow + Ho)
+        TDH = Ho  + v[1]*t
 
-        return TDH
+        return TDH, Ho
