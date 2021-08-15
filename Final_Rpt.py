@@ -1,3 +1,4 @@
+import DBase
 import os
 from math import log10
 import numpy as np
@@ -30,51 +31,43 @@ class Report_Data(object):
         rptdata.append(self.kin_vis)
 
         # Information for the lines table
-        self.tbldata1 = [('Line\nLabel', 'Pipe Dia\ninches', 'Pipe Length\nfeet',
-                      'Flow\nft^3/s', '\nUSGPM', '\nm^3/s', 'Head Loss\nft',
-                      'meters', 'Pressure Drop\npsid',
-                      'Velocity\nft/s', '\nm/s')]
-
         Colwdths1 = [6, 8, 10, 8, 8, 8, 8, 8, 12, 8, 6]
-
         rptdata1 = self.tbl_lines()
 
         # information for the nodes table
-        self.tbldata2 = [('Node\nLabel', 'Head\nfeet', '\nmeters',
-                      'Pressure\npsig', '\nkPa')]
-
         Colwdths2 = [6, 8, 8, 8, 8]
-
         rptdata2 = self.tbl_nodes()
 
         # information for the pump table
-        self.tbldata3 = [('Pump\nNode', 'Head\nfeet', '\nmeters',
-                      'Flow\nUSGPM', '\nm^3/hr')]
-
         Colwdths3 = [6, 8, 8, 8, 8]
-
         rptdata3 = self.tbl_pumps()
 
         # information for the control valves
-        Colnames4 = [('Line\nLabel', 'Set\nfeet', 'Pressure\npsig',
-                      'Upstream\nfeet', 'Pressure\npsig','Downstream\nfeet',
-                      'Pressure\npsig')]
-
         Colwdths4 = [8, 8, 8, 8, 8, 8, 8]
+        rptdata4 = self.tbl_Cvlvs()
 
-        self.tbl_Cvlvs()
+        # fittings specified for each line
+        Colwdths5 = [20, 8]
+        rptdata5 = self.tbl_fittings()
+        print(rptdata5)
 
         PDF_Rpt.Report(rptdata1, Colwdths1,
+                       rptdata5, Colwdths5,
                        rptdata2, Colwdths2,
                        rptdata3, Colwdths3,
+                       rptdata4, Colwdths4,
                        self.filename, self.ttl).create_pdf()
 
     def tbl_lines(self):
         # output for the flows, hL etc for each line
+        tbldata1 = [('Line\nLabel', 'Pipe Dia\ninches', 'Pipe Length\nfeet',
+                      'Flow\nft^3/s', '\nUSGPM', '\nm^3/s', 'Head Loss\nft',
+                      'meters', 'Pressure Drop\npsid',
+                      'Velocity\nft/s', '\nm/s')]
 
         ELOG = 9.35 * log10(2.71828183)
 
-        for lbl, flow in self.Flows.items():
+        for lbl, flow in sorted(self.Flows.items()):
             gpm = flow * 448.83
             dia = self.D_e[lbl][0]
             Dia = dia / 12
@@ -121,12 +114,13 @@ class Report_Data(object):
             rptdata.append(round(vel,2))
             rptdata.append(round(vel * .3048, 2))
 
-            self.tbldata1.append(rptdata)
+            tbldata1.append(rptdata)
 
-        return self.tbldata1
+        return tbldata1
 
     def tbl_nodes(self):
-
+        tbldata2 = [('Node\nLabel', 'Head\nfeet', '\nmeters',
+                      'Pressure\npsig', '\nkPa')]
         # output of pressure at each node
         elev = self.parent.elevs
         self.node_press = {}
@@ -281,12 +275,13 @@ class Report_Data(object):
             rptdata.append(round(val * self.density / (62.4*2.307),2))
             rptdata.append(round(val * self.density/ (62.4*2.307) * 6.895,2))
             
-            self.tbldata2.append(rptdata)
+            tbldata2.append(rptdata)
 
-        return self.tbldata2
+        return tbldata2
 
     def tbl_pumps(self):
-
+        tbldata3 = [('Pump\nNode', 'Head\nfeet', '\nmeters',
+                      'Flow\nUSGPM', '\nm^3/hr')]
         # dictionary by node of all lines that have unshared junctions
         consump_runs = {node:lines[0][0] for node, lines
                         in self.parent.nodes.items() if len(lines) == 1}        
@@ -306,11 +301,14 @@ class Report_Data(object):
                 rptdata.append(round(self.Flows[ln] * 448.8,3))
                 rptdata.append(round(self.Flows[ln] * 101.94,3))
 
-                self.tbldata3.append(rptdata)
+                tbldata3.append(rptdata)
 
-        return self.tbldata3
+        return tbldata3
 
     def tbl_Cvlvs(self):
+        tbldata4 = [('Line\nLabel', 'Set\nfeet', 'Pressure\npsig',
+                      'Upstream\nfeet', 'Pressure\npsig','Downstream\nfeet',
+                      'Pressure\npsig')]
         for ln, cv in self.parent.vlvs.items():
 
             if cv[0] == 0:
@@ -327,7 +325,81 @@ class Report_Data(object):
             # set pressure saved as feet of water
             else:
                 press = cv[3]
+        
+        return tbldata4
 
+    def tbl_fittings(self):
+        tbldata5 = []
+        ftg_lbls = ['Thread/SW\n90 Deg Elbow', 'Union\n(Thd/SW)',
+                    '45 Deg Elbow', 'Coupling\n(Thd/SW)',
+                    '180 Deg Return','Thrd Tee\nFlow Through\n Run',
+                    'Weld Tee\nFlow Through\nRun',
+                    'Thrd Tee\nBranch', 'Weld Tee\nBranch']
+
+        elb_lbls = ['Welded Elbow\nShort Radius\n90 Deg',
+                    'Welded Elbow\nLong Radius\n90 Deg',
+                    'Welded Elbow\nShort Radius\n45 Deg',
+                    'Welded Elbow\nLong Radius\n45 Deg',
+                    'Mitre 90 Deg\nElbow', '15 Deg Segment',
+                    '30 Deg Segment', '45 Deg Segment',
+                    '90 Deg Segment',
+                    'Mitre 45 Deg\nElbow', '15 Deg Segment',
+                    '45 deg Segment']
+
+        ent_lbls = ['Pipe Entry Inward Projection', 'Pipe\nExit',
+                    'Pipe Entry r/d = 0.0', 'Pipe Entry r/d = 0.0',
+                    'Pipe Entry r/d = 0.02', 'Pipe Entry r/d = 0.04',
+                    'Pipe Entry r/d = 0.06', 'Pipe Entry r/d = 0.10',
+                    'Pipe Entry r/d >= 0.15',
+                    'Reducer\nSmall Dia.', 'Increaser\nLarge Dia.',
+                    'Reducer\nOmega Angle', 'Increaser\nOmega Angle']
+
+        vlv1_lbls = ['Ball Valve\nFull Port', 'Globe Valve\nStraight',
+                     'Ball Valve\nReduced Port', 'Globe Valve\nY-Pattern',
+                     'Plug Valve\n2-Way', 'Globe Valve\nRight Angle',
+                     'Plug Valve\n3-Way Straight', 'Globe Valve\nBlow-Down',
+                     'Plug Valve\n3-Way Branch', 'Butterlfy Valve']
+
+        vlv2_lbls = ['Gate Valve\nFull Open', 'Diaphragm Valve\nFull Open',
+                      'Gate Valve\n3/4 Open', 'Diaphragm Valve\n3/4 Open',
+                      'Gate Valve\n1/2 Open','Diaphragm Valve\n1/2 Open', 
+                      'Gate Valve\n1/4 Open', 'Diaphragm Valve\n1/4 Open',
+                      'Y-Strainer']
+    
+        chk_lbls = ['Lift Check T Pattern', 'Globe-Stop Check\nT Pattern',
+                    'Lift Check Y Pattern',
+                    'Globe-Stop Check\nRight Angle\nUp Flow',
+                    'Tilt Disc\nCheck', 'Globe-Stop Check\nY Pattern',
+                    'Swing\nCheck Y Pattern',
+                    'Globe-Stop Check\nRight Angle\nDown Flow',
+                    'Swing\nCheck', 'Globe-Stop Check Y Pattern',
+                    'Globe-Stop Check\nRight Angle\nUp Flow']
+
+        data_tbls = {'Fittings':ftg_lbls, 'WldElb':elb_lbls,
+                     'EntExt':ent_lbls, 'ManVlv1':vlv1_lbls,
+                     'ManVlv2':vlv2_lbls, 'ChkVlv':chk_lbls}
+
+        for ln in sorted(self.Flows):
+            tbldata = [['Fittings\nfor line ' + ln, '\nQuantity']]
+
+            for tbl in data_tbls.keys():
+                qry = ('SELECT * FROM ' + tbl +
+                    ' WHERE ID = "' + ln + '"')
+                data = DBase.Dbase(self.parent).Dsqldata(qry)
+                if data != []:
+                    data = list(data[0])
+                    data = data[1:-1]
+                    n = 0
+                    for item in data:
+                        rowdata=[]
+                        if item != 0:
+                            rowdata.append(data_tbls[tbl][n])
+                            rowdata.append(data[n])
+                        n += 1
+                        if rowdata != []:
+                            tbldata.append(rowdata)
+            tbldata5.append(tbldata)
+        return tbldata5
 
     def pump_tdh(self, nd, ln):
         v = self.parent.pumps[nd]

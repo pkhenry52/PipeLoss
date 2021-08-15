@@ -26,13 +26,18 @@ class Report:
 
     def __init__(self,
                  rptdata1, Colwdths1,
+                 rptdata5, Colwdths5,
                  rptdata2, Colwdths2,
                  rptdata3, Colwdths3,
+                 rptdata4, Colwdths4,
                  filename, ttl):
         # (table name, table data, table column names, table column
         # widths, name of PDF file)
         self.rptdata1 = rptdata1
         self.Colwdths1 = Colwdths1
+
+        self.rptdata5 = rptdata5
+        self.Colwdths5 = Colwdths5
 
         self.rptdata2 = rptdata2
         self.Colwdths2 = Colwdths2
@@ -40,11 +45,13 @@ class Report:
         self.rptdata3 = rptdata3
         self.Colwdths3 = Colwdths3
 
+        self.rptdata4 = rptdata4
+        self.Colwdths4 = Colwdths4
+
         self.filename = filename
         self.ttl = ttl
 
         self.width, self.height = letter
-
 
     def create_pdf(self):
         body = []
@@ -72,7 +79,7 @@ class Report:
         ptext = '<font size=14>%s</font>' % self.ttl
         body.append(Paragraph(ptext, styles["Heading2"]))
 
-        for n in range(3):
+        for n in range(5):
             if n == 0:
                 rptdata = self.rptdata1
                 colwdth = self.Colwdths1
@@ -82,13 +89,28 @@ class Report:
             elif n == 2:
                 rptdata = self.rptdata3
                 colwdth = self.Colwdths3
+            elif n == 3:
+                rptdata = self.rptdata4
+                colwdth = self.Colwdths4
+            elif n == 4:
+                rptdata = self.rptdata5
+                colwdth = self.Colwdths5
+            
+            if len(rptdata) > 1:
+                if n < 4:
+                    colwd = [i * textAdjust for i in colwdth]
+                    tbl1 = Table(rptdata, colWidths=colwd)
 
-            colwd = [i * textAdjust for i in colwdth]
-            tbl1 = Table(rptdata, colWidths=colwd)
-
-            tbl1.setStyle(tblstyle)
-            body.append(tbl1)
-            body.append(spacer2)
+                    tbl1.setStyle(tblstyle)
+                    body.append(tbl1)
+                    body.append(spacer2)
+                else:
+                    for lst in rptdata:
+                        colwd = [i * textAdjust for i in colwdth]
+                        tbl1 = Table(lst, colWidths=colwd)
+                        tbl1.setStyle(tblstyle)
+                        body.append(tbl1)
+                        body.append(spacer2)
 
         doc.build(body)
       
