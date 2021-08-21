@@ -49,7 +49,6 @@ class Report_Data(object):
         # fittings specified for each line
         Colwdths5 = [20, 8]
         rptdata5 = self.tbl_fittings()
-        print(rptdata5)
 
         PDF_Rpt.Report(rptdata1, Colwdths1,
                        rptdata5, Colwdths5,

@@ -412,13 +412,13 @@ class InputForm(wx.Frame):
             if len(self.nodes[lbl]) == 1 \
                and lbl not in self.pumps \
                and lbl not in self.tanks:
-                bg_clr = 'yellow'
                 row = ord(self.nodes[lbl][0][0]) - 65
                 self.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
 
             node_lines = set([item[0] for item in run_tpl
                               if lbl in item[1][0]])
-            # for every line indicated color the coresponding grid cell
+
+            # high lite the cells containing nodes which are defined
             for ltr in node_lines:
                 if lbl == self.grd.GetCellValue(ord(ltr)-65, 0):
                     self.grd.SetCellBackgroundColour(ord(ltr)-65,
@@ -429,6 +429,7 @@ class InputForm(wx.Frame):
                     self.grd.SetCellBackgroundColour(ord(ltr)-65,
                                                             2, bg_clr)
 
+        # high lite the cells caontaining lines which are defined
         data_sql = 'SELECT ID, saved FROM General'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -1870,7 +1871,7 @@ to a tank, pump or contain a control valve"
         Dsql = 'DELETE FROM lines'
         DBase.Dbase(self).TblEdit(Dsql)
         # build sql to add rows to table
-        Insql = 'INSERT INTO lines (lineID, ends, new_pt) VALUES(?,?,?);'
+        Insql = 'INSERT INTO lines (lineID, ends, typ) VALUES(?,?,?);'
         # convert the tuple inside the dictionary to a string
         Indata = [(i[0], str(i[1][0]), i[1][1])
                    for i in list(self.runs.items())]
@@ -1920,7 +1921,7 @@ to a tank, pump or contain a control valve"
         dialog.Destroy()
 
     def OnView(self, evt):
-        PDFFrm(self)
+        PDFFrm(self, self.file_name)
 
     def OnExit(self, evt):
         if self.cursr_set is True:
@@ -1966,7 +1967,7 @@ class OpenFile(wx.Dialog):
 
         sizer2 = wx.BoxSizer(wx.HORIZONTAL)
         hdr2 = wx.StaticText(self,
-                             label='Open new data file:',
+                             label='Start new file:',
                              style=wx.ALIGN_CENTER_HORIZONTAL)
 
         yup = wx.Button(self, -1, "Specify\nNew File")
@@ -2019,11 +2020,12 @@ class OpenFile(wx.Dialog):
 
 
 class PDFFrm(wx.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, filename):
         wx.Frame.__init__(self, parent)
         from wx.lib.pdfviewer import pdfViewer, pdfButtonPanel
         self.Maximize(True)
 
+        self.filename = filename
 #        self.parent = parent
         self.Bind(wx.EVT_CLOSE, self.OnCloseFrm)
 
@@ -2052,22 +2054,34 @@ class PDFFrm(wx.Frame):
         self.viewer.buttonpanel = self.buttonpanel
 
         self.Bind(wx.EVT_BUTTON, self.OnLoadButton, loadbutton)
-
-#        self.viewer.LoadFile('/home/paul/ProgramFiles/GraphPaper/Support/lined.pdf')
+        '''
+        try:
+            pdf_file = self.filename[:-2] + 'pdf'
+            self.viewer.LoadFile(pdf_file)
+        except FileNotFoundError:
+                msg = "The pdf file for this project does not exist."
+                dialog = wx.MessageDialog(self, msg, 'Final Report',
+                                          wx.OK|wx.ICON_INFORMATION)
+                dialog.ShowModal()
+                dialog.Destroy()'''
 
         self.CenterOnParent()
         self.GetParent().Enable(False)
         self.Show(True)
         self.__eventLoop = wx.GUIEventLoop()
         self.__eventLoop.Run()
-
+    
     def OnLoadButton(self, event):
-        dlg = wx.FileDialog(self, wildcard="*.pdf")
-        if dlg.ShowModal() == wx.ID_OK:
-            wx.BeginBusyCursor()
-            self.viewer.LoadFile(dlg.GetPath())
-            wx.EndBusyCursor()
-        dlg.Destroy()
+        try:
+            pdf_file = self.filename[:-2] + 'pdf'
+            self.viewer.LoadFile(pdf_file)
+        except FileNotFoundError:
+            dlg = wx.FileDialog(self, wildcard="*.pdf")
+            if dlg.ShowModal() == wx.ID_OK:
+                wx.BeginBusyCursor()
+                self.viewer.LoadFile(dlg.GetPath())
+                wx.EndBusyCursor()
+            dlg.Destroy()
 
     def OnCloseFrm(self, evt):
         self.GetParent().Enable(True)

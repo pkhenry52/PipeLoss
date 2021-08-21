@@ -99,7 +99,7 @@ class PipeFrm(wx.Frame):
 
     def __init__(self, parent, lbl):
 
-        ttl = 'Pipe & Fittings for ' + lbl
+        ttl = 'Pipe & Fittings for Line ' + lbl
 
         super().__init__(parent, title=ttl, size=(850, 930), style=wx.DEFAULT_FRAME_STYLE | wx.STAY_ON_TOP)
 
@@ -316,9 +316,12 @@ class PipeFrm(wx.Frame):
                     CVlv_list.append(self.lbl)
                     CVlv_list.append(vlv_typ)
                     CVlv_list.append(self.nb.GetPage(old).unt_bx.GetSelection())
-                    CVlv_list.append(float(self.nb.GetPage(old).locate.GetValue()))
-                    CVlv_list.append(float(self.nb.GetPage(old).set_press.GetValue()))
-                    CVlv_list.append(float(self.nb.GetPage(old).info2.GetValue()))
+                    locate = self.nb.GetPage(old).locate.GetValue()
+                    CVlv_list.append(float(locate))
+                    set_press = self.nb.GetPage(old).set_press.GetValue()
+                    CVlv_list.append(float(set_press))
+                    lgth = self.nb.GetPage(old).info2.GetValue()
+                    CVlv_list.append(float(lgth))
 
                     SQL_Chk = 'SELECT CVlv_ID FROM CVlv WHERE CVlv_ID = "' + self.lbl + '"'
                     if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
@@ -687,6 +690,7 @@ class General(wx.Panel):
         self.set_press = wx.TextCtrl(self.pnl2, value='')
         unt_lbl = wx.StaticText(self.pnl2, label='Units')
         self.unt_bx = wx.Choice(self.pnl2, choices=unt_chcs, size=(-1, 30))
+        self.unt_bx.SetSelection(2)
         unt_sizer.Add(hrz2, 0, wx.ALIGN_CENTRE_VERTICAL | wx.LEFT, 25)
         unt_sizer.Add(self.set_press, 0, wx.LEFT, 10)
         unt_sizer.Add(unt_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)

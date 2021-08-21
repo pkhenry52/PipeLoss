@@ -50,7 +50,7 @@ class Report:
 
         self.filename = filename
         self.ttl = ttl
-
+        print(self.filename)
         self.width, self.height = letter
 
     def create_pdf(self):
@@ -60,7 +60,7 @@ class Report:
         doc_name = os.path.basename(self.filename)
 
         doc = SimpleDocTemplate(
-            doc_name, pagesize=letter,
+            self.filename, pagesize=letter,
             rightMargin=.5*inch, leftMargin=.5*inch, topMargin=.75*inch,
             bottomMargin=.5*inch)
 
