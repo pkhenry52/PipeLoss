@@ -1,7 +1,7 @@
 # PipeLoss
 
 ## Status
-The GUI has been completed and is working the.  Debugging is underway to
+The GUI has been completed and is working.  Debugging is underway to
 address errors regarding input.
 
 ## To Do
