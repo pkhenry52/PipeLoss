@@ -190,6 +190,8 @@ class Calc(object):
         Ncl = 0
         Npl = 0
         Np = 0
+        Q1 = []
+
         iters = 25
         iter_num = 0
         completed = False
@@ -214,8 +216,6 @@ class Calc(object):
         # these do not change during the calculations
         node_var, node_cof = self.node_matrix()
         Nn = len(node_cof)
-        self.var_arry = node_var
-        self.coef_arry = node_cof
 
         # STEP 2 use the Hazen-Williams equation
         # to determine an initial Kp values once the Q's are calculated
@@ -226,78 +226,106 @@ class Calc(object):
         # loop energy equations
         if self.parent.poly_pts != {}:
             loop_var, loop_cof = self.loop_matrix()
-            self.var_arry = self.var_arry + loop_var
-            self.coef_arry = self.coef_arry + loop_cof
             Ncl = len(loop_cof)
 
         # then develop the matrices for the various pumps
         if self.parent.pumps != {}:
             trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
-            self.var_arry = self.var_arry + trans_var
-            self.coef_arry = self.coef_arry + trans_cof
             Np = len(trans_cof)
 
         if self.parent.Pseudo != {}:
             pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
-            self.var_arry = self.var_arry + pseudo_var
-            self.coef_arry = self.coef_arry + pseudo_cof
             Npl = len(pseudo_cof)
 
-        Nn = self.Varify(Nl, Np, Nn, Ncl, Npl)
-        if Nn == None:
-            Nn = len(node_cof)
+        Nu = Nl + Np
 
-        # Array values for the lines ['B', 'D', 'E', 'F', 'G', 'H', 'I']
-        # Ar = np.array([
-        # [1.,1.,0.,0.,0.,0.,0.],
-        # [-1.,0.,0.,1.,0.,0.,0.],
-        # [0.,0.,0.,0.,-1.,0.,-1.],
-        # [0.,0.,1.,-1.,0.,-1.,0.],
-        # [0.,0.,0.,0.,0.,1.,1.],
-        # [-0.26819644, 4.57925996, -0.40396739, -1.30345388, 0., 0., 0.]
-        # [ 0., 0., 0.40396739, 0., 1.50099963, 3.09127342, -9.41131546]
-        # ])
+        Nn, Ncl, Npl, procd = self.Varify(Nl, Np, Nn, Ncl, Npl)
+
+        if procd is False:
+            self.Q_old = {}
+            return self.Q_old, self.D_e, self.density, self.kin_vis, self.abs_vis
+
+        while Nu < Nn + Np + Ncl + Npl:
+            if Nu < Nn + Np + Ncl + Npl:
+                Ncl -= 1
+            if Nu < Nn + Np + Ncl + Npl:
+                Npl -= 1
+            if Nu < Nn + Np + Ncl + Npl:
+                Np -= 1
+            if Nu < Nn + Np + Ncl + Npl:
+                Nn -= 1
+
+        self.var_arry = node_var[:Nn]
+        self.coef_arry = node_cof[:Nn]
+
+        if self.parent.poly_pts != {}:
+            self.var_arry = self.var_arry + loop_var[:Ncl]
+            self.coef_arry = self.coef_arry + loop_cof[:Ncl]
+        if self.parent.pumps != {}:
+            self.var_arry = self.var_arry + trans_var[:Np]
+            self.coef_arry = self.coef_arry + trans_cof[:Np]
+        if self.parent.Pseudo != {}:
+            self.var_arry = self.var_arry + pseudo_var[:Npl]
+            self.coef_arry = self.coef_arry + pseudo_cof[:Npl]            
+
+        '''Array values for the lines ['B', 'D', 'E', 'F', 'G', 'H', 'I']
+        Ar = np.array([
+        [1.,1.,0.,0.,0.,0.,0.],
+        [-1.,0.,0.,1.,0.,0.,0.],
+        [0.,0.,0.,0.,-1.,0.,-1.],
+        [0.,0.,1.,-1.,0.,-1.,0.],
+        [0.,0.,0.,0.,0.,1.,1.],
+        [-0.26819644, 4.57925996, -0.40396739, -1.30345388, 0., 0., 0.]
+        [ 0., 0., 0.40396739, 0., 1.50099963, 3.09127342, -9.41131546]
+        ])'''
         Ar = np.array(self.var_arry)
 
         # Cof = np.array([4.45,-2.23,-3.34,-3.34,4.45,0.,0.])
         Cof = np.array(self.coef_arry)
 
         # STEP 3 solve for the initial flow values
-        Q1 = np.linalg.solve(Ar, Cof)
+        try:
+            Q1 = np.linalg.solve(Ar, Cof)
+            # put the flow and line labels into a dictionary
+            Flows = dict(zip(list(sorted(self.var_dic.keys())), Q1))
+            '''flows in ft^3/sec
+            Flows dictionary {'B': 3.679435757336772,
+            'D': 0.7768922284029779, 'E': 1.185590835521604,
+            'F': 1.4512717644668973, 'G': 1.962483063924582,
+            'H': 3.0765650603595196, 'I': 1.3797629253802302}'''
 
-        # put the flow and line labels into a dictionary
-        Flows = dict(zip(list(sorted(self.var_dic.keys())), Q1))
-        # flows in ft^3/sec
-        # Flows dictionary {'B': 3.679435757336772,
-        # 'D': 0.7768922284029779, 'E': 1.185590835521604,
-        # 'F': 1.4512717644668973, 'G': 1.962483063924582,
-        # 'H': 3.0765650603595196, 'I': 1.3797629253802302}
-
-        while True:
-            if iter_num == 0:
-                Qsum = self.Iterate_Flow(Flows, iter_num)
-                Flows = self.Q1_Calc(Nn)
-                iter_num += 1
-            elif Qsum > .001 and iter_num < iters:
-                Qsum = self.Iterate_Flow(Flows, iter_num)
-                iter_num += 1
-                Flows = self.Q1_Calc(Nn)
-            elif iter_num >= iters:
-                completed = False
-                break
-            else:
-                completed = True
-                break
+            while True:
+                if iter_num == 0:
+                    Qsum = self.Iterate_Flow(Flows, iter_num)
+                    Flows = self.Q1_Calc(Nn, Ncl, Npl, Np)
+                    iter_num += 1
+                elif Qsum > .001 and iter_num < iters:
+                    Qsum = self.Iterate_Flow(Flows, iter_num)
+                    iter_num += 1
+                    Flows = self.Q1_Calc(Nn, Ncl, Npl, Np)
+                elif iter_num >= iters:
+                    completed = False
+                    break
+                else:
+                    completed = True
+                    break
+            print('try completed', completed)
+            print(f'Nu, Nl, Np, Nn, Ncl, Npl {Nu, Nl, Np, Nn, Ncl, Npl}')
+        except:
+            completed = False
+            print('except completed', completed)
+            print(f'Nu, Nl, Np, Nn, Ncl, Npl {Nu, Nl, Np, Nn, Ncl, Npl}')
 
         if completed is True:
             self.Save_Output()
-            return self.Q_old, self.D_e, self.density, self.kin_vis, self.abs_vis
         else:
             msg1 = 'Unable to iterate network to a solution\n'
             msg2 = 'total number of iterations completed = ' + str(iter_num)
             msg3 = '.\nBased on presented information system cannot be solved.'
             self.WarnData(msg1 + msg2 + msg3)
-            return
+            self.Q_old = {}
+        
+        return self.Q_old, self.D_e, self.density, self.kin_vis, self.abs_vis
 
     def Iterate_Flow(self, Flows, iter_num):
         # percentage variation in range of flow estimates
@@ -396,14 +424,16 @@ class Calc(object):
 
         return Qsum
 
-    def Q1_Calc(self, Nn):
+    def Q1_Calc(self, Nn, Ncl, Npl, Np):
 
         loop_var, loop_cof = self.loop_matrix()
         trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
         pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
+        self.var_arry = (self.var_arry[:Nn] + loop_var[:Ncl] +
+                         trans_var[:Np] + pseudo_var[:Npl])
+        self.coef_arry = (self.coef_arry[:Nn] + loop_cof[:Ncl] +
+                          trans_cof[:Np] + pseudo_cof[:Npl])
 
-        self.var_arry = self.var_arry[:Nn] + loop_var + trans_var + pseudo_var
-        self.coef_arry = self.coef_arry[:Nn] + loop_cof + trans_cof + pseudo_cof
         Ar = np.array(self.var_arry)
         Cof = np.array(self.coef_arry)
 
@@ -500,7 +530,7 @@ class Calc(object):
         # use the pump data enetered for 3 opeating point to calculate
         # the constants for the pump equation
         n = 0
-        for k, v in self.parent.pumps.items():
+        for k, v in sorted(self.parent.pumps.items()):
             # convert the flow to ft^3/s and TDH to ft
             # ['US GPM & ft', 'ft^3/s & ft', 'm^3/hr & m']
             if v[0] == 0:
@@ -541,7 +571,7 @@ class Calc(object):
         node_cof = []
         N_pmp = len(self.parent.pumps)
         # generate the matrix for each node
-        for val in self.parent.nodes.values():
+        for val in sorted(self.parent.nodes.values()):
             if len(val) > 1:
                 '''following line causes issue when there are no pumps at line 423'''
                 nd_matx = [0]*(len(self.var_dic) + N_pmp) # - 1)
@@ -580,7 +610,7 @@ class Calc(object):
         inv_pts = {tuple(v):k for k,v in self.parent.pts.items()}
         # change the poly_pts dictionary cordinates
         # to the coresponding node label
-        for num in self.parent.poly_pts:
+        for num in sorted(self.parent.poly_pts):
             k_matx = [0]*(len(self.var_dic)+len(self.parent.pumps))
             alpha_poly_pts = []
             for v in self.parent.poly_pts[num]:
@@ -634,7 +664,7 @@ class Calc(object):
         # change the poly_pts dictionary cordinates
         # to the coresponding node label
 
-        for num in self.parent.Pseudo:
+        for num in sorted(self.parent.Pseudo):
             Elev = 0
             skip_0 = False
             skip_1 = False
@@ -738,24 +768,58 @@ class Calc(object):
         return pseudo_var, pseudo_cof
 
     def Varify(self, Nl, Np, Nn, Ncl, Npl):
-        
+        procd = True
+
         for ln in self.var_dic:
             if ln not in self.D_e:
                 msg1 = 'Pipe data has not been set up for pipe ' + ln
                 msg2 = '\nSelect the line letter to complete the information.'
                 self.WarnData(msg1 + msg2)
-                return None
-        
+                procd = False
+                return[Nn, Ncl, Npl, procd]
+
         # total number of unknowns is the
         # number of pipelines plus the number of pumps
         Nu = Nl + Np
         # this is the number of equations required to solve for the system
+
+        # pure junction nodes with more than one connection line
+        junct_nodes = [node for node, lines
+                 in self.parent.nodes.items() if len(lines) > 1]
+        # discharge node: the consumption, pump & tank supply line
+        consump_runs = {node:lines[0][0] for node, lines
+                        in self.parent.nodes.items() if len(lines) == 1}
+        # Consumption Lines plus Tank & Pump Supply Lines
+        consump_lines = [ln[0] for ln in consump_runs.values()]
+        # all the lines not connect to a pump tank or consumption line
+        flow_lines = list(set(list(self.parent.runs.keys()))-set(consump_lines))
+
+        # maximum number of potential closed loops
+        Max_Ncl = len(flow_lines) - len(junct_nodes) + 1
+
+        # maximum number of pseudo loops
+        Max_Npl = (len(self.parent.tanks.keys()) +
+                   len(self.parent.pumps.keys()) +
+                   len(self.parent.vlvs.keys()) - 1)
+        if Max_Npl < 0:
+            Max_Npl = 0
+
+        if Ncl > Max_Ncl:
+            Ncl = Max_Ncl
+        if Npl > Max_Npl:
+            Npl = Max_Npl     
+
         # check that there is the correct number of defined equation to proceed
+        # if there are no pumps, tanks or CVs one node needs to be removed
+        # and Nu = Nn + Nl
         if self.parent.pumps == {} and \
            self.parent.tanks == {} and \
            self.parent.vlvs == {}:
-            Nn = Nn - 1
-            if Ncl < (Nl - Nn):
+            if Nn == len(junct_nodes):
+                Nn -= 1
+            print('hit')
+            print(f'{Nu} > {Nn} + {Ncl}')
+            if Nu > Nn + Ncl:
                 msg1 = ('A total of ' + str(Nu) +
                         ' unknowns have been declared.')
                 msg2 = 'There is a total of ' + str(Nn+1) + ' nodes defined.'
@@ -765,16 +829,15 @@ class Calc(object):
                 msg4b = 'If a node is not shaded in '
                 msg5 = 'the grid it means it has not been defined.'
                 self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b + msg5)
-                return None
-            else:
-                self.var_arry.pop(0)
-                self.coef_arry.pop(0)
-                return Nn
+                procd = False
+#                Nn -= 1
+#                return[Nn, procd]
         # if there is only one supply source then use all the nodes
+        # and any closed loops
         elif (len(self.parent.pumps) +
               len(self.parent.tanks) +
               len(self.parent.vlvs)) == 1:
-            if Ncl < Nl - Nn:
+            if Nu > Nn + Ncl:
                 msg1 = ('A total of ' + str(Nu) +
                         ' unknowns have been declared.')
                 msg2 = 'There is a total of ' + str(Nn) + ' nodes defined.'
@@ -784,25 +847,24 @@ class Calc(object):
                 msg4b = 'If a node is not shaded in '
                 msg5 = 'the grid it means it has not been defined.'
                 self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b + msg5)
-                return None
+                procd = False
+#                return[Nn, procd]
         # not enough data request additional information based on
-        # multiple pumps, tanks and valves
-        elif Nu > (Nn + Ncl + Npl + Np):
-            msg1 = ('A total of ' + str(Nu) +
-                    ' unknowns have been declared but only ')
-            msg2 = (str(Nn + Ncl + Npl + Np) +
-                   ' equations have been specified.  At least ')
-            msg3 = str(Nu - Nn - Ncl - Npl - Np)
-            msg4a = ' more equation(s) are needed by defining'
-            msg4b = 'additional loops or nodes.'
-            self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b)
-            return None
-        elif Nu > (Nn + Ncl + Npl + Np):
-            drp = Nu - (Nn + Ncl + Npl + Np)
-            for n in range(drp):
-                self.var_arry.pop(0)
-                self.coef_arry.pop(0)
-            return (Nn - drp)
+        # multiple pumps, tanks and valves or the possible addition of pseudo loops
+        else:
+            if Nu > (Nn + Ncl + Npl + Np):
+                msg1 = ('A total of ' + str(Nu) +
+                        ' unknowns have been declared but only ')
+                msg2 = (str(Nn + Ncl + Npl + Np) +
+                    ' equations have been specified.  At least ')
+                msg3 = str(Nu - Nn - Ncl - Npl - Np)
+                msg4a = ' more equation(s) are needed by defining'
+                msg4b = 'additional loops or nodes.'
+                self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b)
+                procd = False
+#                return[Nn, procd]
+
+        return[Nn, Ncl, Npl, procd]
 
     def Save_Output(self):
         # clear data from table

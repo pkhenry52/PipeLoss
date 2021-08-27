@@ -1903,22 +1903,23 @@ to a tank, pump or contain a control valve"
 
     def OnCalc(self, evt):
         Qs, D_e, density, kin_vis, abs_vis = Calc_Network.Calc(self, self.cursr, self.db).Evaluation()
-        dlg = DataOut.DataOutPut(None, Qs)
-        self.data_save = dlg.ShowModal()
-        dlg.Destroy()
+        if Qs != {}:
+            dlg = DataOut.DataOutPut(None, Qs)
+            self.data_save = dlg.ShowModal()
+            dlg.Destroy()
 
-        if self.data_save:
-            Final_Rpt.Report_Data(self, self.file_name, Qs, D_e, density, kin_vis, abs_vis).tbl_data()
+            if self.data_save:
+                Final_Rpt.Report_Data(self, self.file_name, Qs, D_e, density, kin_vis, abs_vis).tbl_data()
 
-        msg1 = "The report data has been saved as\n"
-        msg2 = self.file_name[:-2] + 'pdf'
-        msg3 = '\nand can be viewed using the view command in\n'
-        msg4 = 'the File drop down menu.'
-        msg = msg1 + msg2 + msg3 + msg4
-        dialog = wx.MessageDialog(self, msg, 'Report Completed',
-                                  wx.OK|wx.ICON_INFORMATION)
-        dialog.ShowModal()
-        dialog.Destroy()
+            msg1 = "The report data has been saved as\n"
+            msg2 = self.file_name[:-2] + 'pdf'
+            msg3 = '\nand can be viewed using the view command in\n'
+            msg4 = 'the File drop down menu.'
+            msg = msg1 + msg2 + msg3 + msg4
+            dialog = wx.MessageDialog(self, msg, 'Report Completed',
+                                    wx.OK|wx.ICON_INFORMATION)
+            dialog.ShowModal()
+            dialog.Destroy()
 
     def OnView(self, evt):
         PDFFrm(self, self.file_name)
@@ -2054,16 +2055,6 @@ class PDFFrm(wx.Frame):
         self.viewer.buttonpanel = self.buttonpanel
 
         self.Bind(wx.EVT_BUTTON, self.OnLoadButton, loadbutton)
-        '''
-        try:
-            pdf_file = self.filename[:-2] + 'pdf'
-            self.viewer.LoadFile(pdf_file)
-        except FileNotFoundError:
-                msg = "The pdf file for this project does not exist."
-                dialog = wx.MessageDialog(self, msg, 'Final Report',
-                                          wx.OK|wx.ICON_INFORMATION)
-                dialog.ShowModal()
-                dialog.Destroy()'''
 
         self.CenterOnParent()
         self.GetParent().Enable(False)
