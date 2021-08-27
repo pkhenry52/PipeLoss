@@ -1,12 +1,11 @@
 # PipeLoss
 
 ## Status
-Present stage of the project is the completion of the GUI interface and some offline
-programming for the solution of network and single line piping.
+The GUI has been completed and is working the.  Debugging is underway to
+address errors regarding input.
 
 ## To Do
-Develop the user interface to add the required pseudo loop information and 
-then add loop configuration into matrix for final solution.
+Finalize debugging and the user manual.
 
 ## Scope
 When completed the project will be a GUI for the solution to:
