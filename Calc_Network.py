@@ -25,6 +25,7 @@ class Calc(object):
         self.Q_old = {}
 
         self.dct = self.Kt_vals()
+
         self.density, self.kin_vis, self.abs_vis = self.Vis_Ro()
 
     def Kt_vals(self):
@@ -48,44 +49,48 @@ class Calc(object):
         qry = 'SELECT * FROM Fluid'
         tbldata = DBase.Dbase(self).Dsqldata(qry)
 
+        rho_mix = None
+        nu_mix = None
+        eta_mix = None
+
         if tbldata == []:
             msg = "No fluid data has been specified."
             self.WarnData(msg)
-            return
+            return rho_mix, nu_mix, eta_mix
         else:
             dt = tbldata[0]
 
             if (dt[1] == '' and dt[6] == ''):
                 msg = "No fluid density has been specified."
                 self.WarnData(msg)
-                return
+                return rho_mix, nu_mix, eta_mix
             elif (dt[1] != '' and dt[13] == -1) or (dt[6] != '' 
                   and dt[16] == -1):
                 msg = "Fluid density units have not been specified"
                 self.WarnData(msg)
-                return
+                return rho_mix, nu_mix, eta_mix
 
             if (dt[2] == '' and dt[3] == '' and dt[7] == '' and dt[8] == ''):
                 msg = "No fluid vicosity has been specified."
                 self.WarnData(msg)
-                return
+                return rho_mix, nu_mix, eta_mix
             elif (dt[2] != '' and dt[14] == -1 or dt[3] != ''
                   and dt[15] == -1) or (dt[7] != '' and
                   dt[17] == -1 or dt[8] != '' and dt[18] == -1):
                 msg = "Fluid vicosity units have not been specified."
                 self.WarnData(msg)
-                return
+                return rho_mix, nu_mix, eta_mix
 
             if (dt[4] == '' and dt[5] == '' and dt[9] == '' and dt[10] == ''):
                 msg = 'No fluid concentration has been specified.  If this is'
                 msg2 = ' a homogenous fluid specify "% by vol" as 100'
                 self.WarnData(msg + msg2)
-                return
+                return rho_mix, nu_mix, eta_mix
 
             if dt[11] != '' and dt[19] == -1:
                 msg = "Solids density units have not been specified."
                 self.WarnData(msg)
-                return                
+                return rho_mix, nu_mix, eta_mix                
 
         # collect the densities convert to lb/ft^3
         rho_1 = float(dt[1])
@@ -95,7 +100,7 @@ class Calc(object):
         if rho_1 == 0 and rho_2 == 0:
             msg = "Both fluid densities cannot be specified as zero."
             self.WarnData(msg)
-            return             
+            return rho_mix, nu_mix, eta_mix             
 
         if dt[13] == 1:
             rho_1 = rho_1 * 62.428
@@ -254,7 +259,7 @@ class Calc(object):
                 Np -= 1
             if Nu < Nn + Np + Ncl + Npl:
                 Nn -= 1
-
+            
         self.var_arry = node_var[:Nn]
         self.coef_arry = node_cof[:Nn]
 
@@ -309,12 +314,8 @@ class Calc(object):
                 else:
                     completed = True
                     break
-            print('try completed', completed)
-            print(f'Nu, Nl, Np, Nn, Ncl, Npl {Nu, Nl, Np, Nn, Ncl, Npl}')
         except:
             completed = False
-            print('except completed', completed)
-            print(f'Nu, Nl, Np, Nn, Ncl, Npl {Nu, Nl, Np, Nn, Ncl, Npl}')
 
         if completed is True:
             self.Save_Output()
@@ -807,8 +808,9 @@ class Calc(object):
         if Ncl > Max_Ncl:
             Ncl = Max_Ncl
         if Npl > Max_Npl:
-            Npl = Max_Npl     
-
+            Npl = Max_Npl
+        print(f'Max_Ncl and Max_Npl {Max_Ncl, Max_Npl}')
+        print(f'Nl, Np, Nn, Ncl, Npl {Nl, Np, Nn, Ncl, Npl}')
         # check that there is the correct number of defined equation to proceed
         # if there are no pumps, tanks or CVs one node needs to be removed
         # and Nu = Nn + Nl
@@ -818,6 +820,7 @@ class Calc(object):
             if Nn == len(junct_nodes):
                 Nn -= 1
             print('hit')
+            print(junct_nodes)
             print(f'{Nu} > {Nn} + {Ncl}')
             if Nu > Nn + Ncl:
                 msg1 = ('A total of ' + str(Nu) +
