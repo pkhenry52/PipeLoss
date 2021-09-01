@@ -664,7 +664,6 @@ class Calc(object):
         inv_pts = {tuple(v):k for k,v in self.parent.pts.items()}
         # change the poly_pts dictionary cordinates
         # to the coresponding node label
-
         for num in sorted(self.parent.Pseudo):
             Elev = 0
             skip_0 = False
@@ -715,41 +714,43 @@ class Calc(object):
                         break
 
             m = 0
-            for pt in alpha_poly_pts:
+            for pt in alpha_poly_pts[::len(alpha_poly_pts)-1]:
+
                 # when m = 0 or the last point is at a tank or pump
                 # if it is the first point then the elevation is +
                 if (m == 0 and skip_0 is False) or \
-                   (m == len(alpha_poly_pts)-1 and skip_1 is False):
+                   (m == 1 and skip_1 is False):
                     if m == 0:
                         sgn = 1
                     else:
                         sgn = -1
+
                     # convert the elevations at the node to feet
                     if pt in self.parent.elevs:
                         if self.parent.elevs[pt][1] == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-
                         Elev = Elev + float(self.parent.elevs[pt][0]) * cnvrt * sgn
+
                     # convert the pump elevation to feet
                     if pt in self.parent.pumps:
-                        if self.parent.pumps[pt][0] == 0:
+                        if self.parent.pumps[pt][0] == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-
                         Elev = Elev + float(self.parent.pumps[pt][1]) * cnvrt * sgn
                         k_matx[A_var[pt][1]] = A_var[pt][0] * sgn * -1
 
                         Elev = Elev + ho_cof[pt][0] * sgn
-            
+
                     elif pt in self.parent.tanks:
                         if int(self.parent.tanks[pt][1]) == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
                         Elev = Elev + float(self.parent.tanks[pt][0]) * cnvrt * sgn
+
                 m += 1
 
             # run through the matrix of all the lines mapped
@@ -809,8 +810,7 @@ class Calc(object):
             Ncl = Max_Ncl
         if Npl > Max_Npl:
             Npl = Max_Npl
-        print(f'Max_Ncl and Max_Npl {Max_Ncl, Max_Npl}')
-        print(f'Nl, Np, Nn, Ncl, Npl {Nl, Np, Nn, Ncl, Npl}')
+
         # check that there is the correct number of defined equation to proceed
         # if there are no pumps, tanks or CVs one node needs to be removed
         # and Nu = Nn + Nl
@@ -819,19 +819,15 @@ class Calc(object):
            self.parent.vlvs == {}:
             if Nn == len(junct_nodes):
                 Nn -= 1
-            print('hit')
-            print(junct_nodes)
-            print(f'{Nu} > {Nn} + {Ncl}')
+
             if Nu > Nn + Ncl:
                 msg1 = ('A total of ' + str(Nu) +
-                        ' unknowns have been declared.')
-                msg2 = 'There is a total of ' + str(Nn+1) + ' nodes defined.'
-                msg3 = ('This means there should be ' + str(Nl - Nn) +
-                        ' loops defined or ')
-                msg4a = 'additional nodes need to be defined.'
-                msg4b = 'If a node is not shaded in '
-                msg5 = 'the grid it means it has not been defined.'
-                self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b + msg5)
+                        ' unknowns have been declared.\n')
+                msg2 = 'This means there should be ' + str(Nu - Nn)
+                msg3 = ' nodes defined.\n'
+                msg4 = 'If a node is not shaded in'
+                msg5 = 'the grid\nit means it has not been defined.'
+                self.WarnData(msg1 + msg2 + msg3 + msg4 + msg5)
                 procd = False
 #                Nn -= 1
 #                return[Nn, procd]
@@ -842,28 +838,35 @@ class Calc(object):
               len(self.parent.vlvs)) == 1:
             if Nu > Nn + Ncl:
                 msg1 = ('A total of ' + str(Nu) +
-                        ' unknowns have been declared.')
-                msg2 = 'There is a total of ' + str(Nn) + ' nodes defined.'
-                msg3 = ('This means there should be ' + str(Nl - Nn) +
-                        ' loops defined or ')
-                msg4a = 'additional nodes need to be defined.'
-                msg4b = 'If a node is not shaded in '
-                msg5 = 'the grid it means it has not been defined.'
-                self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b + msg5)
+                        ' unknowns have been declared.\n')
+                msg2 = 'This means there should be ' + str(Nu - Nn)
+                msg3 = ' nodes defined.\n'
+                msg4 = 'If a node is not shaded in'
+                msg5 = 'the grid\nit means it has not been defined.'
+                self.WarnData(msg1 + msg2 + msg3 + msg4 + msg5)
                 procd = False
 #                return[Nn, procd]
         # not enough data request additional information based on
         # multiple pumps, tanks and valves or the possible addition of pseudo loops
         else:
             if Nu > (Nn + Ncl + Npl + Np):
+                msg3 = ''
+                msg4 = ''
+                if Ncl < Max_Ncl:
+                    msg3 = ('\nThere is potential for '
+                            + str(Max_Ncl) + ' closed loops, ')
+                    msg4 = str(Ncl) + ' have been defined.'
+                if Npl < Max_Npl:
+                    msg3 = (msg3 + msg4 + '\nThere is a potential for '
+                            + str(Max_Npl) + ' pseudo loops, ')
+                    msg4 = str(Npl) + ' have been defined'
+       
                 msg1 = ('A total of ' + str(Nu) +
                         ' unknowns have been declared but only ')
                 msg2 = (str(Nn + Ncl + Npl + Np) +
-                    ' equations have been specified.  At least ')
-                msg3 = str(Nu - Nn - Ncl - Npl - Np)
-                msg4a = ' more equation(s) are needed by defining'
-                msg4b = 'additional loops or nodes.'
-                self.WarnData(msg1 + msg2 + msg3 + msg4a + msg4b)
+                    ' equations have been specified.\n')
+                msg5 = 'Confirm that all the nodes\nhave been shaded in the grid.'
+                self.WarnData(msg1 + msg2 + msg3 + msg4)
                 procd = False
 #                return[Nn, procd]
 

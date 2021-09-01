@@ -60,7 +60,7 @@ class DataOutPut(wx.Dialog):
         note_sizer.Add((10,20))
         note_sizer.Add(note2,1, wx.BOTTOM|wx.ALIGN_CENTER, 10)
 
-        self.SetSize(350,(250+40*len(col1)))
+        self.SetSize(350,(250+45*len(col1)))
         self.sizer.Add(grd, 1, wx.ALIGN_CENTER|wx.TOP, 10)
         self.sizer.Add((10,25))
         self.sizer.Add(note_sizer, 1, wx.ALIGN_CENTER)

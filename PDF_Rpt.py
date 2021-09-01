@@ -3,7 +3,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import Flowable, Paragraph, SimpleDocTemplate,\
-     Spacer, Table, TableStyle
+     Spacer, Table, TableStyle, KeepTogether
 from reportlab.lib import colors
 import os
 
@@ -50,14 +50,13 @@ class Report:
 
         self.filename = filename
         self.ttl = ttl
-        print(self.filename)
         self.width, self.height = letter
 
     def create_pdf(self):
         body = []
         textAdjust = 6.5
 
-        doc_name = os.path.basename(self.filename)
+#        doc_name = os.path.basename(self.filename)
 
         doc = SimpleDocTemplate(
             self.filename, pagesize=letter,
@@ -96,21 +95,19 @@ class Report:
                 rptdata = self.rptdata5
                 colwdth = self.Colwdths5
             
-            if len(rptdata) > 1:
-                if n < 4:
+            if len(rptdata) > 1 and n < 4:
+                colwd = [i * textAdjust for i in colwdth]
+                tbl1 = Table(rptdata, colWidths=colwd)
+                tbl1.setStyle(tblstyle)
+                body.append(tbl1)
+                body.append(spacer2)
+            elif n ==4 and len(rptdata) >= 1:
+                for lst in rptdata:
                     colwd = [i * textAdjust for i in colwdth]
-                    tbl1 = Table(rptdata, colWidths=colwd)
-
+                    tbl1 = Table(lst, colWidths=colwd)
                     tbl1.setStyle(tblstyle)
-                    body.append(tbl1)
+                    body.append(KeepTogether(tbl1))
                     body.append(spacer2)
-                else:
-                    for lst in rptdata:
-                        colwd = [i * textAdjust for i in colwdth]
-                        tbl1 = Table(lst, colWidths=colwd)
-                        tbl1.setStyle(tblstyle)
-                        body.append(tbl1)
-                        body.append(spacer2)
 
         doc.build(body)
       

@@ -101,7 +101,8 @@ class PipeFrm(wx.Frame):
 
         ttl = 'Pipe & Fittings for Line ' + lbl
 
-        super().__init__(parent, title=ttl, size=(850, 930), style=wx.DEFAULT_FRAME_STYLE | wx.STAY_ON_TOP)
+        super().__init__(parent, title=ttl, size=(850, 930),
+                         style=wx.DEFAULT_FRAME_STYLE | wx.STAY_ON_TOP)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.parent = parent
@@ -116,8 +117,10 @@ class PipeFrm(wx.Frame):
         self.ff = 0
         self.data_good = False
         self.lbl = lbl
+
         self.nb = wx.Notebook(self)
 
+        self.nb.lbl = lbl
         self.nb.units = ['inches', 'feet', 'meters', 'centimeters', 'millimeters']
         self.nb.mtr = ['Plastic', 'A53 / A106', 'Concrete Smooth', 'Concrete Rough',
                        'Copper Tubing', 'Drawn Tube', 'Galvanized',
@@ -303,7 +306,7 @@ class PipeFrm(wx.Frame):
                 ValueList.append(self.nb.GetPage(old).unt2.GetSelection())
                 ValueList.append(self.nb.GetPage(old).unt3.GetSelection())
                 DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
-
+                '''
                 if self.nb.GetPage(old).prv_chk.GetValue() or \
                 self.nb.GetPage(old).bpv_chk.GetValue():
                     if self.nb.GetPage(0).prv_chk.GetValue() is True:
@@ -329,7 +332,7 @@ class PipeFrm(wx.Frame):
                         DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list)
                     else:
                         UpQuery = 'UPDATE CVlv SET typ=?, units=?, locate=?, set_press=?, length=? WHERE CVlv_ID = "' + self.lbl + '"'
-                        DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list[1:])
+                        DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list[1:])'''
             else:
                 return
 
@@ -567,7 +570,11 @@ class PipeFrm(wx.Frame):
                     vlv_typ = 1
                 unts = self.nb.GetPage(0).unt_bx.GetSelection()
                 press = self.nb.GetPage(0).set_press.GetValue()
-                if self.nb.GetPage(0).vlv_chg == True:
+                # if a CV is added or changed on a line then remove
+                # any pseudo loop associated with that line
+                # and any pre-existing valve
+                if self.nb.GetPage(0).vlv_chg == True \
+                   or self.nb.GetPage(0).add_vlv == True:
                     self.parent.RemoveVlv(self.lbl)
                 self.parent.vlvs[self.lbl] = [vlv_typ, unts, loc, press, lg]
                 self.parent.DrawValve(self.lbl, *self.parent.vlv_pts(self.lbl))
@@ -717,12 +724,14 @@ class General(wx.Panel):
         self.SetSizer(self.sizer)
 
     def Onvlv(self, evt):
-# need to delete any psuedo loops associated
-# with the line if the valve type is changed
+        self.add_vlv = False
+        self.vlv_chg = False
+
         if evt.GetEventObject().GetId() == 1:   # PRV
             self.bpv_chk.SetValue(False)
             if self.prv_chk.GetValue() is False:
                 self.add_vlv = False
+                self.vlv_chg = False
                 self.pnl2.Hide()
             else:
                 self.pnl2.Show()
@@ -734,6 +743,7 @@ class General(wx.Panel):
             self.prv_chk.SetValue(False)
             if self.bpv_chk.GetValue() is False:
                 self.add_vlv = False
+                self.vlv_chg = False
                 self.pnl2.Hide()
             else:
                 self.pnl2.Show()
@@ -741,6 +751,32 @@ class General(wx.Panel):
                     self.vlv_chg = True
                 self.vlv_lbl.SetLabel('Upstream Pipe Length')
                 self.add_vlv = True
+
+        # if a new valve is being added then check to see
+        # if there are any closed loops involved if there
+        # are they need to be deleted if the valve is added
+        # this applies to closed and pseudo loops
+        if self.vlv_chg is False and self.add_vlv is True:
+            lp_num = []
+            for num in wx.GetTopLevelParent(self.parent).parent.Loops:
+                if self.parent.lbl in wx.GetTopLevelParent(self.parent).parent.Loops[num][1]:
+                    lp_num.append(num)
+            if lp_num != []:
+                msg1 = 'Placing a control valve on this line will\n'
+                msg2 = 'remove loops ' + str(lp_num) + ' associated with the line.'
+                dlg = wx.MessageDialog(self, msg1 + msg2, 'Valve Implications',
+                        wx.OK|wx.CANCEL|wx.ICON_INFORMATION)
+                rslt = dlg.ShowModal()
+                if rslt == wx.ID_CANCEL:
+                    self.add_vlv = False
+                    self.prv_chk.SetValue(False)
+                    self.bpv_chk.SetValue(False)
+                    self.pnl2.Hide()
+                elif rslt == wx.ID_OK:
+                    for num in lp_num:
+                        wx.GetTopLevelParent(self.parent).parent.RemoveLoop(num)
+                dlg.Destroy()
+
         self.sizer.SetSizeHints(self)
         self.SetSizer(self.sizer)
         self.Layout()

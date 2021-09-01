@@ -1911,15 +1911,15 @@ to a tank, pump or contain a control valve"
             if self.data_save:
                 Final_Rpt.Report_Data(self, self.file_name, Qs, D_e, density, kin_vis, abs_vis).tbl_data()
 
-            msg1 = "The report data has been saved as\n"
-            msg2 = self.file_name[:-2] + 'pdf'
-            msg3 = '\nand can be viewed using the view command in\n'
-            msg4 = 'the File drop down menu.'
-            msg = msg1 + msg2 + msg3 + msg4
-            dialog = wx.MessageDialog(self, msg, 'Report Completed',
-                                    wx.OK|wx.ICON_INFORMATION)
-            dialog.ShowModal()
-            dialog.Destroy()
+                msg1 = "The report data has been saved as\n"
+                msg2 = self.file_name[:-2] + 'pdf'
+                msg3 = '\nand can be viewed using the view command in\n'
+                msg4 = 'the File drop down menu.'
+                msg = msg1 + msg2 + msg3 + msg4
+                dialog = wx.MessageDialog(self, msg, 'Report Completed',
+                                        wx.OK|wx.ICON_INFORMATION)
+                dialog.ShowModal()
+                dialog.Destroy()
 
     def OnView(self, evt):
         PDFFrm(self, self.file_name)

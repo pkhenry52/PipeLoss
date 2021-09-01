@@ -483,8 +483,9 @@ class NodeFrm(wx.Frame):
                     self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
 
         # add the elevation information to the node elevation dictionary
-        if len(self.nodes[self.node]) == 1:
+        if len(self.nodes[self.node]) == 1 and self.type_rbb.GetSelection() == 0:
             self.info4.SetValue('0')
+
         lst_elev = [self.info4.GetValue(), self.unt4.GetSelection()]
         self.elevs[self.node] = lst_elev
 

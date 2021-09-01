@@ -61,7 +61,7 @@ class Report_Data(object):
         # output for the flows, hL etc for each line
         tbldata1 = [('Line\nLabel', 'Pipe Dia\ninches', 'Pipe Length\nfeet',
                       'Flow\nft^3/s', '\nUSGPM', '\nm^3/s', 'Head Loss\nft',
-                      'meters', 'Pressure Drop\npsid',
+                      'meters', 'Pressure Drop\npsig',
                       'Velocity\nft/s', '\nm/s')]
 
         ELOG = 9.35 * log10(2.71828183)
@@ -397,7 +397,10 @@ class Report_Data(object):
                         n += 1
                         if rowdata != []:
                             tbldata.append(rowdata)
-            tbldata5.append(tbldata)
+            # if there is not data in the table then do not add it to the report
+            if len(tbldata) > 1:
+                tbldata5.append(tbldata)
+
         return tbldata5
 
     def pump_tdh(self, nd, ln):

@@ -67,11 +67,13 @@ class FluidFrm(wx.Dialog):
         blk2 = wx.StaticText(self, label = ' ')
         blk3 = wx.StaticText(self, label = ' ')
         blk4 = wx.StaticText(self, label = ' ')
-        blk5 = wx.StaticText(self, label = ' ')
+#        blk5 = wx.StaticText(self, label = ' ')
         sve = wx.Button(self, -1, "Save")
+        ext = wx.Button(self, -1, "Exit")
         self.wgt_3 = wx.TextCtrl(self, value='')
 
         self.Bind(wx.EVT_BUTTON, self.OnSave, sve)
+        self.Bind(wx.EVT_BUTTON, self.OnClose, ext)
 
         grd.AddMany([(hrz1), (hrz2), (hrz3), (hrz4), (hrz5), (hrz6),
                      (hrz7), (hrz8), (hrz9),
@@ -81,8 +83,8 @@ class FluidFrm(wx.Dialog):
                      (vrt2), (self.density_2), (self.unit_21),
                      (self.kin_vis_2), (self.unit_22), (self.dyn_vis_2),
                      (self.unit_23), (self.wgt_2), (self.vol_2),
-                     (vrt3), (self.density_3), (self.unit_31), (blk2), (blk3),
-                     (blk4), (blk5), (self.wgt_3), (sve)
+                     (vrt3), (self.density_3), (self.unit_31), (blk2),
+                     (sve), (ext), (blk3), (self.wgt_3), (blk4)
                     ])
 
         sizer.Add(grd, proportion = 2, flag = wx.ALL|wx.EXPAND, border = 15)
@@ -106,7 +108,6 @@ class FluidFrm(wx.Dialog):
                         self.txt_arry[n-1].SetValue(str(data[n]))
                     else:
                         self.txt_arry[n-1].SetSelection(data[n])
-                        print(n)
         else:
             self.density_1.SetValue('62.3')
             self.unit_11.SetSelection(0)
@@ -148,6 +149,7 @@ class FluidFrm(wx.Dialog):
             UpQuery = 'UPDATE Fluid SET ' + SQL_str + ' WHERE ID = 1'
 
         DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
+        self.Destroy()
 
     def OnClose(self, evt):
         self.Destroy()
