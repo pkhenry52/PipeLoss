@@ -394,9 +394,13 @@ class NodeFrm(wx.Frame):
     def SaveNode(self):
         '''saves the data if the node is just
         specified as an intersection of lines'''
+        # list of all the node lines
         lst1 = []
+        # list of all the directions either into or out of the node
         lst2 = []
+        # list of the flows zero unless consumption node
         lst3 = []
+        # list of specified flow units
         lst4 = []
         alt_end_node = ''
         cnspt_ln = ''
@@ -409,7 +413,7 @@ class NodeFrm(wx.Frame):
             # get the line label from the radiobutton label
             ln_lbl = self.rad_bt[item-1].GetLabel()[-2]
             lst1.append(ln_lbl)
-
+            # if checkbox is set then this is a consumption line
             if self.chk_bx[item-m].GetValue():
                 cnspt_ln = ln_lbl
                 if self.txt_bxs[item-m].GetValue() != '':
@@ -418,13 +422,27 @@ class NodeFrm(wx.Frame):
                     row = ord(cnspt_ln) - 65
                     self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
                     pt1, pt2 = self.parent.runs[cnspt_ln][0]
+                    # modify data for node at other end of consumption line
                     if pt1 != self.node:
                         alt_end_node = pt1
                     else:
                         alt_end_node = pt2
-                    self.nodes[alt_end_node] = [(cnspt_ln, dirct, flow, unts)]
-                    self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')
-                    self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
+                    # check if node is already set up
+                    if alt_end_node in self.nodes:
+                        n = 0
+                        tpl = []
+                        for tp in self.nodes[alt_end_node]:
+                            if tp[0] == cnspt_ln:
+                                tpl.append(cnspt_ln)
+                                tpl.append(abs(dirct-1))
+                                tpl.append(flow)
+                                tpl.append(unts)
+                                self.nodes[alt_end_node][n] = tuple(tpl)
+                            n += 1
+                    else:
+                        self.nodes[alt_end_node] = [(cnspt_ln, dirct, flow, unts)]
+                        self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')
+                        self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
 
             if self.rad_bt[item].GetValue() is False:
                 dirct = 0
@@ -451,7 +469,6 @@ class NodeFrm(wx.Frame):
         ln_dirct = list(zip(lst1, lst2, lst3, lst4))
         # add information to the nodes dictionary
         self.nodes[self.node] = ln_dirct
-
         if self.node in self.nodes:
             for ln in self.nodes[self.node]:
                 if ln[0] in self.parent.plt_arow:

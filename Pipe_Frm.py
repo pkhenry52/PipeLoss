@@ -168,21 +168,22 @@ class PipeFrm(wx.Frame):
                 self.nb.GetPage(0).unt3.SetSelection(0)
 
             if self.lbl in self.parent.vlvs:
-                typ, unt, loc, setpress, lg = self.parent.vlvs[self.lbl]
+                self.nb.typ, unt, loc, setpress, lg = self.parent.vlvs[self.lbl]
                 self.nb.GetPage(0).pnl2.Show()
                 self.nb.GetPage(0).set_press.SetValue(str(setpress))
                 self.nb.GetPage(0).locate.SetValue(str(loc))
                 self.nb.GetPage(0).unt_bx.SetSelection(unt)
-                if typ == 1:
+                if self.nb.typ == 1:
                     self.nb.GetPage(0).bpv_chk.SetValue(True)
                     self.nb.GetPage(0).prv_chk.SetValue(False)
                     self.nb.GetPage(0).vlv_lbl.SetLabel('Upstream Pipe Length')
-                elif typ == 0:
+                elif self.nb.typ == 0:
                     self.nb.GetPage(0).bpv_chk.SetValue(False)
                     self.nb.GetPage(0).prv_chk.SetValue(True)
                     self.nb.GetPage(0).vlv_lbl.SetLabel('Downstream Pipe Length')
             else:
                 self.nb.GetPage(0).unt_bx.SetSelection(2)
+                self.nb.typ = None
 
         self.SetMenuBar(menubar)
         self.Centre()
@@ -207,7 +208,8 @@ class PipeFrm(wx.Frame):
         old = evt.GetOldSelection()
         current = evt.GetSelection()
 
-        if self.nb.GetPage(0).info1.GetValue() == '':
+        if self.nb.GetPage(0).info1.GetValue() == '' or \
+           self.nb.GetPage(0).info1.GetValue() == '0':
             if self.nb.GetPage(current).Name != 'General':
                 self.nb.GetPage(current).Enable(False)
         else:
@@ -573,12 +575,12 @@ class PipeFrm(wx.Frame):
                 # if a CV is added or changed on a line then remove
                 # any pseudo loop associated with that line
                 # and any pre-existing valve
-                if self.nb.GetPage(0).vlv_chg == True \
-                   or self.nb.GetPage(0).add_vlv == True:
+                if self.nb.GetPage(0).vlv_chg is True:
                     self.parent.RemoveVlv(self.lbl)
                 self.parent.vlvs[self.lbl] = [vlv_typ, unts, loc, press, lg]
                 self.parent.DrawValve(self.lbl, *self.parent.vlv_pts(self.lbl))
-            else:
+            elif self.nb.GetPage(0).add_vlv is False and \
+                 self.nb.GetPage(0).vlv_chg is True:
                 self.parent.RemoveVlv(self.lbl)
 
         self.Destroy()
@@ -726,31 +728,59 @@ class General(wx.Panel):
     def Onvlv(self, evt):
         self.add_vlv = False
         self.vlv_chg = False
-
+        print(self.parent.typ)
         if evt.GetEventObject().GetId() == 1:   # PRV
             self.bpv_chk.SetValue(False)
-            if self.prv_chk.GetValue() is False:
-                self.add_vlv = False
-                self.vlv_chg = False
-                self.pnl2.Hide()
-            else:
-                self.pnl2.Show()
-                if self.vlv_lbl.GetLabel() == 'Upstream Pipe Length':
+            if self.parent.typ == 0:
+                if self.prv_chk.GetValue() is False:
+                    if self.bpv_chk.GetValue() is False:
+                        self.add_vlv = False
+                        self.vlv_chg = True
+                    elif self.bpv_chk.GetValue() is True:
+                        self.add_vlv = True
+                        self.vlv_chg = True
+            elif self.parent.typ == 1:
+                if self.prv_chk.GetValue() is True:
+                    self.add_vlv = True
                     self.vlv_chg = True
-                self.vlv_lbl.SetLabel('Downstream Pipe Length')
-                self.add_vlv = True
+                if self.prv_chk.GetValue() is False:
+                    self.add_vlv = False
+                    self.vlv_chg = True
+            elif self.parent.typ is None:
+                if self.prv_chk.GetValue() is True:
+                    self.add_vlv = True
+                    self.vlv_chg = False
+
         else:   # BPV
             self.prv_chk.SetValue(False)
-            if self.bpv_chk.GetValue() is False:
-                self.add_vlv = False
-                self.vlv_chg = False
-                self.pnl2.Hide()
-            else:
-                self.pnl2.Show()
-                if self.vlv_lbl.GetLabel() == 'Downstream Pipe Length':
+            if self.parent.typ == 1:
+                if self.bpv_chk.GetValue() is False:
+                    if self.prv_chk.GetValue() is False:
+                        self.add_vlv = False
+                        self.vlv_chg = True
+                    elif self.prv_chk.GetValue() is True:
+                        self.add_vlv = True
+                        self.vlv_chg = True
+            elif self.parent.typ == 0:
+                if self.bpv_chk.GetValue() is True:
+                    self.add_vlv = True
                     self.vlv_chg = True
+                if self.bpv_chk.GetValue() is False:
+                    self.add_vlv = False
+                    self.vlv_chg = True
+            elif self.parent.typ is None:
+                if self.bpv_chk.GetValue() is True:
+                    self.add_vlv = True
+                    self.vlv_chg = False
+
+        if self.prv_chk.GetValue() or self.bpv_chk.GetValue():
+            self.pnl2.Show()
+            if self.prv_chk.GetValue() is False:
                 self.vlv_lbl.SetLabel('Upstream Pipe Length')
-                self.add_vlv = True
+            else:
+                self.vlv_lbl.SetLabel('Downstream Pipe Length')
+        else:
+            self.pnl2.Hide()
 
         # if a new valve is being added then check to see
         # if there are any closed loops involved if there
@@ -763,20 +793,31 @@ class General(wx.Panel):
                     lp_num.append(num)
             if lp_num != []:
                 msg1 = 'Placing a control valve on this line will\n'
-                msg2 = 'remove loops ' + str(lp_num) + ' associated with the line.'
+                msg2 = 'remove all closed loops ' + str(lp_num) + ' associated with the line.'
                 dlg = wx.MessageDialog(self, msg1 + msg2, 'Valve Implications',
                         wx.OK|wx.CANCEL|wx.ICON_INFORMATION)
                 rslt = dlg.ShowModal()
                 if rslt == wx.ID_CANCEL:
                     self.add_vlv = False
-                    self.prv_chk.SetValue(False)
-                    self.bpv_chk.SetValue(False)
-                    self.pnl2.Hide()
+                    if self.parent.typ == 0:
+                        self.bpv_chk.SetValue(False)
+                        self.prv_chk.SetValue(True)
+                        self.pnl2.Show()
+                    elif self.parent.typ == 1:
+                        self.bpv_chk.SetValue(True)
+                        self.prv_chk.SetValue(False)
+                        self.pnl2.Show()
+                    elif self.parent.typ in None:
+                        self.bpv_chk.SetValue(False)
+                        self.prv_chk.SetValue(False)
+                        self.pnl2.Hide()
                 elif rslt == wx.ID_OK:
                     for num in lp_num:
                         wx.GetTopLevelParent(self.parent).parent.RemoveLoop(num)
                 dlg.Destroy()
-
+        
+        print('PRV = 1, BPV = 2', evt.GetEventObject().GetId())
+        print(f'add valve = {self.add_vlv} and change valve = {self.vlv_chg}')
         self.sizer.SetSizeHints(self)
         self.SetSizer(self.sizer)
         self.Layout()

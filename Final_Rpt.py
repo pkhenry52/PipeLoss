@@ -33,36 +33,48 @@ class Report_Data(object):
         # Information for the lines table
         Colwdths1 = [6, 8, 10, 8, 8, 8, 8, 8, 12, 8, 6]
         rptdata1 = self.tbl_lines()
+        col_spans1 = [('SPAN',(0,0),(0,1)),('SPAN', (1,0),(1,1)),
+                      ('SPAN', (2,0),(2,1)),('SPAN', (3,0),(5,0)),
+                      ('SPAN', (6,0),(7,0)),('SPAN', (8,0),(8,1)),
+                      ('SPAN', (9,0),(10,0))]
 
         # information for the nodes table
-        Colwdths2 = [6, 8, 8, 8, 8]
+        Colwdths2 = [6, 8, 8, 8, 8, 8, 8]
         rptdata2 = self.tbl_nodes()
+        col_spans2 = [('SPAN',(0,0),(0,1)),('SPAN', (1,0),(2,0)),
+                      ('SPAN', (3,0),(4,0)),('SPAN', (5,0),(6,0))]
 
         # information for the pump table
         Colwdths3 = [6, 8, 8, 8, 8]
         rptdata3 = self.tbl_pumps()
+        col_spans3 = [('SPAN',(0,0),(0,1)),('SPAN', (1,0),(2,0)),
+                      ('SPAN', (3,0),(4,0))]
 
         # information for the control valves
-        Colwdths4 = [8, 8, 8, 8, 8, 8, 8]
+        Colwdths4 = [8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
         rptdata4 = self.tbl_Cvlvs()
+        col_spans4 = [('SPAN',(0,0),(0,1)),('SPAN', (1,0),(1,1)),
+                      ('SPAN', (2,0),(4,0)),('SPAN', (5,0),(7,0)),
+                      ('SPAN', (8,0),(10,0))]
 
         # fittings specified for each line
         Colwdths5 = [20, 8]
         rptdata5 = self.tbl_fittings()
 
-        PDF_Rpt.Report(rptdata1, Colwdths1,
+        PDF_Rpt.Report(rptdata1, Colwdths1, col_spans1,
                        rptdata5, Colwdths5,
-                       rptdata2, Colwdths2,
-                       rptdata3, Colwdths3,
-                       rptdata4, Colwdths4,
+                       rptdata2, Colwdths2, col_spans2,
+                       rptdata3, Colwdths3, col_spans3,
+                       rptdata4, Colwdths4, col_spans4,
                        self.filename, self.ttl).create_pdf()
 
     def tbl_lines(self):
         # output for the flows, hL etc for each line
-        tbldata1 = [('Line\nLabel', 'Pipe Dia\ninches', 'Pipe Length\nfeet',
-                      'Flow\nft^3/s', '\nUSGPM', '\nm^3/s', 'Head Loss\nft',
-                      'meters', 'Pressure Drop\npsig',
-                      'Velocity\nft/s', '\nm/s')]
+        tbldata1 = [('Line\nLabel', 'Pipe Dia\ninches', 'Pipe\nLength',
+                      'Flow', '', '', 'Head Loss', '', 'Pressure Drop\npsig',
+                      'Velocity', ''),
+                      ('', '', '', 'ft^3/s', 'USGPM', 'm^3/s', 'feet','meters',
+                      '', 'ft/s', 'm/s')]
 
         ELOG = 9.35 * log10(2.71828183)
 
@@ -118,8 +130,8 @@ class Report_Data(object):
         return tbldata1
 
     def tbl_nodes(self):
-        tbldata2 = [('Node\nLabel', 'Head\nfeet', '\nmeters',
-                      'Pressure\npsig', '\nkPa')]
+        tbldata2 = [('Node\nLabel', 'Elevation', '', 'Head','','Pressure',''),
+                    ('','feet','meters','feet','meters','psig','kPa')]
         # output of pressure at each node
         elev = self.parent.elevs
         self.node_press = {}
@@ -142,7 +154,7 @@ class Report_Data(object):
         consump_nodes = list(set(all_nodes) - set(flow_nodes))
         consump_nodes.sort()
 
-        # if there is a pump of tank at the node
+        # if there is a pump or tank at the node
         if pump_nodes != [] or tank_nodes != []:
             to_do_nodes = []
             done_nodes = []
@@ -269,6 +281,13 @@ class Report_Data(object):
         for nd, val in self.node_press.items():
             rptdata = []
             rptdata.append(nd)
+            if elev[nd][1] == 1:
+                el = float(elev[nd][0] * 3.3)
+                rptdata.append(round(el,2))
+            else:
+                el = float(elev[nd][0])
+                rptdata.append(round(el,2))
+            rptdata.append(round(el/3.3,2))
             rptdata.append(round(val,3))
             rptdata.append(round(val * .3048,2))
             rptdata.append(round(val * self.density / (62.4*2.307),2))
@@ -279,8 +298,8 @@ class Report_Data(object):
         return tbldata2
 
     def tbl_pumps(self):
-        tbldata3 = [('Pump\nNode', 'Head\nfeet', '\nmeters',
-                      'Flow\nUSGPM', '\nm^3/hr')]
+        tbldata3 = [('Pump\nNode', 'Head', '', 'Flow', ''),
+                    ('','feet', 'meters', 'USGPM', 'm^3/hr')]
         # dictionary by node of all lines that have unshared junctions
         consump_runs = {node:lines[0][0] for node, lines
                         in self.parent.nodes.items() if len(lines) == 1}        
@@ -305,26 +324,58 @@ class Report_Data(object):
         return tbldata3
 
     def tbl_Cvlvs(self):
-        tbldata4 = [('Line\nLabel', 'Set\nfeet', 'Pressure\npsig',
-                      'Upstream\nfeet', 'Pressure\npsig','Downstream\nfeet',
-                      'Pressure\npsig')]
-        for ln, cv in self.parent.vlvs.items():
+        tbldata4 = [('Line\nLabel', 'Valve\nType', 'Set Pressure','','',
+                     'Upstream Pressure','','','Downstream Pressure','',''),
+                    ('','','feet','psig','kPa','feet', 'psig', 'kPa', 'feet',
+                     'psig', 'kPa')]
 
+        for ln, cv in self.parent.vlvs.items():
+            rptdata = []
             if cv[0] == 0:
                 typ = 'PRV'
             else:
                 typ = 'BPV'
 
-            # set pressure saved as psig
-            if cv[2] == 0:
-                press = cv[3] * self.density / (62.4*2.307)
-            # set pressure saved as kPa
-            elif cv[2] == 1:
-                press = cv[3] * self.density/ (62.4*2.307) * 6.895
-            # set pressure saved as feet of water
+            if cv[1] == 0:
+                set_ft = cv[3] * 62.4 * 2.307 / self.density
+                set_kpa = cv[3] * 6.895
+                set_psig = cv[3]
+            elif cv[1] == 1:
+                set_kpa = cv[3]
+                set_psig = cv[3] / 6.895
+                set_ft = set_psig * 62.4 * 2.307 / self.density
             else:
-                press = cv[3]
-        
+                set_ft = cv[3]
+                set_psig = cv[3] * self.density / (62.4 * 2.31)
+                set_kpa = set_psig * 6.895
+
+            pt1, pt2 = self.parent.runs[ln][0]
+            for item in self.parent.nodes[pt1]:
+                if ln == item[0] and item[1] == 1:
+                    press_up = self.node_press[pt2]
+                    press_dwn = self.node_press[pt1]
+                    break
+                elif ln == item[0] and item[1] == 0:
+                    press_up = self.node_press[pt1]
+                    press_dwn = self.node_press[pt2]
+                    break
+
+
+            '''need to set up rptdata for the table'''
+            rptdata.append(ln)
+            rptdata.append(typ)
+            rptdata.append(round(set_ft,2))
+            rptdata.append(round(set_psig,2))
+            rptdata.append(round(set_kpa,2))
+            rptdata.append(round(press_up,2))
+            rptdata.append(round(press_up * self.density / (62.4 * 2.31),2))
+            rptdata.append(round(press_up * 6.895 * self.density / (62.4 * 2.31),2))
+            rptdata.append(round(press_dwn,2))
+            rptdata.append(round(press_dwn * self.density / (62.4 * 2.31),2))
+            rptdata.append(round(press_dwn * 6.895 * self.density / (62.4 * 2.31),2))
+
+            tbldata4.append(rptdata)
+
         return tbldata4
 
     def tbl_fittings(self):

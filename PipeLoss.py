@@ -21,7 +21,7 @@ import Calc_Network
 import Fluid_Frm
 import DataOut
 import Final_Rpt
-
+import time
 
 class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, *args, **kw):
@@ -147,6 +147,8 @@ class InputForm(wx.Frame):
 
         fileMenu = wx.Menu()
         fileMenu.Append(103, '&Save To Database')
+        fileMenu.Append(106, '&Open Database')
+        fileMenu.Append(107, '&Reread Database')
         fileMenu.Append(101, '&Calculate')
         fileMenu.Append(105, '&View Report')
         fileMenu.AppendSeparator()
@@ -170,6 +172,8 @@ class InputForm(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnExit, id=104)
         self.Bind(wx.EVT_MENU, self.OnView, id=105)
         self.Bind(wx.EVT_MENU, self.OnDB_Save, id=103)
+        self.Bind(wx.EVT_MENU, self.OnOpen, id=106)
+        self.Bind(wx.EVT_MENU, self.OnReread, id=107)
 
         self.Bind(wx.EVT_MENU, self.OnFluidData, id=301)
 
@@ -271,6 +275,7 @@ class InputForm(wx.Frame):
         self.Show()
         self.Maximize(True)
 
+    def OnOpen(self,evt):
         dlg = OpenFile(self)
         dlg.ShowModal()
 
@@ -284,7 +289,12 @@ class InputForm(wx.Frame):
 
             if self.file_name.split(os.path.sep)[-1] != 'mt.db' and \
                 self.file_name.split(os.path.sep)[-1] != "":
+                self.Variable_Reset()
                 self.DataLoad()
+
+    def OnReread(self,evt):
+        self.Variable_Reset()
+        self.DataLoad()
 
     def DataLoad(self):
         # run through all the functions to retreive the data from the database
@@ -299,16 +309,36 @@ class InputForm(wx.Frame):
         self.DBvalves()
         self.DBloops()
         self.DBpseudo()
+
         # the ReDraw function will add the lines to the plot as well as
         # repopulate the plt_Txt, plt_lines and plt_txt dictionaries
+        start = time.time()
         self.ReDraw()
+        end1 = time.time()
+        self.canvas.draw()
         self.GrdLoad()
+        end2 = time.time()
+        self.canvas.draw()
         self.Refresh()
+        end3 = time.time()
+        self.canvas.draw()
         self.Update()
+        end4 = time.time()
+        self.canvas.draw()
+        print(f'redraw {round(end1 - start,4)}')
+        print(f'load grid {round(end2 - end1, 4)}')
+        print(f'refresh {round(end3 - end2,4)}')
+        print(f'update {round(end4 - end3,4)}')
+    def Variable_Reset(self):
+        self.crcl = {}
+        self.arrw = {}
+        self.wrg_pt = ''
+        self.poly_pts = {}
 
     def DBpts(self):
         # download the points information and place into the pts dictionary
         no_data = True
+        self.pts = {}
         data_sql = 'SELECT * FROM points'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -319,6 +349,7 @@ class InputForm(wx.Frame):
     def DBlines(self):
         # download the lines information from the database and put it into
         # the runs dictionary
+        self.runs = {}
         data_sql = 'SELECT * FROM lines'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -327,6 +358,7 @@ class InputForm(wx.Frame):
     def DBnodes(self):
         # download the data entered in the node_frm and put it into
         # the nodes dictionary
+        self.nodes = {}
         data_sql = 'SELECT * FROM nodes'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -335,6 +367,7 @@ class InputForm(wx.Frame):
     def DBelevs(self):
         # download the data entered in the node_frm and put it into
         # the elevs dictionary
+        self.elevs = {}
         data_sql = 'SELECT * FROM elevs'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -343,6 +376,7 @@ class InputForm(wx.Frame):
     def DBpumps(self):
         # download the data entered in the node_frm and put it into
         # the pumps dictionary
+        self.pumps = {}
         data_sql = 'SELECT * FROM Pump'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -351,6 +385,7 @@ class InputForm(wx.Frame):
     def DBvalves(self):
         # download the data entered in the node_frm and put it into
         # the vlvs dictionary
+        self.vlvs = {}
         data_sql = 'SELECT * FROM CVlv'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -359,6 +394,7 @@ class InputForm(wx.Frame):
     def DBtanks(self):
         # download the data entered in the node_frm and put it into
         # the tanks dictionary
+        self.tanks = {}
         data_sql = 'SELECT * FROM Tank'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -367,6 +403,7 @@ class InputForm(wx.Frame):
     def DBloops(self):
         # enter the data base information for the loops and put it into
         # the Loops dictionaary
+        self.Loops = {}
         data_sql = 'SELECT * FROM loops'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -379,6 +416,9 @@ class InputForm(wx.Frame):
         self.Ln_Select = []
 
     def DBpseudo(self):
+        # enter the data base information for the pseudo loops and put it into
+        # the Pseudo dictionaary
+        self.Pseudo = {}
         data_sql = 'SELECT * FROM pseudo'
         tbl_data = DBase.Dbase(self).Dsqldata(data_sql)
         if tbl_data != []:
@@ -749,10 +789,12 @@ class InputForm(wx.Frame):
 
     def DrawArrow(self, x0, y0, x1, y1, LnLbl):
         # use the grid size to determine proper arrow head length and width
+        scr_time = time.time()
         xmin, xmax = self.ax.get_xlim()
         ymin, ymax = self.ax.get_ylim()
         hw = (ymax - ymin) / 70
         hl = (xmax - xmin) / 50
+        
         # specify an arrow head location just off center of the line
         xa = .4 * x0 + .6 * x1
         ya = .4 * y0 + .6 * y1
@@ -768,6 +810,7 @@ class InputForm(wx.Frame):
                              length_includes_head=True)
         # save the arrow head in a dictionary for later deletion if needed
         self.plt_arow[LnLbl] = arow
+        print(f'draw the arrow = {round(time.time()-scr_time, 4)}')
         self.canvas.draw()
 
     def DrawValve(self, ln_lbl, x, y, pt1):
@@ -1692,6 +1735,14 @@ to a tank, pump or contain a control valve"
         self.plt_txt = {}
         self.plt_Txt = {}
         self.plt_arow = {}
+
+        self.plt_lpnum = {}
+        self.plt_pump = {}
+        self.plt_vlv = {}
+        self.plt_vlv_lbl = {}
+        self.plt_pseudo = {}
+        self.plt_psarow = {}
+
         # generate a list of all the node points excluding the origin
         redraw_pts = [*self.pts]
         redraw_pts.remove('origin')
@@ -1705,6 +1756,7 @@ to a tank, pump or contain a control valve"
 
         # redraw the lines and labels
         # step through the line list
+        ln_time  = time.time()
         for key in self.runs:
             rnd = np.random.randint(len(self.clrs))
             color_name = self.clrs[rnd]
@@ -1735,11 +1787,15 @@ to a tank, pump or contain a control valve"
                                        picker=True)
                 self.plt_txt[pt1] = txt
                 redraw_pts.remove(pt1)
-
+        print(f'lines done in {round(time.time()-ln_time,4)}')
         # add arrow heads to the lines for each node
+        nd_time = time.time()
         for nd_lbl, lns in self.nodes.items():
+            print('RUN ARROW DRAW LOOP')
             # lns is the list of line data at the intersection of node nd_lbl
+            arw_time = time.time()
             for ln in lns:
+                inner_time = time.time()
                 # check if line has already plotted arrow head
                 if ln[0] not in self.plt_arow:
                     # assume line start point is at node
@@ -1759,15 +1815,18 @@ to a tank, pump or contain a control valve"
 
                     x0, y0 = self.pts[endpt1]
                     x1, y1 = self.pts[endpt2]
-
+                    
                     self.DrawArrow(x0, y0, x1, y1, ln[0])
                     self.canvas.draw()
-
+                print(f'inner loop done in {round(time.time()-inner_time, 4)}')
+            print(f'time to load arrows {round(time.time()-arw_time, 4)}')          
+        print(f'nodes done in {round(time.time()-nd_time,4)}')
         # draw the loop arcs and label
+        lp_time = time.time()
         for key in self.Loops:
             Cx, Cy, r = self.Loops[key][0]
             self.DrawLoop(Cx, Cy, r, key)
-
+        print(f'closed loop done in {round(time.time()-lp_time, 4)}')
         # draw the pumps and tanks
         for key in self.pumps:
             self.DrawPump(key, True)
@@ -1777,11 +1836,11 @@ to a tank, pump or contain a control valve"
 
         for ln_lbl in self.vlvs:
             self.DrawValve(ln_lbl, *self.vlv_pts(ln_lbl))
-
+        ps_time = time.time()
         for key in self.Pseudo:
             dat = self.Pseudo[key]
             self.DrawPseudo(key, dat[0])
-
+        print(f'pseudo loops done in {round(time.time()-ps_time, 4)}')
         self.Ln_Select = []
         self.Loop_Select = False
 

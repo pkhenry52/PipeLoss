@@ -197,7 +197,7 @@ class Calc(object):
         Np = 0
         Q1 = []
 
-        iters = 25
+        iters = 80
         iter_num = 0
         completed = False
 
@@ -325,7 +325,7 @@ class Calc(object):
             msg3 = '.\nBased on presented information system cannot be solved.'
             self.WarnData(msg1 + msg2 + msg3)
             self.Q_old = {}
-        
+
         return self.Q_old, self.D_e, self.density, self.kin_vis, self.abs_vis
 
     def Iterate_Flow(self, Flows, iter_num):
@@ -430,11 +430,13 @@ class Calc(object):
         loop_var, loop_cof = self.loop_matrix()
         trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
         pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
+        
         self.var_arry = (self.var_arry[:Nn] + loop_var[:Ncl] +
                          trans_var[:Np] + pseudo_var[:Npl])
+        print(self.var_arry)
         self.coef_arry = (self.coef_arry[:Nn] + loop_cof[:Ncl] +
                           trans_cof[:Np] + pseudo_cof[:Npl])
-
+        print(self.coef_arry)
         Ar = np.array(self.var_arry)
         Cof = np.array(self.coef_arry)
 
@@ -535,7 +537,7 @@ class Calc(object):
             # convert the flow to ft^3/s and TDH to ft
             # ['US GPM & ft', 'ft^3/s & ft', 'm^3/hr & m']
             if v[0] == 0:
-                f = .00222
+                f = .002228
                 t = 1
             elif v[0] == 1:
                 f = 1
@@ -678,7 +680,7 @@ class Calc(object):
             # the coefficient signs must be reversed
             if self.parent.Pseudo[num][1][0] in self.parent.vlvs:
                 rev_sgn = -1
-            # self.Pseudo= {3:[[ 
+            # self.Pseudo= {3:[[
                             #  [11.0, 9.0],[11.0, 4.0], [5.0, -9.0], (3.25, -3.75)],
                             #  ['D', 'E', 'F']]}
             # get the corresponding alpha point for
@@ -686,15 +688,16 @@ class Calc(object):
             for v in self.parent.Pseudo[num][0]:
                 if tuple(v) in inv_pts:
                     alpha_poly_pts.append(inv_pts[tuple(v)])
-
+            print('alpha poly points ',alpha_poly_pts)
             for n, ln in enumerate(self.parent.Pseudo[num][1]):
                 nd1 = alpha_poly_pts[n]
+
                 if ln in self.parent.vlvs:
                     # convert values of elevation to feet of water
                     if self.parent.vlvs[ln][1] == 0:
-                        cnvrt = 2.31
+                        cnvrt = 144.14 / self.density
                     elif self.parent.vlvs[ln][1] == 1:
-                        cnvrt = .3346
+                        cnvrt = 993.87 / self.density
                     elif self.parent.vlvs[ln][1] == 2:
                         cnvrt = 1
                     # get the set pressure for any control valve
@@ -704,6 +707,7 @@ class Calc(object):
                     else:
                         Elev = -1 * float(self.parent.vlvs[ln][3]) * cnvrt
                         skip_1 = True
+                    print(f'valve set pressure {Elev} in ft')
 
                 for val in self.parent.nodes[nd1]:
                     if ln in val:
@@ -715,7 +719,7 @@ class Calc(object):
 
             m = 0
             for pt in alpha_poly_pts[::len(alpha_poly_pts)-1]:
-
+                print(f'\npoint of review {pt}')
                 # when m = 0 or the last point is at a tank or pump
                 # if it is the first point then the elevation is +
                 if (m == 0 and skip_0 is False) or \
@@ -724,35 +728,36 @@ class Calc(object):
                         sgn = 1
                     else:
                         sgn = -1
-
                     # convert the elevations at the node to feet
                     if pt in self.parent.elevs:
                         if self.parent.elevs[pt][1] == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
+                        print(f'pseudo loop end node elevation {float(self.parent.elevs[pt][0]) * cnvrt} in ft')
                         Elev = Elev + float(self.parent.elevs[pt][0]) * cnvrt * sgn
-
+                        print(f'final pseudo loop node elevation change {Elev}')
                     # convert the pump elevation to feet
                     if pt in self.parent.pumps:
-                        if self.parent.pumps[pt][0] == 1:
+                        if self.parent.pumps[pt][0] == 2:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
+                        print(f'pump tank fluid elev {float(self.parent.pumps[pt][1]) * cnvrt} in ft')
                         Elev = Elev + float(self.parent.pumps[pt][1]) * cnvrt * sgn
                         k_matx[A_var[pt][1]] = A_var[pt][0] * sgn * -1
-
+                        print(f'pump ho value {ho_cof[pt][0]} in ft')
                         Elev = Elev + ho_cof[pt][0] * sgn
-
+                        print(f'final pump elevation {Elev}')
                     elif pt in self.parent.tanks:
                         if int(self.parent.tanks[pt][1]) == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
+                        print(f'tank elevation {self.parent.tanks[pt][0] * cnvrt} in ft')
                         Elev = Elev + float(self.parent.tanks[pt][0]) * cnvrt * sgn
-
                 m += 1
-
+            print(f'final pseud loop elevation change {Elev}')
             # run through the matrix of all the lines mapped
             # in the plot as specified as part of a node in order to specify
             # the index location for the Kp vaiable in the loop equations
