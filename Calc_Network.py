@@ -235,11 +235,11 @@ class Calc(object):
 
         # then develop the matrices for the various pumps
         if self.parent.pumps != {}:
-            trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
+            trans_var, trans_cof, A_var, ho_cof = self.pump_matrix()
             Np = len(trans_cof)
 
         if self.parent.Pseudo != {}:
-            pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
+            pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, ho_cof)
             Npl = len(pseudo_cof)
 
         Nu = Nl + Np
@@ -273,20 +273,11 @@ class Calc(object):
             self.var_arry = self.var_arry + pseudo_var[:Npl]
             self.coef_arry = self.coef_arry + pseudo_cof[:Npl]            
 
-        '''Array values for the lines ['B', 'D', 'E', 'F', 'G', 'H', 'I']
-        Ar = np.array([
-        [1.,1.,0.,0.,0.,0.,0.],
-        [-1.,0.,0.,1.,0.,0.,0.],
-        [0.,0.,0.,0.,-1.,0.,-1.],
-        [0.,0.,1.,-1.,0.,-1.,0.],
-        [0.,0.,0.,0.,0.,1.,1.],
-        [-0.26819644, 4.57925996, -0.40396739, -1.30345388, 0., 0., 0.]
-        [ 0., 0., 0.40396739, 0., 1.50099963, 3.09127342, -9.41131546]
-        ])'''
+        # Array values for the lines ['B', 'D', 'E', 'F', 'G', 'H', 'I']
         Ar = np.array(self.var_arry)
-
-        # Cof = np.array([4.45,-2.23,-3.34,-3.34,4.45,0.,0.])
+#        print(f'\nvariable array {self.var_arry}')
         Cof = np.array(self.coef_arry)
+#        print(f'coefficient array {self.coef_arry}')
 
         # STEP 3 solve for the initial flow values
         try:
@@ -357,7 +348,7 @@ class Calc(object):
             DeltaQ = Avg_Flow * DeltaQ_Percent
             Avg_Flow = abs(Avg_Flow)
 
-            dia, e, AR, ARL, Lgth, _ = self.D_e[ln]
+            dia, e, AR, ARL, Lgth, _, lgth = self.D_e[ln]
 
             Dia = dia / 12
             er = e / dia
@@ -370,14 +361,22 @@ class Calc(object):
             # Crane 410 Eq 3-3 Re = 22700 * ft/sec * density / (PipeID" * abs_vis)
             RE1 = V1 * Dia / self.kin_vis
             RE2 = V2 * Dia / self.kin_vis
-
             if RE2 < 2100:
                 F1 = 64 / RE1
                 F2 = 64 / RE2
                 EXPP = 1.0
-                Kp = 2 * gravity * self.kin_vis * ARL / Dia
+
+                Le = self.dct[ln] * Dia / F2
+                ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
+                self.D_e[ln][3] = ARL
+                self.D_e[ln][5] = Le
+                '''Revised original documentation for Kp = f * Lgth/Diamater'''
+#                Kp = 2 * gravity * self.kin_vis * ARL / Dia
+                Kp = F2 * (Lgth + lgth) / Dia
                 if ln in self.parent.vlvs:
-                    Kp = Kp * self.parent.vlvs[ln][2] / Lgth
+                    Kp = Kp * lgth / Lgth
+                print(f'revised ARL for {ln} = {ARL}')
+                print(f'revised Kp for {ln} = {Kp}')
                 self.K[ln] = [Kp, EXPP]
                 continue
             else:
@@ -410,14 +409,20 @@ class Calc(object):
                     EXPP = EP + 1
                     Kp = AE * ARL * Avg_Flow**EP
                     if ln in self.parent.vlvs:
-                        Kp = Kp * self.parent.vlvs[ln][2] / Lgth
+                        Kp = Kp * lgth / Lgth
+                    if ln == 'C':
+                        print(f'revised ARL for {ln} = {ARL}')
+                        print(f'revised Kp for {ln} = {Kp}')
                 else:
                     EXPP = 2
                     Le = self.dct[ln] * Dia / F
                     ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
                     Kp = F * ARL *Avg_Flow**2
                     if ln in self.parent.vlvs:
-                        Kp = Kp * self.parent.vlvs[ln][2] / Lgth
+                        Kp = Kp * lgth / Lgth
+                    if ln == 'C':
+                        print(f'revised ARL for {ln} = {ARL}')
+                        print(f'revised Kp for {ln} = {Kp}')
                 self.K[ln] = [Kp, EXPP]
 
             self.D_e[ln][3] = ARL
@@ -428,15 +433,15 @@ class Calc(object):
     def Q1_Calc(self, Nn, Ncl, Npl, Np):
 
         loop_var, loop_cof = self.loop_matrix()
-        trans_var, trans_cof, A_var, k_cof = self.pump_matrix()
-        pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, k_cof)
+        trans_var, trans_cof, A_var, ho_cof = self.pump_matrix()
+        pseudo_var, pseudo_cof = self.pseudo_matrix(A_var, ho_cof)
         
         self.var_arry = (self.var_arry[:Nn] + loop_var[:Ncl] +
                          trans_var[:Np] + pseudo_var[:Npl])
-        print(self.var_arry)
+
         self.coef_arry = (self.coef_arry[:Nn] + loop_cof[:Ncl] +
                           trans_cof[:Np] + pseudo_cof[:Npl])
-        print(self.coef_arry)
+
         Ar = np.array(self.var_arry)
         Cof = np.array(self.coef_arry)
 
@@ -516,13 +521,15 @@ class Calc(object):
             Kp = 4.73 * (Lgth + Le) / (Dia**4.87 * Chw**1.852)
             ARL = (Lgth + Le) / (gravity * 2 * Dia * AR**2)
 
-            # lgth > 0 indicates there is a control valve in the line
+            # modify Kp for line with control valve
             if lbl in self.parent.vlvs:
                 Kp = Kp * lgth / Lgth
 
-            self.D_e[lbl] = [dia, e, AR, ARL, Lgth, Le]
+            self.D_e[lbl] = [dia, e, AR, ARL, Lgth, Le, lgth]
             self.K[lbl] = [Kp, n_exp]
-
+            if lbl == 'G' or lbl == 'C':
+                print(f'ARL[{lbl}] = {ARL}, area {AR}, length {Lgth + Le}')
+                print(f'initial Kp[{lbl}] value = {Kp}')
     def pump_matrix(self):
         trans_var = []
         trans_cof = []
@@ -561,7 +568,6 @@ class Calc(object):
             ln_lbl = self.parent.nodes[k][0][0]
             var_matx[self.var_dic[ln_lbl]] = -1
             var_matx[n - N_pmp] = 1
-
             A_var[k] = A, n - N_pmp
             ho_cof[k] = ho, n - N_pmp
             trans_var.append(var_matx)
@@ -688,7 +694,7 @@ class Calc(object):
             for v in self.parent.Pseudo[num][0]:
                 if tuple(v) in inv_pts:
                     alpha_poly_pts.append(inv_pts[tuple(v)])
-            print('alpha poly points ',alpha_poly_pts)
+
             for n, ln in enumerate(self.parent.Pseudo[num][1]):
                 nd1 = alpha_poly_pts[n]
 
@@ -707,7 +713,6 @@ class Calc(object):
                     else:
                         Elev = -1 * float(self.parent.vlvs[ln][3]) * cnvrt
                         skip_1 = True
-                    print(f'valve set pressure {Elev} in ft')
 
                 for val in self.parent.nodes[nd1]:
                     if ln in val:
@@ -719,7 +724,7 @@ class Calc(object):
 
             m = 0
             for pt in alpha_poly_pts[::len(alpha_poly_pts)-1]:
-                print(f'\npoint of review {pt}')
+#                print(f'\npoint of review {pt}')
                 # when m = 0 or the last point is at a tank or pump
                 # if it is the first point then the elevation is +
                 if (m == 0 and skip_0 is False) or \
@@ -734,30 +739,30 @@ class Calc(object):
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-                        print(f'pseudo loop end node elevation {float(self.parent.elevs[pt][0]) * cnvrt} in ft')
+#                        print(f'pseudo loop end node elevation {float(self.parent.elevs[pt][0]) * cnvrt} in ft')
                         Elev = Elev + float(self.parent.elevs[pt][0]) * cnvrt * sgn
-                        print(f'final pseudo loop node elevation change {Elev}')
+#                        print(f'final pseudo loop node elevation change {Elev}')
                     # convert the pump elevation to feet
                     if pt in self.parent.pumps:
                         if self.parent.pumps[pt][0] == 2:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-                        print(f'pump tank fluid elev {float(self.parent.pumps[pt][1]) * cnvrt} in ft')
+#                        print(f'pump tank fluid elev {float(self.parent.pumps[pt][1]) * cnvrt} in ft')
                         Elev = Elev + float(self.parent.pumps[pt][1]) * cnvrt * sgn
                         k_matx[A_var[pt][1]] = A_var[pt][0] * sgn * -1
-                        print(f'pump ho value {ho_cof[pt][0]} in ft')
+#                        print(f'pump ho value {ho_cof[pt][0]} in ft')
                         Elev = Elev + ho_cof[pt][0] * sgn
-                        print(f'final pump elevation {Elev}')
+#                        print(f'final pump elevation {Elev}')
                     elif pt in self.parent.tanks:
                         if int(self.parent.tanks[pt][1]) == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-                        print(f'tank elevation {self.parent.tanks[pt][0] * cnvrt} in ft')
+#                        print(f'tank elevation {self.parent.tanks[pt][0] * cnvrt} in ft')
                         Elev = Elev + float(self.parent.tanks[pt][0]) * cnvrt * sgn
                 m += 1
-            print(f'final pseud loop elevation change {Elev}')
+#            print(f'final pseud loop elevation change {Elev}')
             # run through the matrix of all the lines mapped
             # in the plot as specified as part of a node in order to specify
             # the index location for the Kp vaiable in the loop equations

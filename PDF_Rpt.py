@@ -102,7 +102,7 @@ class Report:
             elif n == 4:
                 rptdata = self.rptdata5
                 colwdth = self.Colwdths5
-            print(f'table{n} rptdata {rptdata}')
+
             # table style for all but the fittings table
             if len(rptdata) > 2 and n < 4:
                 colwd = [i * textAdjust for i in colwdth]

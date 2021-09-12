@@ -21,7 +21,6 @@ import Calc_Network
 import Fluid_Frm
 import DataOut
 import Final_Rpt
-import time
 
 class LftGrd(gridlib.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, *args, **kw):
@@ -272,7 +271,7 @@ class InputForm(wx.Frame):
         self.SetSizer(Main_Sizer)
 
         self.Center()
-        self.Show()
+        self.Show(True)
         self.Maximize(True)
 
     def OnOpen(self,evt):
@@ -309,26 +308,13 @@ class InputForm(wx.Frame):
         self.DBvalves()
         self.DBloops()
         self.DBpseudo()
-
         # the ReDraw function will add the lines to the plot as well as
         # repopulate the plt_Txt, plt_lines and plt_txt dictionaries
-        start = time.time()
         self.ReDraw()
-        end1 = time.time()
-        self.canvas.draw()
         self.GrdLoad()
-        end2 = time.time()
-        self.canvas.draw()
         self.Refresh()
-        end3 = time.time()
-        self.canvas.draw()
         self.Update()
-        end4 = time.time()
-        self.canvas.draw()
-        print(f'redraw {round(end1 - start,4)}')
-        print(f'load grid {round(end2 - end1, 4)}')
-        print(f'refresh {round(end3 - end2,4)}')
-        print(f'update {round(end4 - end3,4)}')
+
     def Variable_Reset(self):
         self.crcl = {}
         self.arrw = {}
@@ -789,7 +775,6 @@ class InputForm(wx.Frame):
 
     def DrawArrow(self, x0, y0, x1, y1, LnLbl):
         # use the grid size to determine proper arrow head length and width
-        scr_time = time.time()
         xmin, xmax = self.ax.get_xlim()
         ymin, ymax = self.ax.get_ylim()
         hw = (ymax - ymin) / 70
@@ -810,7 +795,7 @@ class InputForm(wx.Frame):
                              length_includes_head=True)
         # save the arrow head in a dictionary for later deletion if needed
         self.plt_arow[LnLbl] = arow
-        print(f'draw the arrow = {round(time.time()-scr_time, 4)}')
+
         self.canvas.draw()
 
     def DrawValve(self, ln_lbl, x, y, pt1):
@@ -1743,6 +1728,15 @@ to a tank, pump or contain a control valve"
         self.plt_pseudo = {}
         self.plt_psarow = {}
 
+        max = len(self.nodes)
+        count = 0
+        prg_dlg = wx.ProgressDialog("Loading Data and Graphics",
+                                    '',
+                                    maximum = max,
+                                    parent=self,
+                                    style= 0 | wx.PD_APP_MODAL
+                                    )
+
         # generate a list of all the node points excluding the origin
         redraw_pts = [*self.pts]
         redraw_pts.remove('origin')
@@ -1756,7 +1750,6 @@ to a tank, pump or contain a control valve"
 
         # redraw the lines and labels
         # step through the line list
-        ln_time  = time.time()
         for key in self.runs:
             rnd = np.random.randint(len(self.clrs))
             color_name = self.clrs[rnd]
@@ -1787,15 +1780,18 @@ to a tank, pump or contain a control valve"
                                        picker=True)
                 self.plt_txt[pt1] = txt
                 redraw_pts.remove(pt1)
-        print(f'lines done in {round(time.time()-ln_time,4)}')
+
         # add arrow heads to the lines for each node
-        nd_time = time.time()
         for nd_lbl, lns in self.nodes.items():
-            print('RUN ARROW DRAW LOOP')
+
+            count += 1
+            if count < max:
+                prg_dlg.Update(count)
+            elif count >= max:
+                prg_dlg.Destroy()
+
             # lns is the list of line data at the intersection of node nd_lbl
-            arw_time = time.time()
             for ln in lns:
-                inner_time = time.time()
                 # check if line has already plotted arrow head
                 if ln[0] not in self.plt_arow:
                     # assume line start point is at node
@@ -1815,18 +1811,15 @@ to a tank, pump or contain a control valve"
 
                     x0, y0 = self.pts[endpt1]
                     x1, y1 = self.pts[endpt2]
-                    
+
                     self.DrawArrow(x0, y0, x1, y1, ln[0])
                     self.canvas.draw()
-                print(f'inner loop done in {round(time.time()-inner_time, 4)}')
-            print(f'time to load arrows {round(time.time()-arw_time, 4)}')          
-        print(f'nodes done in {round(time.time()-nd_time,4)}')
+
         # draw the loop arcs and label
-        lp_time = time.time()
         for key in self.Loops:
             Cx, Cy, r = self.Loops[key][0]
             self.DrawLoop(Cx, Cy, r, key)
-        print(f'closed loop done in {round(time.time()-lp_time, 4)}')
+
         # draw the pumps and tanks
         for key in self.pumps:
             self.DrawPump(key, True)
@@ -1836,15 +1829,15 @@ to a tank, pump or contain a control valve"
 
         for ln_lbl in self.vlvs:
             self.DrawValve(ln_lbl, *self.vlv_pts(ln_lbl))
-        ps_time = time.time()
+
         for key in self.Pseudo:
             dat = self.Pseudo[key]
             self.DrawPseudo(key, dat[0])
-        print(f'pseudo loops done in {round(time.time()-ps_time, 4)}')
+
         self.Ln_Select = []
         self.Loop_Select = False
 
-        self.canvas.draw()
+        self.canvas.Update()
 
     def OnDB_Save(self, evt):
         self.nodesDB()

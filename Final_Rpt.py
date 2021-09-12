@@ -158,6 +158,7 @@ class Report_Data(object):
         if pump_nodes != [] or tank_nodes != []:
             to_do_nodes = []
             done_nodes = []
+            print('head loss', self.head_loss)
             if pump_nodes != []:
                 for pmp in range(len(pump_nodes)):
                     # get the pump discharge head plus the fluid elevation

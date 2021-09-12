@@ -31,6 +31,8 @@ class DataOutPut(wx.Dialog):
         n = 0
         for itm in col1:
             line=wx.StaticText(self, label=itm)
+            if n > 0:
+                col2[n] = round(col2[n],3)
             flow=wx.StaticText(self, label=str(col2[n]))
             n += 1
             grd.AddMany([(line, 1, wx.EXPAND), (flow, 1, wx.EXPAND)])
