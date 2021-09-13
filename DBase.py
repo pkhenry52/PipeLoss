@@ -37,7 +37,6 @@ class Dbase(object):
         '''Call the function to delete the values in
         the database table.  Error trapping will occure
         in the call def delete_data'''
-
         if type(val) != str:
             DeQuery = ("DELETE FROM " + table + " WHERE "
                        + field + " = " + str(val))
@@ -67,6 +66,10 @@ class Dbase(object):
         data = self.cursr.fetchall()
         # self.cursr.close()
         return data
+
+    def Filename(self):
+        for id_, name, filename in self.cursr.execute("PRAGMA database_list"):
+            return filename
 
     # close out the database
     def close_database(self):

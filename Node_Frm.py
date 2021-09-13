@@ -26,7 +26,8 @@ class RowLblRndr(glr.GridLabelRenderer):
 
 
 class NodeFrm(wx.Frame):
-    def __init__(self, parent, node, cord, node_lst, node_dict, elevs_dict, pumps_dict, tanks_dict):
+    def __init__(self, parent, node, cord, node_lst, node_dict, elevs_dict,\
+                 pumps_dict, tanks_dict):
 
         self.rad_bt = []
         self.chk_bx = []
@@ -55,10 +56,8 @@ class NodeFrm(wx.Frame):
         self.InitUI()
 
     def InitUI(self):
-        new_data = True
-        rdbtn = 0
-        txtbx = 0
-        ln_lst = set()
+        # the lines defined at node
+        def_lns = set()
         d = {}  # a dictionary of line(key) and rdbtn1,flow(values)
 
         chcs_1 = ['US GPM', 'ft^3/s', 'm^3/hr']
@@ -110,71 +109,66 @@ class NodeFrm(wx.Frame):
         1) self.node_lst => a set of all the lines which intersect the node
         based on the information from the runs dictionary
         (what is shown in the plot)
-        2) ln_lst => lines previously defined in the nodes dictionary,
-        that may not represent the updated plot information
+        2) def_lns => lines previously defined in the nodes dictionary,
+        that may not represent the updated plot information.
         3) any of the lines which may connect to the queried node but have
         been defined by the other line end point'''
 
         # check 2) see if queried node has already been defined,
-        # if so get the needed info in ln_lst
+        # if so get the needed info in def_lns
         if self.node in self.nodes:
              # {'C': [1, 0], 'D': [0, 0], 'G': [0, 0]}
             for k, v1, v2, v3 in self.nodes[self.node]:
                 d.setdefault(k, []).append(v1)
                 d.setdefault(k, []).append(v2)
                 d.setdefault(k, []).append(v3)
-            ln_lst = set(d.keys())
+            def_lns = set(d.keys())
         else:
-            ln_lst = self.node_lst
-
-        # convert self.runs into a tuple of (line lbl, endpoints, new line)
-        # [('A', [('origin', 'a'), 1]), ('B', [('origin', 'b'), 1]),
-        #  ('C', [('b', 'c'), 1]), ('D', [('c', 'd'), 1]), ... ]
-        run_tpl = list(self.parent.runs.items())
+            def_lns = self.node_lst
 
         # step 3) getting any line which terminate
         # with the queried end point
+        # and that have aready been defined at the opposite end
+        # line label: node at other end of line
+        # {'F': 'b', 'H': 'h', 'E': 'd', 'J': 'j'}
         self.cmn_lns = {}
-        # for each key value (node) in self.nodes
-        # return the intersecting lines as node_lines
-        for nd_lbl in self.nodes:
-            # skip the node of interest
-            if nd_lbl != self.node:
-                node_lines = set([item[0] for \
-                    item in run_tpl if nd_lbl in item[1][0]])
-                # compare the list of lines for each node
-                # with the lines list for the queried node
-                # if there is a common line save it and the node (nd_lbl)
-                if list(node_lines.intersection(ln_lst)) != [] and ln_lst != {}:
-                    self.cmn_lns[list(node_lines.intersection
-                                    (ln_lst))[0]] = nd_lbl
+        common_lns = list((set(self.parent.plt_arow).intersection
+                            (self.node_lst)))
+
+        for ln in common_lns:
+            pt1, pt2 = self.parent.runs[ln][0]
+            if pt1 == self.node:
+                self.cmn_lns[ln]=pt2
+            else:
+                self.cmn_lns[ln]=pt1
 
         n = 0
         # check each line located at the node as
         # specified from the self.runs dictionary
         for ln in self.node_lst:
+            drct = 0
+            flw = 0
             # if it is not an update (ie. there is no difference
             # between the self.nodes list and self.runs generated
             # list of lines) set the radio buttons
             # to default else use the saved dictionary values
-            if ln in self.node_lst.difference(ln_lst) is False:
-                rdbtn, txtbx, chsbx = d[ln]
+            if ln in self.node_lst.difference(def_lns) is False:
+                drct, flw, chsbx = d[ln]
                 txt_lbl = ''
-                new_data = False
             # check if line is part of the set
             # of lines listed at any other defined node
             elif ln in self.cmn_lns:
                 txt_lbl = 'Specified\nat node "' + self.cmn_lns[ln] + '"'
                 for i in self.nodes[self.cmn_lns[ln]]:                  
                     if i[0] == ln:
-                        rdbtn = bool(i[1]-1)
-                        txtbx = i[2]
+                        drct = bool(i[1]-1)
+                        flw = i[2]
                         chsbx = i[3]
-            # if the line is not part of another defined node 
+            # if the line is not part of another defined node
             # and it is in the self.node_lst list of lines
             # and it has been defined then use those values
             elif ln in d:
-                rdbtn, txtbx, chsbx = d[ln]
+                drct, flw, chsbx = d[ln]
                 txt_lbl = 'Not Yet\nSpecified  '
             else:
                 txt_lbl = 'Not Yet\nSpecified  '
@@ -185,7 +179,7 @@ class NodeFrm(wx.Frame):
                                     pos=(20, 10*n),
                                     style=wx.RB_GROUP)
             neg_rb = wx.RadioButton(self, id_num+1, label='', pos=(180, 10*n))
-            neg_rb.SetValue(bool(rdbtn))
+            neg_rb.SetValue(bool(drct))
 
             nd_txt = wx.StaticText(self, id_num, label=txt_lbl)
             flow_chk = wx.CheckBox(self, id_num+2, label='', pos=(280, 10*n))
@@ -197,11 +191,12 @@ class NodeFrm(wx.Frame):
 
             chs_bx = wx.Choice(self, id_num+4, choices=chcs_1, size=(-1, 30))
             chs_bx.Enable(False)
+            chs_bx.SetSelection(0)
 
-            if txtbx != 0:
+            if flw != 0:
                 chs_bx.Enable()
                 txt_bx.Enable()
-                txt_bx.ChangeValue(str(txtbx))
+                txt_bx.ChangeValue(str(flw))
                 chs_bx.SetSelection(chsbx)
                 flow_chk.SetValue(True)
 
@@ -329,15 +324,12 @@ class NodeFrm(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnClose, xit)
 
         self.sizer.Add(btnsizer, 0)
-
         self.sizer.SetSizeHints(self)
         self.SetSizer(self.sizer)
-#        if self.node in self.pumps:
-#            self.OnRadioBx(None)
+
         self.Show(True)
 
     def OnRadioBx(self, evt):
-        print('button hit')
         typ = self.type_rbb.GetSelection()
         if typ == 2:
             if len(self.node_lst) > 1:
@@ -402,11 +394,16 @@ class NodeFrm(wx.Frame):
     def SaveNode(self):
         '''saves the data if the node is just
         specified as an intersection of lines'''
+        # list of all the node lines
         lst1 = []
+        # list of all the directions either into or out of the node
         lst2 = []
+        # list of the flows zero unless consumption node
         lst3 = []
+        # list of specified flow units
         lst4 = []
-
+        alt_end_node = ''
+        cnspt_ln = ''
         # cycle through the radio buttons and get the value in first row
         m = 1
         for item in range(1, len(self.rad_bt), 2):
@@ -416,10 +413,36 @@ class NodeFrm(wx.Frame):
             # get the line label from the radiobutton label
             ln_lbl = self.rad_bt[item-1].GetLabel()[-2]
             lst1.append(ln_lbl)
+            # if checkbox is set then this is a consumption line
             if self.chk_bx[item-m].GetValue():
+                cnspt_ln = ln_lbl
                 if self.txt_bxs[item-m].GetValue() != '':
                     flow = float(self.txt_bxs[item-m].GetValue())
                     unts = self.chs_bxs[item-m].GetSelection()
+                    row = ord(cnspt_ln) - 65
+                    self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
+                    pt1, pt2 = self.parent.runs[cnspt_ln][0]
+                    # modify data for node at other end of consumption line
+                    if pt1 != self.node:
+                        alt_end_node = pt1
+                    else:
+                        alt_end_node = pt2
+                    # check if node is already set up
+                    if alt_end_node in self.nodes:
+                        n = 0
+                        tpl = []
+                        for tp in self.nodes[alt_end_node]:
+                            if tp[0] == cnspt_ln:
+                                tpl.append(cnspt_ln)
+                                tpl.append(abs(dirct-1))
+                                tpl.append(flow)
+                                tpl.append(unts)
+                                self.nodes[alt_end_node][n] = tuple(tpl)
+                            n += 1
+                    else:
+                        self.nodes[alt_end_node] = [(cnspt_ln, dirct, flow, unts)]
+                        self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')
+                        self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
 
             if self.rad_bt[item].GetValue() is False:
                 dirct = 0
@@ -432,7 +455,6 @@ class NodeFrm(wx.Frame):
                 tpl = []
                 for tp in self.nodes[self.cmn_lns[ln_lbl]]:
                     if tp[0]==ln_lbl:
-                        print('SAVE TO NODES')
                         tpl.append(ln_lbl)
                         tpl.append(abs(dirct-1))
                         tpl.append(flow)
@@ -442,12 +464,11 @@ class NodeFrm(wx.Frame):
             lst2.append(dirct)
             lst3.append(flow)
             lst4.append(unts)
-       
+
         # make a list containing the line label, flow direction and volume
         ln_dirct = list(zip(lst1, lst2, lst3, lst4))
         # add information to the nodes dictionary
         self.nodes[self.node] = ln_dirct
-
         if self.node in self.nodes:
             for ln in self.nodes[self.node]:
                 if ln[0] in self.parent.plt_arow:
@@ -461,33 +482,31 @@ class NodeFrm(wx.Frame):
                     tmp = endpt2
                     endpt2 = endpt1
                     endpt1 = tmp
-                
+
                 x0, y0 = self.parent.pts[endpt1]
                 x1, y1 = self.parent.pts[endpt2]
 
                 self.parent.DrawArrow(x0, y0, x1, y1, ln[0])
 
-        bg_clr = 'lightgreen'
-        if len(self.chk_bx) == 1:
-            if self.chk_bx[0].GetValue() == 1:
-                bg_clr = 'yellow'
-                row = ord(ln_lbl) - 65
-                self.parent.grd.SetRowLabelRenderer(row, RowLblRndr(bg_clr))
-
-        # change the grid cell color to green to indicate data is complete
+        # change the node grid cell color to green to indicate data is complete
         for ltr in self.node_lst:
-            if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
-                self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        0, bg_clr)
-            else:
-                self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        1, bg_clr)
-                self.parent.grd.SetCellBackgroundColour(ord(ltr)-65,
-                                                        2, bg_clr)
+            row = ord(ltr) - 65
+            if len(self.node_lst) == len(self.nodes[self.node]):
+                if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0) or \
+                alt_end_node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
+                    self.parent.grd.SetCellBackgroundColour(row, 0, 'lightgreen')
+                else:
+                    self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')
+                    self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
 
         # add the elevation information to the node elevation dictionary
+        if len(self.nodes[self.node]) == 1 and self.type_rbb.GetSelection() == 0:
+            self.info4.SetValue('0')
+
         lst_elev = [self.info4.GetValue(), self.unt4.GetSelection()]
         self.elevs[self.node] = lst_elev
+
+        self.Destroy()
 
     def SavePump(self):
         # if the pump has not already been drawn then draw
@@ -506,7 +525,7 @@ class NodeFrm(wx.Frame):
     def SaveTank(self):
         if self.node not in self.tanks:
             self.parent.DrawPump(self.node,False)
-        
+
         self.tanks[self.node] = [float(self.tk_elev.GetValue()),
                                  int(self.unt4.GetSelection())]
 
