@@ -150,7 +150,6 @@ class Report_Data(object):
         all_nodes = [node for node, _ in self.parent.nodes.items()]
         # all the lines not connect to a pump tank or consumption line
         flow_lines = list(set(list(self.parent.runs.keys()))-set(consump_lines))
-        print('flow lines ', flow_lines)
         # list of none junction comsumption nodes
         consump_nodes = list(set(all_nodes) - set(flow_nodes))
         consump_nodes.sort()
@@ -159,7 +158,6 @@ class Report_Data(object):
         if pump_nodes != [] or tank_nodes != []:
             to_do_nodes = []
             done_nodes = []
-            print('head loss', self.head_loss)
             if pump_nodes != []:
                 for pmp in range(len(pump_nodes)):
                     # get the pump discharge head plus the fluid elevation
@@ -255,7 +253,6 @@ class Report_Data(object):
                     hd = cv[3]
 
                 self.node_press[start_nd] = hd - self.head_loss[ln] * cv[2] / cv[4]
-                print(f'node press {start_nd} = set pressure {hd} - pressure loss {self.head_loss[ln]} * {cv[2]} / {cv[4]}')
                 to_do_nodes.append(start_nd)
                 flow_lines.remove(ln)
 
