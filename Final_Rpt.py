@@ -150,6 +150,7 @@ class Report_Data(object):
         all_nodes = [node for node, _ in self.parent.nodes.items()]
         # all the lines not connect to a pump tank or consumption line
         flow_lines = list(set(list(self.parent.runs.keys()))-set(consump_lines))
+        print('flow lines ', flow_lines)
         # list of none junction comsumption nodes
         consump_nodes = list(set(all_nodes) - set(flow_nodes))
         consump_nodes.sort()
@@ -225,59 +226,91 @@ class Report_Data(object):
 
                     to_do_nodes.append(start_nd)
 
-            n = 0
+        if self.parent.vlvs != []:
+            for ln, cv in self.parent.vlvs.items():
 
-            while len(to_do_nodes) > 0:
-                if n == 50:
-                    break
-                start_nd = to_do_nodes[0]
-                # get all the flow lines at the node and
-                # direction of flow at node (1 is out)
-                nd_lines = [(ln[0], ln[1]) for ln in
-                             self.parent.nodes[start_nd] if ln[2]==0]
-                # remove the start node from the to do nodes
-                # since it has been completed
-                to_do_nodes.remove(start_nd)
-
-                for line in nd_lines:
-                    if line[0] in flow_lines:
-                        # get the end points of the line
-                        ends = list(self.parent.runs[line[0]][0])
-                        # remove the start_nd from the line end points and
-                        # add the remaining pt to the to do list of nodes
-                        ends.remove(start_nd)
-                        if ends[0] not in to_do_nodes:
-                            to_do_nodes.extend(ends)
-      
-                        # check that the specified flow direction is
-                        # correct if it is not then reverse
-                        # additon of the line loss
-                        if self.Flows[line[0]] >= 0:
-                            sgn = 1
-                        else:
-                            sgn = -1
-
-                        # determine if all the nodes have been completed
-                        if list(set(flow_nodes)-set(done_nodes)) == []:
-                            to_do_nodes = []
-                            break        
-
-                        # add or subtract the line loss from the nodes pressure
-                        # to pressure at the other end node
-                        if line[1] == 1:
-                            self.node_press[ends[0]] = (self.node_press[start_nd] - \
-                                                   self.head_loss[line[0]] * sgn)
-                            done_nodes.append(ends[0])
-                        elif line[1] == 0:
-                            self.node_press[ends[0]] = (self.node_press[start_nd] + \
-                                                  self.head_loss[line[0]] * sgn)
-                            done_nodes.append(ends[0])
-                        flow_lines.remove(line[0])
-
-                    if flow_lines == []:
-                        to_do_nodes = []
+                pt1, pt2 = self.parent.runs[ln][0]
+                for item in self.parent.nodes[pt1]:
+                    # flow into node
+                    if ln == item[0] and item[1] == 0:
+                        dwn_node = pt1
+                        up_node = pt2
                         break
-                n += 1
+                    # flow out of node
+                    elif ln == item[0] and item[1] == 1:
+                        dwn_node = pt2
+                        up_node = pt1
+                        break
+
+                if cv[0] == 0:  # PRV
+                    start_nd = dwn_node
+                else:  # BPV
+                    start_nd = up_node
+
+                if cv[1] == 0:  # psig
+                    hd = cv[3] * 143.957 / self.density
+                elif cv[1] == 1:  # kPa
+                    hd = 20.878 * cv[3] / self.density
+                else:  # ft H2O
+                    hd = cv[3]
+
+                self.node_press[start_nd] = hd - self.head_loss[ln] * cv[2] / cv[4]
+                print(f'node press {start_nd} = set pressure {hd} - pressure loss {self.head_loss[ln]} * {cv[2]} / {cv[4]}')
+                to_do_nodes.append(start_nd)
+                flow_lines.remove(ln)
+
+        n = 0
+        while len(to_do_nodes) > 0:
+            if n == 50:
+                break
+            start_nd = to_do_nodes[0]
+            # get all the flow lines at the node and
+            # direction of flow at node (1 is out)
+            nd_lines = [(ln[0], ln[1]) for ln in
+                            self.parent.nodes[start_nd] if ln[2]==0]
+            # remove the start node from the to do nodes
+            # since it has been completed
+            to_do_nodes.remove(start_nd)
+
+            for line in nd_lines:
+                if line[0] in flow_lines:
+                    # get the end points of the line
+                    ends = list(self.parent.runs[line[0]][0])
+                    # remove the start_nd from the line end points and
+                    # add the remaining pt to the to do list of nodes
+                    ends.remove(start_nd)
+                    if ends[0] not in to_do_nodes:
+                        to_do_nodes.extend(ends)
+    
+                    # check that the specified flow direction is
+                    # correct if it is not then reverse
+                    # additon of the line loss
+                    if self.Flows[line[0]] >= 0:
+                        sgn = 1
+                    else:
+                        sgn = -1
+
+                    # determine if all the nodes have been completed
+                    if list(set(flow_nodes)-set(done_nodes)) == []:
+                        to_do_nodes = []
+                        break        
+
+                    # add or subtract the line loss from the nodes pressure
+                    # to pressure at the other end node
+                    if line[1] == 1:
+                        self.node_press[ends[0]] = (self.node_press[start_nd] - \
+                                                self.head_loss[line[0]] * sgn)
+                        done_nodes.append(ends[0])
+                    elif line[1] == 0:
+                        self.node_press[ends[0]] = (self.node_press[start_nd] + \
+                                                self.head_loss[line[0]] * sgn)
+                        done_nodes.append(ends[0])
+                    flow_lines.remove(line[0])
+
+                if flow_lines == []:
+                    to_do_nodes = []
+                    break
+            n += 1
 
         for nd, val in self.node_press.items():
             rptdata = []
@@ -291,8 +324,8 @@ class Report_Data(object):
             rptdata.append(round(el/3.3,2))
             rptdata.append(round(val,3))
             rptdata.append(round(val * .3048,2))
-            rptdata.append(round(val * self.density / (62.4*2.307),2))
-            rptdata.append(round(val * self.density/ (62.4*2.307) * 6.895,2))
+            rptdata.append(round(val * self.density / 143.957,2))
+            rptdata.append(round(val * self.density/ 992.582,2))
             
             tbldata2.append(rptdata)
 
@@ -338,29 +371,28 @@ class Report_Data(object):
                 typ = 'BPV'
 
             if cv[1] == 0:
-                set_ft = cv[3] * 62.4 * 2.307 / self.density
+                set_ft = cv[3] * 143.957 / self.density
                 set_kpa = cv[3] * 6.895
                 set_psig = cv[3]
             elif cv[1] == 1:
                 set_kpa = cv[3]
                 set_psig = cv[3] / 6.895
-                set_ft = set_psig * 62.4 * 2.307 / self.density
+                set_ft = set_psig * 143.957 / self.density
             else:
                 set_ft = cv[3]
-                set_psig = cv[3] * self.density / (62.4 * 2.31)
+                set_psig = cv[3] * self.density / 143.957
                 set_kpa = set_psig * 6.895
 
             pt1, pt2 = self.parent.runs[ln][0]
             for item in self.parent.nodes[pt1]:
-                if ln == item[0] and item[1] == 1:
+                if ln == item[0] and item[1] == 0:   # flow into node
                     press_up = self.node_press[pt2]
                     press_dwn = self.node_press[pt1]
                     break
-                elif ln == item[0] and item[1] == 0:
+                elif ln == item[0] and item[1] == 1:  # flow out of node
                     press_up = self.node_press[pt1]
                     press_dwn = self.node_press[pt2]
                     break
-
 
             '''need to set up rptdata for the table'''
             rptdata.append(ln)

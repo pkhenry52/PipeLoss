@@ -375,8 +375,6 @@ class Calc(object):
                 Kp = F2 * (Lgth + lgth) / Dia
                 if ln in self.parent.vlvs:
                     Kp = Kp * lgth / Lgth
-                print(f'revised ARL for {ln} = {ARL}')
-                print(f'revised Kp for {ln} = {Kp}')
                 self.K[ln] = [Kp, EXPP]
                 continue
             else:
@@ -410,9 +408,6 @@ class Calc(object):
                     Kp = AE * ARL * Avg_Flow**EP
                     if ln in self.parent.vlvs:
                         Kp = Kp * lgth / Lgth
-                    if ln == 'C':
-                        print(f'revised ARL for {ln} = {ARL}')
-                        print(f'revised Kp for {ln} = {Kp}')
                 else:
                     EXPP = 2
                     Le = self.dct[ln] * Dia / F
@@ -420,9 +415,7 @@ class Calc(object):
                     Kp = F * ARL *Avg_Flow**2
                     if ln in self.parent.vlvs:
                         Kp = Kp * lgth / Lgth
-                    if ln == 'C':
-                        print(f'revised ARL for {ln} = {ARL}')
-                        print(f'revised Kp for {ln} = {Kp}')
+
                 self.K[ln] = [Kp, EXPP]
 
             self.D_e[ln][3] = ARL
@@ -527,9 +520,7 @@ class Calc(object):
 
             self.D_e[lbl] = [dia, e, AR, ARL, Lgth, Le, lgth]
             self.K[lbl] = [Kp, n_exp]
-            if lbl == 'G' or lbl == 'C':
-                print(f'ARL[{lbl}] = {ARL}, area {AR}, length {Lgth + Le}')
-                print(f'initial Kp[{lbl}] value = {Kp}')
+
     def pump_matrix(self):
         trans_var = []
         trans_cof = []
