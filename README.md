@@ -1,20 +1,25 @@
 # PipeLoss
 
-## Status
-The GUI has been completed and is working.  Debugging is underway to
-address errors regarding input.
+## Bases
+This program is a GUI interface for the analyaia of pipe networks based on the documentation by Roland W. Jeppson:
+January 1974
+### Steady Flow Analysis of Pipe Networks: An Instructional Manual
 
-## To Do
-Finalize debugging and the user manual.
+and the follow up book;
+
+### Hydraulics of Pipeline Systems
+by;
+Bruce E. Larock
+Roland W. Jeppson
+Gary Z. Watters
+
+The original FORTRAN program has been reprinted and marked up to show how it was converted to this python 3.8 program.
+See pdf file Main_FORTRAN_Prog
 
 ## Scope
-When completed the project will be a GUI for the solution to:
-Steady Flow Analysis of Pipe Networks: An Instructional Manual by Roland W. Jeppson.
-In addition to network piping it will be able to solve single line systems for slurries
-and vapours.  The code will be derived from Jeppson's technical paper, Crane 410 technical paper and
-both the Wier and Warman pump handbooks, for slurry calculations.
+This program should be able to handle most pipe networks or simple pipe lines.  Unlike the original FORTRAN program, 
+this program allows for the selection of various fittings or valves.  The equivalent lengths of which are based on 
+the values given in Crane Tech Paper 410-C
 
-## Structure
-The GUI has been built using wxpython, Reportlab for reporting, SQLite for data storage
-and matplot for input graphics.  The writer does not profess to be a computer programming
-of any great skill, but has endevored to use best practices.
+## Useage
+To best understand the complexity of this program please review the Pipe_Loss_Manual.pdf
