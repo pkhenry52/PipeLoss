@@ -1,19 +1,18 @@
 # PipeLoss
 
 ## Status
-Present stage of the project is the completion of the GUI interface and some offline
-programming for the solution of network and single line piping.
+The GUI has been completed and is working.  Debugging is underway to
+address errors regarding input.
 
 ## To Do
-Incorporate the actual coding to solve the flow and head loss calculations, followed
-with the final debugging.
+Finalize debugging and the user manual.
 
 ## Scope
 When completed the project will be a GUI for the solution to:
 Steady Flow Analysis of Pipe Networks: An Instructional Manual by Roland W. Jeppson.
 In addition to network piping it will be able to solve single line systems for slurries
-and vapours.  The code will from Jeppson's technical, the Crane 410 technical paper and
-both the Wier and Warman pump handbooks, for slurry caluculations.
+and vapours.  The code will be derived from Jeppson's technical paper, Crane 410 technical paper and
+both the Wier and Warman pump handbooks, for slurry calculations.
 
 ## Structure
 The GUI has been built using wxpython, Reportlab for reporting, SQLite for data storage

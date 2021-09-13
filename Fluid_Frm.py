@@ -67,17 +67,13 @@ class FluidFrm(wx.Dialog):
         blk2 = wx.StaticText(self, label = ' ')
         blk3 = wx.StaticText(self, label = ' ')
         blk4 = wx.StaticText(self, label = ' ')
-        blk5 = wx.StaticText(self, label = ' ')
+#        blk5 = wx.StaticText(self, label = ' ')
+        sve = wx.Button(self, -1, "Save")
+        ext = wx.Button(self, -1, "Exit")
         self.wgt_3 = wx.TextCtrl(self, value='')
-        blk6 = wx.StaticText(self, label = ' ')
 
-        self.Bind(wx.EVT_CHOICE, self.OnUnit11,self.unit_11)
-        self.Bind(wx.EVT_CHOICE, self.OnUnit11,self.unit_12)
-        self.Bind(wx.EVT_CHOICE, self.OnUnit11,self.unit_13)
-        self.Bind(wx.EVT_CHOICE, self.OnUnit11,self.unit_21)
-        self.Bind(wx.EVT_CHOICE, self.OnUnit11,self.unit_22)
-        self.Bind(wx.EVT_CHOICE, self.OnUnit11,self.unit_23)
-        self.Bind(wx.EVT_CHOICE, self.OnUnit11,self.unit_31)
+        self.Bind(wx.EVT_BUTTON, self.OnSave, sve)
+        self.Bind(wx.EVT_BUTTON, self.OnClose, ext)
 
         grd.AddMany([(hrz1), (hrz2), (hrz3), (hrz4), (hrz5), (hrz6),
                      (hrz7), (hrz8), (hrz9),
@@ -87,12 +83,18 @@ class FluidFrm(wx.Dialog):
                      (vrt2), (self.density_2), (self.unit_21),
                      (self.kin_vis_2), (self.unit_22), (self.dyn_vis_2),
                      (self.unit_23), (self.wgt_2), (self.vol_2),
-                     (vrt3), (self.density_3), (self.unit_31), (blk2), (blk3),
-                     (blk4), (blk5), (self.wgt_3), (blk6)
+                     (vrt3), (self.density_3), (self.unit_31), (blk2),
+                     (sve), (ext), (blk3), (self.wgt_3), (blk4)
                     ])
 
         sizer.Add(grd, proportion = 2, flag = wx.ALL|wx.EXPAND, border = 15)
         self.SetSizer(sizer)
+
+        self.txt_arry = [self.density_1, self.kin_vis_1, self.dyn_vis_1, self.wgt_1,
+                    self.vol_1, self.density_2, self.kin_vis_2, self.dyn_vis_2,
+                    self.wgt_2, self.vol_2, self.density_3, self.wgt_3,
+                    self.unit_11, self.unit_12, self.unit_13, self.unit_21,
+                    self.unit_22, self.unit_23, self.unit_31]
 
         # if data exists for the fluid page fill in the boxes
         qry = 'SELECT * FROM Fluid'
@@ -101,55 +103,37 @@ class FluidFrm(wx.Dialog):
         if frm_data != []:
             data = frm_data[0]
             if data != []:
-                self.density_1.SetValue(str(data[1]))
-                self.unit_11.SetSelection(data[13])
-                self.kin_vis_1.SetValue(str(data[2]))
-                self.unit_12.SetSelection(data[14])
-                self.dyn_vis_1.SetValue(str(data[3]))
-                self.unit_13.SetSelection(data[15])
-                self.wgt_1.SetValue(str(data[4]))
-                self.vol_1.SetValue(str(data[5]))
-
-                self.density_2.SetValue(str(data[6]))
-                self.unit_21.SetSelection(data[16])
-                self.kin_vis_2.SetValue(str(data[7]))
-                self.unit_22.SetSelection(data[17])
-                self.dyn_vis_2.SetValue(str(data[8]))
-                self.unit_23.SetSelection(data[18])
-                self.wgt_2.SetValue(str(data[9]))
-                self.vol_2.SetValue(str(data[10]))
-
-                self.density_3.SetValue(str(data[11]))
-                self.unit_31.SetSelection(data[19])
-                self.wgt_3.SetValue(str(data[12]))
+                for n in range(1, len(data)):
+                    if n <= 12:
+                        self.txt_arry[n-1].SetValue(str(data[n]))
+                    else:
+                        self.txt_arry[n-1].SetSelection(data[n])
+        else:
+            self.density_1.SetValue('62.3')
+            self.unit_11.SetSelection(0)
+            self.kin_vis_1.SetValue('1.0')
+            self.unit_12.SetSelection(2)
+            self.unit_13.SetSelection(2)
+            self.wgt_1.SetValue('0')
+            self.vol_1.SetValue('100')
+            self.unit_21.SetSelection(0)
+            self.unit_22.SetSelection(2)
+            self.unit_23.SetSelection(2)
+            self.unit_31.SetSelection(0)
 
         self.Center()
         self.Show()
 
-    def Save_Data(self):
+    def OnSave(self, evt):
         ValueList = ['1']
-        ValueList.append(self.density_1.GetValue())
-        ValueList.append(self.kin_vis_1.GetValue())
-        ValueList.append(self.dyn_vis_1.GetValue())
-        ValueList.append(self.wgt_1.GetValue())
-        ValueList.append(self.vol_1.GetValue())
-
-        ValueList.append(self.density_2.GetValue())
-        ValueList.append(self.kin_vis_2.GetValue())
-        ValueList.append(self.dyn_vis_2.GetValue())
-        ValueList.append(self.wgt_2.GetValue())
-        ValueList.append(self.vol_2.GetValue())
-
-        ValueList.append(self.density_3.GetValue())
-        ValueList.append(self.wgt_3.GetValue())
-
-        ValueList.append(self.unit_11.GetSelection())
-        ValueList.append(self.unit_12.GetSelection())
-        ValueList.append(self.unit_13.GetSelection())
-        ValueList.append(self.unit_21.GetSelection())
-        ValueList.append(self.unit_22.GetSelection())
-        ValueList.append(self.unit_23.GetSelection())
-        ValueList.append(self.unit_31.GetSelection())
+        for n in range(19):
+            if n <= 11:
+                if self.txt_arry[n].GetValue() != '':
+                    ValueList.append(self.txt_arry[n].GetValue())
+                else:
+                    ValueList.append('0')
+            else:
+                ValueList.append(self.txt_arry[n].GetSelection())
 
         col_names = [name[1] for name in DBase.Dbase(self.parent).Dcolinfo('Fluid')]
 
@@ -165,13 +149,7 @@ class FluidFrm(wx.Dialog):
             UpQuery = 'UPDATE Fluid SET ' + SQL_str + ' WHERE ID = 1'
 
         DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
-
-    def OnUnit11(self, evt): 
-        pass
-    #    evt.Skip()
-
-    def OnClose(self, evt):
-        self.Save_Data()
         self.Destroy()
 
-
+    def OnClose(self, evt):
+        self.Destroy()
