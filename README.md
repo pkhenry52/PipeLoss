@@ -19,7 +19,8 @@ See pdf file Main_FORTRAN_Prog
 ## Scope
 This program should be able to handle most pipe networks or simple pipe lines.  Unlike the original FORTRAN program, 
 this program allows for the selection of various fittings or valves.  The equivalent lengths of which are based on 
-the values given in Crane Tech Paper 410-C
+the values given in Crane Tech Paper 410-C.
+Unlike the original FORTRAN program this version has been limited to 26 flow lines or pipe segements.
 
 ## Usage
 To best understand the complexity of this program please review the Pipe_Loss_Manual.pdf
