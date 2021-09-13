@@ -1,7 +1,7 @@
 # PipeLoss
 
 ## Bases
-This program is a GUI interface for the analyaia of pipe networks based on the documentation by Roland W. Jeppson:
+This program is a GUI interface for the analysis of pipe networks based on the documentation by Roland W. Jeppson:
 January 1974
 ### Steady Flow Analysis of Pipe Networks: An Instructional Manual
 
@@ -21,5 +21,5 @@ This program should be able to handle most pipe networks or simple pipe lines.  
 this program allows for the selection of various fittings or valves.  The equivalent lengths of which are based on 
 the values given in Crane Tech Paper 410-C
 
-## Useage
+## Usage
 To best understand the complexity of this program please review the Pipe_Loss_Manual.pdf
