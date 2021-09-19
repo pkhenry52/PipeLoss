@@ -261,7 +261,7 @@ class NodeFrm(wx.Frame):
         tk_sizer.Add(tk_lbl, 0, wx.TOP | wx.LEFT, 10)
         tk_sizer.Add(flw_lbl, 0, wx.ALIGN_BOTTOM | wx.LEFT, 55)      
 
-        v = [' '] * 8
+        v = ['0'] * 8
         if self.node in self.pumps:
             self.type_rbb.SetSelection(2)
             v = self.pumps[self.node]
@@ -295,7 +295,7 @@ class NodeFrm(wx.Frame):
         self.pnl3 = wx.Panel(self)
         res_sizer = wx.BoxSizer(wx.HORIZONTAL)
         tk_lbl = wx.StaticText(self.pnl3, label='Tank Fluid\nElevation')
-        self.tk_elev = wx.TextCtrl(self.pnl3, value='')
+        self.tk_elev = wx.TextCtrl(self.pnl3, value='0')
         res_sizer.Add(tk_lbl,0,wx.LEFT, 15)
         res_sizer.Add(self.tk_elev, 0, wx.LEFT, 10)
         if self.node in self.tanks:
@@ -340,6 +340,8 @@ class NodeFrm(wx.Frame):
                     wx.OK | wx.ICON_ERROR)
                 self.type_rbb.SetSelection(0)
             else:
+                self.chk_bx[0].SetValue(False)
+                self.txt_bxs[0].ChangeValue('')
                 self.pnl3.Hide()
                 self.pnl2.Show()
                 self.sizer.SetSizeHints(self)
@@ -355,6 +357,8 @@ class NodeFrm(wx.Frame):
                     wx.OK | wx.ICON_ERROR)
                 self.type_rbb.SetSelection(0)
             else:
+                self.chk_bx[0].SetValue(False)
+                self.txt_bxs[0].ChangeValue('')
                 self.pnl2.Hide()
                 self.pnl3.Show()
                 self.sizer.SetSizeHints(self)
@@ -387,9 +391,18 @@ class NodeFrm(wx.Frame):
         # selected as just an intercestion point
         self.SaveNode()
         if self.type_rbb.GetSelection() == 2:
+            if self.node in self.tanks:
+                self.parent.RemovePump(self.node)
             self.SavePump()
         elif self.type_rbb.GetSelection() == 1:
+            if self.node in self.pumps:
+                self.parent.RemovePump(self.node)
             self.SaveTank()
+        else:
+            if self.node in self.pumps or self.node in self.tanks:
+                self.parent.RemovePump(self.node)
+
+        self.Destroy()
 
     def SaveNode(self):
         '''saves the data if the node is just
@@ -505,8 +518,6 @@ class NodeFrm(wx.Frame):
 
         lst_elev = [self.info4.GetValue(), self.unt4.GetSelection()]
         self.elevs[self.node] = lst_elev
-
-        self.Destroy()
 
     def SavePump(self):
         # if the pump has not already been drawn then draw

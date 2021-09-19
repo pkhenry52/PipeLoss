@@ -68,6 +68,8 @@ class InputForm(wx.Frame):
 
         self.loop_pts = []
         self.cursr_set = False
+        # list used to track changes in grid cell
+        self.old_cell = []
 
         # set flags for deleting drawing elements
         self.dlt_loop = False
@@ -196,6 +198,7 @@ class InputForm(wx.Frame):
             self.grd.SetColSize(n, 80)
 
         self.Bind(wx.grid.EVT_GRID_CELL_CHANGED, self.OnCellChange)
+        self.Bind(wx.grid.EVT_GRID_CELL_CHANGING, self.OnCellChanging)
 
         # set the first column fonts and alignments
         attr = wx.grid.GridCellAttr()
@@ -470,6 +473,13 @@ class InputForm(wx.Frame):
         self.toolbar.Realize()
         self.toolbar.update()
 
+    def OnCellChanging(self, evt):
+        row = evt.GetRow()
+        x_val = self.grd.GetCellValue(row, 1)
+        y_val = self.grd.GetCellValue(row, 2)
+
+        self.old_cell = [x_val,y_val]
+
     def OnCellChange(self, evt):
         # provides the new row, col value after change
         # if value is unchanged nothing
@@ -482,13 +492,15 @@ class InputForm(wx.Frame):
         x_val = self.grd.GetCellValue(row, 1)
         y_val = self.grd.GetCellValue(row, 2)
 
+        if self.old_cell == [x_val, y_val]:
+            return
+
         if x_val.isalpha() or y_val.isalpha() and \
                 self.grd.GetCellValue(row, 0) != '':
             if LnLbl in self.runs:
                 self.MoveNode(x_val + y_val, LnLbl)
             else:
                 self.DrawLine(*self.VarifyData(row))
-
         # confirm data in all 3 cells then get points
         elif x_val != '' and y_val != '' and \
                 self.grd.GetCellValue(row, 0) != '':
@@ -1009,12 +1021,12 @@ class InputForm(wx.Frame):
         self.RemoveLine(set_lns)
 
     def MoveNode(self, nd, ln):
+
         effect_loops = []
         if type(nd) is list:
             alpha_nd = self.runs[ln][0][1]
             self.pts[alpha_nd] = nd
         elif type(nd) is str:
-            old_alpha = self.runs[ln][0][1]
             alpha_nd = nd
             '''if it is a string value then a node letter has
             been changed and the line end point is different
@@ -1729,13 +1741,14 @@ to a tank, pump or contain a control valve"
         self.plt_psarow = {}
 
         max = len(self.nodes)
-        count = 0
-        prg_dlg = wx.ProgressDialog("Loading Data and Graphics",
-                                    '',
-                                    maximum = max,
-                                    parent=self,
-                                    style= 0 | wx.PD_APP_MODAL
-                                    )
+        if max >= 1:
+            count = 0
+            prg_dlg = wx.ProgressDialog("Loading Data and Graphics",
+                                        '',
+                                        maximum = max,
+                                        parent=self,
+                                        style= 0 | wx.PD_APP_MODAL
+                                        )
 
         # generate a list of all the node points excluding the origin
         redraw_pts = [*self.pts]
@@ -1813,7 +1826,6 @@ to a tank, pump or contain a control valve"
                     x1, y1 = self.pts[endpt2]
 
                     self.DrawArrow(x0, y0, x1, y1, ln[0])
-                    self.canvas.draw()
 
         # draw the loop arcs and label
         for key in self.Loops:
@@ -1823,7 +1835,6 @@ to a tank, pump or contain a control valve"
         # draw the pumps and tanks
         for key in self.pumps:
             self.DrawPump(key, True)
-
         for key in self.tanks:
             self.DrawPump(key, False)
 
@@ -1836,7 +1847,7 @@ to a tank, pump or contain a control valve"
 
         self.Ln_Select = []
         self.Loop_Select = False
-
+        self.canvas.draw()
         self.canvas.Update()
 
     def OnDB_Save(self, evt):
