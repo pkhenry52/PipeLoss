@@ -125,6 +125,7 @@ class PipeFrm(wx.Frame):
         self.nb.mtr = ['Plastic', 'A53 / A106', 'Concrete Smooth', 'Concrete Rough',
                        'Copper Tubing', 'Drawn Tube', 'Galvanized',
                        'Stainless Steel', 'Rubber Lined']
+        self.nb.typ = None
 
         self.nb.AddPage(General(self.nb), 'General Pipe\n Information')
         self.nb.AddPage(ManVlv1(self.nb),
@@ -336,6 +337,7 @@ class PipeFrm(wx.Frame):
                         UpQuery = 'UPDATE CVlv SET typ=?, units=?, locate=?, set_press=?, length=? WHERE CVlv_ID = "' + self.lbl + '"'
                         DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list[1:])'''
             else:
+                self.data_good = False
                 return
 
         if old_pg == 'ManVlv1':
@@ -692,7 +694,8 @@ class General(wx.Panel):
         pnl2_sizer = wx.BoxSizer(wx.VERTICAL)
         unt_chcs = ['psig',
                     'KPa',
-                    'feet water']
+                    'feet',
+                    'meters']
 
         unt_sizer = wx.BoxSizer(wx.HORIZONTAL)
         hrz2 = wx.StaticText(self.pnl2, label = 'Valve Set Pressure')
@@ -728,7 +731,7 @@ class General(wx.Panel):
     def Onvlv(self, evt):
         self.add_vlv = False
         self.vlv_chg = False
-        print(self.parent.typ)
+
         if evt.GetEventObject().GetId() == 1:   # PRV
             self.bpv_chk.SetValue(False)
             if self.parent.typ == 0:
@@ -815,9 +818,7 @@ class General(wx.Panel):
                     for num in lp_num:
                         wx.GetTopLevelParent(self.parent).parent.RemoveLoop(num)
                 dlg.Destroy()
-        
-        print('PRV = 1, BPV = 2', evt.GetEventObject().GetId())
-        print(f'add valve = {self.add_vlv} and change valve = {self.vlv_chg}')
+
         self.sizer.SetSizeHints(self)
         self.SetSizer(self.sizer)
         self.Layout()

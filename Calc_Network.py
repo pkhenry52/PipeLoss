@@ -697,6 +697,8 @@ class Calc(object):
                         cnvrt = 993.87 / self.density
                     elif self.parent.vlvs[ln][1] == 2:
                         cnvrt = 1
+                    elif self.parent.vlvs[ln][1] == 3:
+                        cnvrt = 3.3
                     # get the set pressure for any control valve
                     if n == 0:
                         Elev = float(self.parent.vlvs[ln][3]) * cnvrt

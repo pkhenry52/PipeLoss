@@ -134,6 +134,7 @@ class Report_Data(object):
                     ('','feet','meters','feet','meters','psig','kPa')]
         # output of pressure at each node
         elev = self.parent.elevs
+
         self.node_press = {}
         # get all the nodes which are not consumption points
         junct_nodes = [node for node, lines
@@ -162,11 +163,11 @@ class Report_Data(object):
                 for pmp in range(len(pump_nodes)):
                     # get the pump discharge head plus the fluid elevation
                     start_nd = pump_nodes[pmp]
-
+                    print(f'elevation units {elev[start_nd][1]} at node {start_nd}')
                     # convert elevation to feet
                     if elev[start_nd][1] == 0:
                         el = float(elev[start_nd][0])
-                    elif elev[start_nd][1] == 0:
+                    elif elev[start_nd][1] == 1:
                         el = float(elev[start_nd][0]) * 3.3
 
                     ln = consump_runs[start_nd]

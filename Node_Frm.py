@@ -132,6 +132,8 @@ class NodeFrm(wx.Frame):
         # line label: node at other end of line
         # {'F': 'b', 'H': 'h', 'E': 'd', 'J': 'j'}
         self.cmn_lns = {}
+        # common_lns are the lines defined on the graphics and
+        # those which intersect at the node ie only those which have been saved 
         common_lns = list((set(self.parent.plt_arow).intersection
                             (self.node_lst)))
 
@@ -416,97 +418,91 @@ class NodeFrm(wx.Frame):
         # list of specified flow units
         lst4 = []
         alt_end_node = ''
-        cnspt_ln = ''
-        # cycle through the radio buttons and get the value in first row
+        # cycle through the flow direction radio buttons
+        # and get the value in first row
         m = 1
         for item in range(1, len(self.rad_bt), 2):
             dirct = 1
+            if self.rad_bt[item].GetValue() is False:
+                dirct = 0
             flow = 0
             unts = 4
             # get the line label from the radiobutton label
             ln_lbl = self.rad_bt[item-1].GetLabel()[-2]
+
+            # build a list of line labels and flow directions
             lst1.append(ln_lbl)
+            lst2.append(dirct)
+
+            # get the node at the other end of the line
+            pt1, pt2 = self.parent.runs[ln_lbl][0]
+            if pt1 != self.node:
+                alt_end_node = pt1
+            else:
+                alt_end_node = pt2
+
             # if checkbox is set then this is a consumption line
             if self.chk_bx[item-m].GetValue():
-                cnspt_ln = ln_lbl
                 if self.txt_bxs[item-m].GetValue() != '':
                     flow = float(self.txt_bxs[item-m].GetValue())
                     unts = self.chs_bxs[item-m].GetSelection()
-                    row = ord(cnspt_ln) - 65
+                    row = ord(ln_lbl) - 65
                     self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
-                    pt1, pt2 = self.parent.runs[cnspt_ln][0]
-                    # modify data for node at other end of consumption line
-                    if pt1 != self.node:
-                        alt_end_node = pt1
-                    else:
-                        alt_end_node = pt2
-                    # check if node is already set up
-                    if alt_end_node in self.nodes:
-                        n = 0
-                        tpl = []
-                        for tp in self.nodes[alt_end_node]:
-                            if tp[0] == cnspt_ln:
-                                tpl.append(cnspt_ln)
-                                tpl.append(abs(dirct-1))
-                                tpl.append(flow)
-                                tpl.append(unts)
-                                self.nodes[alt_end_node][n] = tuple(tpl)
-                            n += 1
-                    else:
-                        self.nodes[alt_end_node] = [(cnspt_ln, dirct, flow, unts)]
+                    if alt_end_node not in self.nodes:
                         self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')
                         self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
-
-            if self.rad_bt[item].GetValue() is False:
-                dirct = 0
             m += 1
 
-            # if the node data is saved for this node then the other nodes
-            # with common lines need to relate the direction changes
-            if ln_lbl in self.cmn_lns:
+            lst3.append(flow)
+            lst4.append(unts)
+
+            # check if node at other end of line is already set up
+            if alt_end_node in self.nodes:
                 n = 0
                 tpl = []
-                for tp in self.nodes[self.cmn_lns[ln_lbl]]:
-                    if tp[0]==ln_lbl:
+                for tp in self.nodes[alt_end_node]:
+                    if tp[0] == ln_lbl:
                         tpl.append(ln_lbl)
                         tpl.append(abs(dirct-1))
                         tpl.append(flow)
                         tpl.append(unts)
-                        self.nodes[self.cmn_lns[ln_lbl]][n] = tuple(tpl)
+                        self.nodes[alt_end_node][n] = tuple(tpl)
                     n += 1
-            lst2.append(dirct)
-            lst3.append(flow)
-            lst4.append(unts)
+            else:
+                self.nodes[alt_end_node] = [(ln_lbl, dirct, flow, unts)]
 
         # make a list containing the line label, flow direction and volume
         ln_dirct = list(zip(lst1, lst2, lst3, lst4))
         # add information to the nodes dictionary
         self.nodes[self.node] = ln_dirct
-        if self.node in self.nodes:
-            for ln in self.nodes[self.node]:
-                if ln[0] in self.parent.plt_arow:
-                    self.parent.plt_arow.pop(ln[0]).remove()
-                endpt1 = self.node
-                if self.parent.runs[ln[0]][0].index(endpt1) == 0:
-                    endpt2 = self.parent.runs[ln[0]][0][1]
-                else:
-                    endpt2 = self.parent.runs[ln[0]][0][0]
-                if ln[1] == 1:
-                    tmp = endpt2
-                    endpt2 = endpt1
-                    endpt1 = tmp
 
-                x0, y0 = self.parent.pts[endpt1]
-                x1, y1 = self.parent.pts[endpt2]
+        for ln in self.nodes[self.node]:
+            if ln[0] in self.parent.plt_arow:
+                self.parent.plt_arow.pop(ln[0]).remove()
+            endpt1 = self.node
+            if self.parent.runs[ln[0]][0].index(endpt1) == 0:
+                endpt2 = self.parent.runs[ln[0]][0][1]
+            else:
+                endpt2 = self.parent.runs[ln[0]][0][0]
+            if ln[1] == 1:
+                tmp = endpt2
+                endpt2 = endpt1
+                endpt1 = tmp
 
-                self.parent.DrawArrow(x0, y0, x1, y1, ln[0])
+            x0, y0 = self.parent.pts[endpt1]
+            x1, y1 = self.parent.pts[endpt2]
 
-        # change the node grid cell color to green to indicate data is complete
-        for ltr in self.node_lst:
-            row = ord(ltr) - 65
+            self.parent.DrawArrow(x0, y0, x1, y1, ln[0])
+
+        # change the node grid cell color to green to
+        # indicate data is complete do it by each line at node
+        for ln in self.node_lst:
+            row = ord(ln) - 65
+            # the number of lines shown intersecting at node equals
+            # the number of lines defined at the node then the
+            # node is complete and can be colored
             if len(self.node_lst) == len(self.nodes[self.node]):
-                if self.node == self.parent.grd.GetCellValue(ord(ltr)-65, 0) or \
-                alt_end_node == self.parent.grd.GetCellValue(ord(ltr)-65, 0):
+                if self.node == self.parent.grd.GetCellValue(ord(ln)-65, 0):
                     self.parent.grd.SetCellBackgroundColour(row, 0, 'lightgreen')
                 else:
                     self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')
