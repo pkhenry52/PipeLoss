@@ -127,10 +127,10 @@ class PipeFrm(wx.Frame):
                        'Stainless Steel', 'Rubber Lined']
         self.nb.typ = None
 
-        self.nb.AddPage(General(self.nb), 'General Pipe\n Information')
+        self.nb.AddPage(General(self.nb), 'General Pipe Information')
         self.nb.AddPage(ManVlv1(self.nb),
-                        'Ball, Butterfly,\nPlug, Globe Valves')
-        self.nb.AddPage(ManVlv2(self.nb), 'Diaphragm,\nGate Valves')
+                        'Ball, Butterfly, Plug, Globe Valves')
+        self.nb.AddPage(ManVlv2(self.nb), 'Diaphragm, Gate Valves')
         self.nb.AddPage(ChkVlv(self.nb), 'Check Valves')
         self.nb.AddPage(Fitting(self.nb), 'Fittings')
         self.nb.AddPage(WldElb(self.nb), 'Welded\nElbows')
