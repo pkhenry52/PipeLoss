@@ -485,11 +485,11 @@ class Calc(object):
                 Lgth = float(itm[2]) * 3.281
                 lgth = lgth * 3.281
             elif unt == 3:
-                Lgth = float(itm[2]) / 30.48
-                lgth = lgth / 30.48
+                Lgth = float(itm[2]) * .0328
+                lgth = lgth * .0328
             else:
-                Lgth = float(itm[2]) / 304.8
-                lgth = lgth / 304.8    
+                Lgth = float(itm[2]) * .003281
+                lgth = lgth * .003281   
 
             # specify the corresponding absolute e in inches
             unt = itm[8]
@@ -580,12 +580,12 @@ class Calc(object):
                     if v2 == 0:
                         nd_matx[self.var_dic[k]] = cos(pi*v1)*-1
                     else:
-                        # convert the flow to ft^3/s
-                        # ['US GPM', 'ft^3/s', 'm^3/hr']
+                        # convert the flow to ft^3/s from
+                        # ['US GPM', 'm^3/hr']
                         if v3 == 0:
-                            v2 = v2 / 448.83
+                            v2 = v2 * .00223
                         elif v3 == 2:
-                            v2 = v2 * 101.941
+                            v2 = v2 * .0098
                         # specify the value for the coef array coresponding
                         # to the matrix in the variable array
                         # [20.0, 0, 0, 0]
@@ -691,14 +691,16 @@ class Calc(object):
 
                 if ln in self.parent.vlvs:
                     # convert values of elevation to feet of water
+                    # based on elev in ft = psig  * 2.31 * density water / density of fluid
+                    # elev' = pressure * 2.31 * 62.4 / density of liquid
                     if self.parent.vlvs[ln][1] == 0:
                         cnvrt = 144.14 / self.density
                     elif self.parent.vlvs[ln][1] == 1:
-                        cnvrt = 993.87 / self.density
+                        cnvrt = 20.901 / self.density
                     elif self.parent.vlvs[ln][1] == 2:
                         cnvrt = 1
                     elif self.parent.vlvs[ln][1] == 3:
-                        cnvrt = 3.3
+                        cnvrt = 3.28
                     # get the set pressure for any control valve
                     if n == 0:
                         Elev = float(self.parent.vlvs[ln][3]) * cnvrt

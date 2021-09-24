@@ -4,8 +4,10 @@ import sqlite3
 from ast import literal_eval
 import string
 import wx
+
 import wx.grid as gridlib
 import wx.lib.mixins.gridlabelrenderer as glr
+
 from matplotlib.backends.backend_wxagg import \
     FigureCanvasWxAgg as FigureCanvas
 from matplotlib.backends.backend_wx import \
@@ -14,6 +16,7 @@ from matplotlib.figure import Figure
 from matplotlib.text import Text
 import matplotlib.colors as mcolors
 import numpy as np
+
 import DBase
 import Node_Frm
 import Pipe_Frm
@@ -436,7 +439,7 @@ class InputForm(wx.Frame):
         # lines in which they are an end point
 
         for lbl in nds:
-            bg_clr = 'lightgreen'
+            bg_clr = 'green'
 
             if len(self.nodes[lbl]) == 1 \
                and lbl not in self.pumps \
@@ -466,7 +469,7 @@ class InputForm(wx.Frame):
                 if saved == 1:
                     row = ord(ln) - 65
                     self.grd.SetRowLabelRenderer(row,
-                    RowLblRndr('lightgreen'))
+                    RowLblRndr('green'))
 
     def add_toolbar(self):
         self.toolbar = NavigationToolbar(self.canvas)

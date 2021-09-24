@@ -449,8 +449,8 @@ class NodeFrm(wx.Frame):
                     row = ord(ln_lbl) - 65
                     self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('yellow'))
                     if alt_end_node not in self.nodes:
-                        self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')
-                        self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
+                        self.parent.grd.SetCellBackgroundColour(row, 1, 'green')
+                        self.parent.grd.SetCellBackgroundColour(row, 2, 'green')
             m += 1
 
             lst3.append(flow)
@@ -503,10 +503,10 @@ class NodeFrm(wx.Frame):
             # node is complete and can be colored
             if len(self.node_lst) == len(self.nodes[self.node]):
                 if self.node == self.parent.grd.GetCellValue(ord(ln)-65, 0):
-                    self.parent.grd.SetCellBackgroundColour(row, 0, 'lightgreen')
+                    self.parent.grd.SetCellBackgroundColour(row, 0, 'green')
                 else:
-                    self.parent.grd.SetCellBackgroundColour(row, 1, 'lightgreen')
-                    self.parent.grd.SetCellBackgroundColour(row, 2, 'lightgreen')
+                    self.parent.grd.SetCellBackgroundColour(row, 1, 'green')
+                    self.parent.grd.SetCellBackgroundColour(row, 2, 'green')
 
         # add the elevation information to the node elevation dictionary
         if len(self.nodes[self.node]) == 1 and self.type_rbb.GetSelection() == 0:

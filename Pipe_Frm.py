@@ -560,7 +560,7 @@ class PipeFrm(wx.Frame):
         if self.data_good is True:
             # color the line label on the grid line cell green
             row = ord(self.lbl) - 65
-            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('lightgreen'))
+            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('green'))
             # check to see if a BPV or PRV has been added or removed if so
             # pass along to parent form to add or delete valve
             if self.nb.GetPage(0).add_vlv is True:
@@ -694,8 +694,8 @@ class General(wx.Panel):
         pnl2_sizer = wx.BoxSizer(wx.VERTICAL)
         unt_chcs = ['psig',
                     'KPa',
-                    'feet',
-                    'meters']
+                    'feet of water',
+                    'meters of water']
 
         unt_sizer = wx.BoxSizer(wx.HORIZONTAL)
         hrz2 = wx.StaticText(self.pnl2, label = 'Valve Set Pressure')
