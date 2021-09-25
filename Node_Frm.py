@@ -29,11 +29,15 @@ class NodeFrm(wx.Frame):
     def __init__(self, parent, node, cord, node_lst, node_dict, elevs_dict,\
                  pumps_dict, tanks_dict):
 
-        self.rad_bt = []
-        self.chk_bx = []
-        self.nd_bx = []
-        self.txt_bxs = []
-        self.chs_bxs = []
+
+        self.parent = parent
+
+        ttl = 'Node "' + node + ' ' + str(cord) + '" Flow Information.'
+
+        super().__init__(parent, title=ttl, 
+                         style=wx.DEFAULT_FRAME_STYLE | wx.RESIZE_BORDER | wx.STAY_ON_TOP)
+
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
 
         self.cord = tuple(cord)    # coordinates for the selected node
         self.nodes = node_dict    # the dictionary of nodes
@@ -44,14 +48,11 @@ class NodeFrm(wx.Frame):
         self.node = node    # the node label which has been selected
         self.saved = False
 
-        self.parent = parent
-
-        ttl = 'Node "' + node + ' ' + str(cord) + '" Flow Information.'
-
-        super().__init__(parent, title=ttl, 
-                         style=wx.DEFAULT_FRAME_STYLE | wx.RESIZE_BORDER | wx.STAY_ON_TOP)
-
-        self.Bind(wx.EVT_CLOSE, self.OnClose)
+        self.rad_bt = []
+        self.chk_bx = []
+        self.nd_bx = []
+        self.txt_bxs = []
+        self.chs_bxs = []
 
         self.InitUI()
 

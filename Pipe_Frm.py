@@ -101,7 +101,7 @@ class PipeFrm(wx.Frame):
 
         ttl = 'Pipe & Fittings for Line ' + lbl
 
-        super().__init__(parent, title=ttl, size=(850, 930),
+        super().__init__(parent, title=ttl, size=(850, 850),
                          style=wx.DEFAULT_FRAME_STYLE | wx.STAY_ON_TOP)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
@@ -825,7 +825,7 @@ class General(wx.Panel):
         self.Refresh()
 
 
-class ManVlv1(wx.Panel):
+class ManVlv1(wx.ScrolledWindow):
     def __init__(self, parent):
         super(ManVlv1, self).__init__(parent, name='ManVlv1')
         '''the first page of manual valves'''
@@ -833,7 +833,7 @@ class ManVlv1(wx.Panel):
         # the number of columns is common at 7, the number of rows varies
         # on the nmber of items to be entered
         num_col = 7
-
+        self.SetScrollRate(5,5)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         grd_sizer = wx.BoxSizer(wx.HORIZONTAL)
         # the list of headers for the two sides of the flexgrid
@@ -862,13 +862,13 @@ class ManVlv1(wx.Panel):
         self.Sizer.Add(grd_sizer, 0, wx.ALIGN_LEFT|wx.TOP, 20)
 
 
-class ManVlv2(wx.Panel):
+class ManVlv2(wx.ScrolledWindow):
     def __init__(self, parent):
         super(ManVlv2, self).__init__(parent, name='ManVlv2')
 
         self.pg_txt = []
         num_col = 7
-
+        self.SetScrollRate(5,5)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         grd_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -891,7 +891,7 @@ class ManVlv2(wx.Panel):
         self.Sizer.Add(grd_sizer, 0, wx.ALIGN_LEFT|wx.TOP, 20)
 
 
-class ChkVlv(wx.Panel):
+class ChkVlv(wx.ScrolledWindow):
     def __init__(self, parent): 
         super(ChkVlv, self).__init__(parent, name='ChkVlv')
 
@@ -900,7 +900,7 @@ class ChkVlv(wx.Panel):
 
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         grd_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
+        self.SetScrollRate(5,5)
         colm1 = [['Lift Check', 'Lift Check', 'Tilt Disc\nCheck',
                   'Swing\nCheck', 'Swing\nCheck', 'Blank'],
                  ['Globe-Stop\nCheck', 'Blank', 'Blank', 'Blank', 'Blank',
@@ -922,13 +922,13 @@ class ChkVlv(wx.Panel):
         self.Sizer.Add(grd_sizer, 0, wx.ALIGN_LEFT|wx.TOP, 20)
 
 
-class Fitting(wx.Panel):
+class Fitting(wx.ScrolledWindow):
     def __init__(self, parent): 
         super(Fitting, self).__init__(parent, name='Fittings')
 
         self.pg_txt = []
         num_col = 7
-
+        self.SetScrollRate(5,5)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         grd_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -951,7 +951,7 @@ class Fitting(wx.Panel):
         self.Sizer.Add(grd_sizer, 0, wx.ALIGN_LEFT|wx.TOP, 20)
 
 
-class WldElb(wx.Panel):
+class WldElb(wx.ScrolledWindow):
     def __init__(self, parent):
         super(WldElb, self).__init__(parent, name='WldElb')
 
@@ -961,7 +961,7 @@ class WldElb(wx.Panel):
         num_btns = 0
         self.rdbtn1 = []
         self.rdbtn2 = []
-
+        self.SetScrollRate(5,5)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         grd_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -1004,7 +1004,7 @@ class WldElb(wx.Panel):
 
         self.Sizer.Add(grd_sizer, 0, wx.ALIGN_LEFT|wx.TOP, 20)
 
-class EntExt(wx.Panel):
+class EntExt(wx.ScrolledWindow):
     def __init__(self, parent):
         super(EntExt, self).__init__(parent, name='EntExt')
 
@@ -1015,7 +1015,7 @@ class EntExt(wx.Panel):
         self.rdbtn1 = []
         self.rdbtn2 = []
         num_btns = 0
-
+        self.SetScrollRate(5,5)
         self.Sizer = wx.BoxSizer(wx.VERTICAL)
         grd_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
