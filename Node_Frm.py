@@ -29,13 +29,13 @@ class NodeFrm(wx.Frame):
     def __init__(self, parent, node, cord, node_lst, node_dict, elevs_dict,\
                  pumps_dict, tanks_dict):
 
-
         self.parent = parent
 
         ttl = 'Node "' + node + ' ' + str(cord) + '" Flow Information.'
 
         super().__init__(parent, title=ttl, 
-                         style=wx.DEFAULT_FRAME_STYLE | wx.RESIZE_BORDER | wx.STAY_ON_TOP)
+                         style=wx.DEFAULT_FRAME_STYLE |
+                         wx.RESIZE_BORDER | wx.STAY_ON_TOP)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
@@ -296,6 +296,7 @@ class NodeFrm(wx.Frame):
         self.pnl2.SetSizer(pnl2_sizer)
 
         self.pnl3 = wx.Panel(self)
+        bckgrd_clr = self.pnl2.GetBackgroundColour()
         res_sizer = wx.BoxSizer(wx.HORIZONTAL)
         tk_lbl = wx.StaticText(self.pnl3, label='Tank Fluid\nElevation')
         self.tk_elev = wx.TextCtrl(self.pnl3, value='0')
@@ -329,7 +330,7 @@ class NodeFrm(wx.Frame):
         self.sizer.Add(btnsizer, 0)
         self.sizer.SetSizeHints(self)
         self.SetSizer(self.sizer)
-
+        self.SetBackgroundColour(bckgrd_clr)
         self.Show(True)
 
     def OnRadioBx(self, evt):
