@@ -101,7 +101,7 @@ class PipeFrm(wx.Frame):
 
         ttl = 'Pipe & Fittings for Line ' + lbl
 
-        super().__init__(parent, title=ttl, size=(850, 850),
+        super().__init__(parent, title=ttl, size=(850, 750),
                          style=wx.DEFAULT_FRAME_STYLE | wx.STAY_ON_TOP)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
@@ -133,8 +133,8 @@ class PipeFrm(wx.Frame):
         self.nb.AddPage(ManVlv2(self.nb), 'Diaphragm, Gate Valves')
         self.nb.AddPage(ChkVlv(self.nb), 'Check Valves')
         self.nb.AddPage(Fitting(self.nb), 'Fittings')
-        self.nb.AddPage(WldElb(self.nb), 'Welded\nElbows')
-        self.nb.AddPage(EntExt(self.nb), 'Entry\nExit Losses')
+        self.nb.AddPage(WldElb(self.nb), 'Welded Elbows')
+        self.nb.AddPage(EntExt(self.nb), 'Entry & Exit Losses')
         self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
         self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.OnBeforePgChg)
 
