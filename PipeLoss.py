@@ -893,12 +893,12 @@ class InputForm(wx.Frame):
             self.plt_vlv_lbl.pop(ln_lbl).remove()
 
         # for each pseudo loop see if the control valve is part of it
-        for num in self.Pseudo:
+        for num in [*self.Pseudo]:
             # if the CV is present in a pseudo loop then the loop needs
             # to be removed if the vavle has changed or been deleted
             if ln_lbl in self.Pseudo[num][1]:
                 self.RemoveLoop(num)
-                break
+#                break
 
         self.canvas.draw()
         self.Refresh()
@@ -1081,6 +1081,7 @@ class InputForm(wx.Frame):
     def RemoveLoop(self, num):
         # reset the delete warning flag
         self.dlt_loop = False
+        print('HIT')
         if num in self.Loops:
             # remove the graphics from the form
             self.plt_lpnum.pop(num, None).remove()
@@ -1683,8 +1684,8 @@ to a tank, pump or contain a control valve"
                     x_1 = self.pts[pt2][0]
                     y_0 = self.pts[pt1][1]
                     y_1 = self.pts[pt2][1]
-                    if typ == 0:
-                        pt1 = pt2
+#                    if typ == 0:
+#                        pt1 = pt2
                 # selected valve is PRV
                 elif ln[1] == 0:
                     x_0 = self.pts[pt2][0]

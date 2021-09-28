@@ -309,7 +309,7 @@ class PipeFrm(wx.Frame):
                 ValueList.append(self.nb.GetPage(old).unt2.GetSelection())
                 ValueList.append(self.nb.GetPage(old).unt3.GetSelection())
                 DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
-                '''
+
                 if self.nb.GetPage(old).prv_chk.GetValue() or \
                 self.nb.GetPage(old).bpv_chk.GetValue():
                     if self.nb.GetPage(0).prv_chk.GetValue() is True:
@@ -321,7 +321,8 @@ class PipeFrm(wx.Frame):
                     CVlv_list = []
                     CVlv_list.append(self.lbl)
                     CVlv_list.append(vlv_typ)
-                    CVlv_list.append(self.nb.GetPage(old).unt_bx.GetSelection())
+                    unts = self.nb.GetPage(old).unt_bx.GetSelection()
+                    CVlv_list.append(unts)
                     locate = self.nb.GetPage(old).locate.GetValue()
                     CVlv_list.append(float(locate))
                     set_press = self.nb.GetPage(old).set_press.GetValue()
@@ -334,8 +335,11 @@ class PipeFrm(wx.Frame):
                         UpQuery = 'INSERT INTO CVlv VALUES (?,?,?,?,?,?)'
                         DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list)
                     else:
-                        UpQuery = 'UPDATE CVlv SET typ=?, units=?, locate=?, set_press=?, length=? WHERE CVlv_ID = "' + self.lbl + '"'
-                        DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list[1:])'''
+                        UpQuery = 'UPDATE CVlv SET typ=?, units=?, locate=?, set_press=?,\
+                                   length=? WHERE CVlv_ID = "' + self.lbl + '"'
+                        DBase.Dbase(self.parent).TblEdit(UpQuery, CVlv_list[1:])
+                    
+                    self.parent.vlvs[self.lbl] = [vlv_typ, unts, locate, set_press, lgth]
             else:
                 self.data_good = False
                 return
