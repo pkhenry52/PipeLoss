@@ -553,11 +553,11 @@ class PipeFrm(wx.Frame):
         # before closing make sure last page data is read
         # by triggering OnPageChanged
         pg = self.nb.GetSelection()
-        self.nb.SetSelection(pg)
-#        if pg == 6:
-#            self.nb.SetSelection(0)
-#        else:
-#            self.nb.SetSelection(pg+1)
+#        self.nb.SetSelection(pg)
+        if pg == 6:
+            self.nb.SetSelection(0)
+        else:
+            self.nb.SetSelection(pg+1)
 
         # if the data entered is completed
         if self.data_good is True:

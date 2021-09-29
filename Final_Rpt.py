@@ -249,7 +249,7 @@ class Report_Data(object):
                 if cv[1] == 0:  # psig
                     hd = cv[3] * 143.957 / self.density
                 elif cv[1] == 1:  # kPa
-                    hd = 20.878 * cv[3] / self.density
+                    hd = 20.894 * cv[3] / self.density
                 else:  # ft H2O
                     hd = cv[3]
 
@@ -323,7 +323,7 @@ class Report_Data(object):
             rptdata.append(round(val,3))
             rptdata.append(round(val * .3048,2))
             rptdata.append(round(val * self.density / 143.957,2))
-            rptdata.append(round(val * self.density/ 992.582,2))
+            rptdata.append(round(val * self.density / 20.894,2))
             
             tbldata2.append(rptdata)
 
