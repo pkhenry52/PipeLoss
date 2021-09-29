@@ -136,7 +136,7 @@ class PipeFrm(wx.Frame):
         self.nb.AddPage(WldElb(self.nb), 'Welded Elbows')
         self.nb.AddPage(EntExt(self.nb), 'Entry & Exit Losses')
         self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
-        self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.OnBeforePgChg)
+#        self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.OnBeforePgChg)
 
         menubar = wx.MenuBar()
         fileMenu = wx.Menu()
@@ -144,7 +144,6 @@ class PipeFrm(wx.Frame):
         # this will only change the grid cell color data 
         # has already been saved in the page changed function call to K_Cal
         fileMenu.Append(wx.ID_SAVE, '&Data Complete')
-        # fileMenu.Append(wx.ID_PRINT, '&Print\tCtrl+P')
         fileMenu.Append(wx.ID_EXIT, '&Quit\tCtrl+Q')
         menubar.Append(fileMenu, '&File')
         self.Bind(wx.EVT_MENU, self.menuhandler)
@@ -198,10 +197,10 @@ class PipeFrm(wx.Frame):
             self.data_good = True
             self.OnClose(None)
 
-    def OnBeforePgChg(self, evt):
+#    def OnBeforePgChg(self, evt):
         # this called prior to a page change
-        current = evt.GetSelection()
-        self.Data_Load(current)
+#        current = evt.GetSelection()
+#        self.Data_Load(current)
 
     def OnPageChanged(self, evt):
         ''' once a notebook page is exited it is assumed it is completed and
@@ -215,7 +214,7 @@ class PipeFrm(wx.Frame):
                 self.nb.GetPage(current).Enable(False)
         else:
             self.nb.GetPage(current).Enable()
-
+        self.Data_Load(current)
         self.K_calc(old)
 
     def Data_Load(self, current):
@@ -350,7 +349,7 @@ class PipeFrm(wx.Frame):
 
             # check to see if this a new record or an update
             ValueList, new_data = self.Data_Exist(old_pg)
-
+            
             # get the value in the text box and check if it is
             # empty if so set it to zero
             for bx in range(len(self.nb.GetPage(old).pg_txt)):
@@ -540,7 +539,7 @@ class PipeFrm(wx.Frame):
 
     def Data_Exist(self, old_pg):
         SQL_Chk = 'SELECT ID FROM ' + old_pg + ' WHERE ID = "' + self.lbl + '"'
-        
+
         if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
             new_data = True
             ValueList = [self.lbl]
@@ -554,11 +553,11 @@ class PipeFrm(wx.Frame):
         # before closing make sure last page data is read
         # by triggering OnPageChanged
         pg = self.nb.GetSelection()
-
-        if pg == 6:
-            self.nb.SetSelection(0)
-        else:
-            self.nb.SetSelection(pg+1)
+        self.nb.SetSelection(pg)
+#        if pg == 6:
+#            self.nb.SetSelection(0)
+#        else:
+#            self.nb.SetSelection(pg+1)
 
         # if the data entered is completed
         if self.data_good is True:
