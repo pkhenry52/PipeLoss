@@ -7,10 +7,12 @@ class DataOutPut(wx.Dialog):
 
         super().__init__(parent,
                          title="Data Completed",
+                         style=wx.DEFAULT_FRAME_STYLE)
+        '''
                          style=wx.DEFAULT_FRAME_STYLE &
                                 ~(wx.RESIZE_BORDER |
                                 wx.MAXIMIZE_BOX |
-                                wx.MINIMIZE_BOX))
+                                wx.MINIMIZE_BOX))'''
 
 
         self.parent = parent
@@ -18,7 +20,7 @@ class DataOutPut(wx.Dialog):
         self.InitUI()
 
     def InitUI(self):
-        
+        self.EnableLayoutAdaptation(True)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
 
         col1 = list(self.Flows.keys())
@@ -50,25 +52,25 @@ class DataOutPut(wx.Dialog):
         msg2 = '\n\t-pump data\n\t-control valve data'
         msg3 = '\n\t-system data covering: \n\t\tflow,\n\t\tvelocity,'
         msg4 = '\n\t\theadloss,\n\t\tReynolds,'
-        msg5 = '\n\t\tpressure at the nodes\n\t\tetc.'
+        msg5 = '\n\t\tnode pressure\n\t\tetc.'
         msg = msg1 + msg2 + msg3 + msg4 + msg5
         note1 = wx.StaticText(self, label=msg)
-        msg6 = 'The pdf report file will be saved\nin'
-        msg7 = ' the same location as the database,\n'
+        msg6 = 'The pdf report file will be saved in'
+        msg7 = '\nthe same location as the database,\n'
         msg8 = 'using the database file name.'
         msg = msg6 + msg7 + msg8
         note2 = wx.StaticText(self, label=msg)
         note_sizer.Add(note1, 1, wx.ALIGN_CENTER)
-        note_sizer.Add((10,20))
-        note_sizer.Add(note2,1, wx.BOTTOM|wx.ALIGN_CENTER, 10)
+        note_sizer.Add((300,20))
+        note_sizer.Add(note2, 1, wx.ALIGN_CENTER)
 
         self.SetSize(350,(250+45*len(col1)))
-        self.sizer.Add(grd, 1, wx.ALIGN_CENTER|wx.TOP, 10)
+        self.sizer.Add(grd, 0, wx.ALIGN_CENTER|wx.TOP, 10)
         self.sizer.Add((10,25))
-        self.sizer.Add(note_sizer, 1, wx.ALIGN_CENTER)
+        self.sizer.Add(note_sizer, 0, wx.ALIGN_CENTER)
         self.SetSizer(self.sizer)
 
-        self.Centre()
+#        self.Centre()
         self.Show(True)
 
     def OnExit(self, evt):

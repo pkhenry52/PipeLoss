@@ -1974,7 +1974,6 @@ to a tank, pump or contain a control valve"
             dlg = DataOut.DataOutPut(None, Qs)
             self.data_save = dlg.ShowModal()
             dlg.Destroy()
-
             if self.data_save:
                 Final_Rpt.Report_Data(self, self.file_name, Qs, D_e, density, kin_vis, abs_vis).tbl_data()
 

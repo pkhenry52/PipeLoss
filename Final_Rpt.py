@@ -8,7 +8,7 @@ class Report_Data(object):
 
     def __init__(self, parent, filename, Qs, D_e, density, kin_vis, abs_vis):
         self.parent = parent
-        
+
         ttl = os.path.basename(filename)
         self.ttl = 'Calculated Data for ' + ttl
         self.filename = filename[:-2] + 'pdf'
@@ -134,7 +134,8 @@ class Report_Data(object):
                     ('','feet','meters','feet','meters','psig','kPa')]
         # output of pressure at each node
         elev = self.parent.elevs
-
+        to_do_nodes = []
+        done_nodes = []
         self.node_press = {}
         # get all the nodes which are not consumption points
         junct_nodes = [node for node, lines
@@ -157,13 +158,12 @@ class Report_Data(object):
 
         # if there is a pump or tank at the node
         if pump_nodes != [] or tank_nodes != []:
-            to_do_nodes = []
-            done_nodes = []
+#            to_do_nodes = []
+#            done_nodes = []
             if pump_nodes != []:
                 for pmp in range(len(pump_nodes)):
                     # get the pump discharge head plus the fluid elevation
                     start_nd = pump_nodes[pmp]
-                    print(f'elevation units {elev[start_nd][1]} at node {start_nd}')
                     # convert elevation to feet
                     if elev[start_nd][1] == 0:
                         el = float(elev[start_nd][0])
