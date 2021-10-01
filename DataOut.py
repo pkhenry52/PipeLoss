@@ -20,7 +20,7 @@ class DataOutPut(wx.Dialog):
         self.InitUI()
 
     def InitUI(self):
-        self.EnableLayoutAdaptation(True)
+#        self.EnableLayoutAdaptation(True)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
 
         col1 = list(self.Flows.keys())
@@ -71,7 +71,7 @@ class DataOutPut(wx.Dialog):
         self.SetSizer(self.sizer)
 
 #        self.Centre()
-        self.Show(True)
+        self.Show()
 
     def OnExit(self, evt):
         self.EndModal(False)

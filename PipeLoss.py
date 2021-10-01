@@ -69,6 +69,9 @@ class InputForm(wx.Frame):
 
         self.colours = mcolors.CSS4_COLORS
 
+        # inital file name to empty tring
+        self.file_name = ''
+
         self.loop_pts = []
         self.cursr_set = False
         # list used to track changes in grid cell
@@ -120,7 +123,7 @@ class InputForm(wx.Frame):
         self.Loops = {}
         # dictionary for the tracking of the pseudo loops by number
         # with list of points and lines
-        self.Pseudo ={}
+        self.Pseudo = {}
         self.wrg_pt = ''
         # dictionary of the points moving around a given loop
         self.poly_pts = {}
@@ -957,11 +960,15 @@ class InputForm(wx.Frame):
                     if nd not in lst_nds:
                         # remove the node from the list of displayed
                         # nodes if it is not used anywhere else
+                        # ie it is a node with out a line
                         self.plt_txt.pop(nd).remove()
+                        if nd in self.elevs:
+                            del self.elevs[nd]
                         # delete point from dictionary of points
                         # if it is not origin
                         if nd != 'origin':
                             del self.pts[nd]
+                    
                     # check to see if the line has been defined in
                     # the nodes dictionary if so delete the line tuple from
                     # the dictionary
@@ -974,8 +981,7 @@ class InputForm(wx.Frame):
                                 if lbl == v[0]:
                                     self.nodes[nd].pop(n)
                                 n += 1
-                    if nd in self.elevs:
-                        del self.elevs[nd]
+
 
             # retrieve all the values from the real loops dictionary
             set_loop = list(self.Loops.items())
@@ -1081,7 +1087,6 @@ class InputForm(wx.Frame):
     def RemoveLoop(self, num):
         # reset the delete warning flag
         self.dlt_loop = False
-        print('HIT')
         if num in self.Loops:
             # remove the graphics from the form
             self.plt_lpnum.pop(num, None).remove()
@@ -1988,7 +1993,10 @@ to a tank, pump or contain a control valve"
                 dialog.Destroy()
 
     def OnView(self, evt):
-        PDFFrm(self, self.file_name)
+        if self.file_name == '':
+            PDFFrm(self)
+        else:
+            PDFFrm(self, self.file_name)
 
     def OnExit(self, evt):
         if self.cursr_set is True:
@@ -2087,7 +2095,7 @@ class OpenFile(wx.Dialog):
 
 
 class PDFFrm(wx.Frame):
-    def __init__(self, parent, filename):
+    def __init__(self, parent, filename=''):
         wx.Frame.__init__(self, parent)
         from wx.lib.pdfviewer import pdfViewer, pdfButtonPanel
         self.Maximize(True)
