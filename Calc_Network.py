@@ -122,13 +122,13 @@ class Calc(object):
 
         # units speced as lbm/ft-sec
         if dt[15] == 0:
-            eta_1 = eta_1 * 1487
+            eta_1 = eta_1 * 1488.164
         # units speced as g/cm-s\n(poise)
         elif dt[15] == 1:
             eta_1 = eta_1 * 100
 
         if dt[18] == 0:
-            eta_2 = eta_2 * 1487
+            eta_2 = eta_2 * 1488.164
         elif dt[18] == 1:
             eta_2 = eta_2 * 100
 
@@ -583,7 +583,7 @@ class Calc(object):
                         # convert the flow to ft^3/s from
                         # ['US GPM', 'm^3/hr']
                         if v3 == 0:
-                            v2 = v2 * .00223
+                            v2 = v2 * .002228
                         elif v3 == 2:
                             v2 = v2 * .0098
                         # specify the value for the coef array coresponding
