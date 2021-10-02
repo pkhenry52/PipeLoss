@@ -797,9 +797,12 @@ class General(wx.Panel):
             for num in wx.GetTopLevelParent(self.parent).parent.Loops:
                 if self.parent.lbl in wx.GetTopLevelParent(self.parent).parent.Loops[num][1]:
                     lp_num.append(num)
+            for num in wx.GetTopLevelParent(self.parent).parent.Pseudo:
+                if self.parent.lbl in wx.GetTopLevelParent(self.parent).parent.Pseudo[num][1]:
+                    lp_num.append(num)
             if lp_num != []:
                 msg1 = 'Placing a control valve on this line will\n'
-                msg2 = 'remove all closed loops ' + str(lp_num) + ' associated with the line.'
+                msg2 = 'remove all loops ' + str(lp_num) + ' associated with the line.'
                 dlg = wx.MessageDialog(self, msg1 + msg2, 'Valve Implications',
                         wx.OK|wx.CANCEL|wx.ICON_INFORMATION)
                 rslt = dlg.ShowModal()

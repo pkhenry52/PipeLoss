@@ -198,7 +198,7 @@ class Report_Data(object):
                     if elev[start_nd][1] == 0:
                         el = float(elev[start_nd][0])
                     elif elev[start_nd][1] == 0:
-                        el = float(elev[start_nd][0]) * 3.3
+                        el = float(elev[start_nd][0]) * 3.28
 
                     # get the tank fluid elevation
                     v = self.parent.tanks[start_nd]
@@ -250,6 +250,8 @@ class Report_Data(object):
                     hd = cv[3] * 143.957 / self.density
                 elif cv[1] == 1:  # kPa
                     hd = 20.894 * cv[3] / self.density
+                elif cv[1] == 3:   # meters
+                    hd = cv[3] * 3.28
                 else:  # ft H2O
                     hd = cv[3]
 
@@ -313,6 +315,7 @@ class Report_Data(object):
         for nd, val in self.node_press.items():
             rptdata = []
             rptdata.append(nd)
+
             if elev[nd][1] == 1:
                 el = float(elev[nd][0] * 3.3)
                 rptdata.append(round(el,2))
@@ -367,17 +370,19 @@ class Report_Data(object):
                 typ = 'PRV'
             else:
                 typ = 'BPV'
-
+            # set pressure in psig
             if cv[1] == 0:
                 set_ft = cv[3] * 143.957 / self.density
                 set_kpa = cv[3] * 6.895
                 set_psig = cv[3]
+            # set pressure in kPa
             elif cv[1] == 1:
                 set_kpa = cv[3]
                 set_psig = cv[3] / 6.895
                 set_ft = set_psig * 143.957 / self.density
-            else:
-                set_ft = cv[3]
+            # set pressure in meters of water
+            elif cv[1] == 3:
+                set_ft = cv[3] * 3.28
                 set_psig = cv[3] * self.density / 143.957
                 set_kpa = set_psig * 6.895
 
