@@ -247,11 +247,11 @@ class Report_Data(object):
                     start_nd = up_node
 
                 if cv[1] == 0:  # psig
-                    hd = cv[3] * 143.957 / self.density
+                    hd = float(cv[3]) * 143.957 / self.density
                 elif cv[1] == 1:  # kPa
-                    hd = 20.894 * cv[3] / self.density
+                    hd = 20.894 * float(cv[3]) / self.density
                 elif cv[1] == 3:   # meters
-                    hd = cv[3] * 3.28
+                    hd = float(cv[3]) * 3.28
                 else:  # ft H2O
                     hd = cv[3]
 

@@ -541,7 +541,7 @@ class Calc(object):
                 f = 1
                 t = 1
             elif v[0] == 2:
-                f = .0098
+                f = .00981
                 t = 3.28
             pump_Flow = np.array([v[2]*f,v[3]*f,v[4]*f])
             pump_TDH = np.array([v[5]*t,v[6]*t,v[7]*t])
@@ -561,6 +561,7 @@ class Calc(object):
             var_matx[n - N_pmp] = 1
             A_var[k] = A, n - N_pmp
             ho_cof[k] = ho, n - N_pmp
+            print(A,B,Ho,ho,cof_arry)
             trans_var.append(var_matx)
             trans_cof.append(cof_arry)
             n += 1
