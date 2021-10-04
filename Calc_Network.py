@@ -561,10 +561,10 @@ class Calc(object):
             var_matx[n - N_pmp] = 1
             A_var[k] = A, n - N_pmp
             ho_cof[k] = ho, n - N_pmp
-            print(A,B,Ho,ho,cof_arry)
             trans_var.append(var_matx)
             trans_cof.append(cof_arry)
             n += 1
+            print(A,B,Ho,ho)
         return trans_var, trans_cof, A_var, ho_cof
 
     def node_matrix(self):
