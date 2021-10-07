@@ -1,4 +1,5 @@
 import wx
+import re
 import DBase
 import wx.lib.mixins.gridlabelrenderer as glr
 import wx.grid as gridlib
@@ -94,6 +95,7 @@ def ScnFil(obj, colm1, colm2, colm3, num_row): #, rd_btns1=[], rd_btns2=[]):
     # returns a list consisting of the required
     # widgets to be loaded for the specified notebook page
     return lst
+
 
 class PipeFrm(wx.Frame):
 

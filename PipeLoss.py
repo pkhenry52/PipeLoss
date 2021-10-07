@@ -214,6 +214,7 @@ class InputForm(wx.Frame):
                              wx.FONTWEIGHT_BOLD))
         attr.SetAlignment(wx.ALIGN_CENTRE, wx.ALIGN_CENTRE)
         self.grd.SetColAttr(0, attr)
+        self.dflt_grd_clr = self.grd.GetCellBackgroundColour(1,1)
 
         #freeze the grid size
         self.grd.EnableDragGridSize(False)
@@ -284,6 +285,13 @@ class InputForm(wx.Frame):
         self.Maximize(True)
 
     def OnOpen(self,evt):
+        self.grd.ClearGrid()
+
+        for r in range(26):
+            self.grd.SetRowLabelRenderer(r, RowLblRndr((255,255,255,255)))
+            for c in range(3):
+                self.grd.SetCellBackgroundColour(r,c,(255,255,255,255))
+
         dlg = OpenFile(self)
         dlg.ShowModal()
 

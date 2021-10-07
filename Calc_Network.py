@@ -564,7 +564,6 @@ class Calc(object):
             trans_var.append(var_matx)
             trans_cof.append(cof_arry)
             n += 1
-            print(A,B,Ho,ho)
         return trans_var, trans_cof, A_var, ho_cof
 
     def node_matrix(self):
