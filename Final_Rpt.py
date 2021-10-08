@@ -15,7 +15,6 @@ class Report_Data(object):
 
         self.Flows = Qs
         self.D_e = D_e
-
         self.density = density
         self.kin_vis = kin_vis
         self.abs_vis = abs_vis
@@ -253,9 +252,9 @@ class Report_Data(object):
                 elif cv[1] == 3:   # meters
                     hd = float(cv[3]) * 3.28
                 else:  # ft H2O
-                    hd = cv[3]
+                    hd = float(cv[3])
 
-                self.node_press[start_nd] = hd - self.head_loss[ln] * cv[2] / cv[4]
+                self.node_press[start_nd] = hd - self.head_loss[ln] * float(cv[2]) / float(cv[4])
                 to_do_nodes.append(start_nd)
                 flow_lines.remove(ln)
 
@@ -372,18 +371,18 @@ class Report_Data(object):
                 typ = 'BPV'
             # set pressure in psig
             if cv[1] == 0:
-                set_ft = cv[3] * 143.957 / self.density
-                set_kpa = cv[3] * 6.895
-                set_psig = cv[3]
+                set_ft = float(cv[3]) * 143.957 / self.density
+                set_kpa = float(cv[3]) * 6.895
+                set_psig = float(cv[3])
             # set pressure in kPa
             elif cv[1] == 1:
-                set_kpa = cv[3]
-                set_psig = cv[3] / 6.895
+                set_kpa = float(cv[3])
+                set_psig = float(cv[3]) / 6.895
                 set_ft = set_psig * 143.957 / self.density
             # set pressure in meters of water
             elif cv[1] == 3:
-                set_ft = cv[3] * 3.28
-                set_psig = cv[3] * self.density / 143.957
+                set_ft = float(cv[3]) * 3.28
+                set_psig = float(cv[3]) * self.density / 143.957
                 set_kpa = set_psig * 6.895
 
             pt1, pt2 = self.parent.runs[ln][0]

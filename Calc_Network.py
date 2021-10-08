@@ -466,42 +466,21 @@ class Calc(object):
             if unt == 0:
                 dia = float(itm[1])
             elif unt == 1:
-                dia = float(itm[1]) * 12.0
-            elif unt == 2:
-                dia = float(itm[1]) * 39.37
-            elif unt == 3:
-                dia = float(itm[1]) / 2.54
-            else:
                 dia = float(itm[1]) / 25.4
 
             # convert the input length to feet
             unt = itm[7]
             if unt == 0:
-                Lgth = float(itm[2]) / 12
-                lgth = lgth / 12
-            elif unt == 1:
                 Lgth = float(itm[2])
-            elif unt == 2:
+            elif unt == 1:
                 Lgth = float(itm[2]) * 3.281
-                lgth = lgth * 3.281
-            elif unt == 3:
-                Lgth = float(itm[2]) * .0328
-                lgth = lgth * .0328
-            else:
-                Lgth = float(itm[2]) * .003281
-                lgth = lgth * .003281   
+                lgth = lgth * 3.281 
 
             # specify the corresponding absolute e in inches
             unt = itm[8]
             if unt == 0:
                 e = float(itm[3])
             elif unt == 1:
-                e = float(itm[3]) * 12
-            elif unt == 2:
-                e = float(itm[3]) * 39.37
-            elif unt == 3:
-                e = float(itm[3]) / 2.54
-            elif unt == 4:
                 e = float(itm[3]) / 25.4
 
             Chw = 100  # this can be changed but has limited effect on

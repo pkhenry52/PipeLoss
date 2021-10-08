@@ -123,7 +123,7 @@ class PipeFrm(wx.Frame):
         self.nb = wx.Notebook(self)
 
         self.nb.lbl = lbl
-        self.nb.units = ['inches', 'feet', 'meters', 'centimeters', 'millimeters']
+#        self.nb.units = ['inches', 'feet', 'meters', 'centimeters', 'millimeters']
         self.nb.mtr = ['Plastic', 'A53 / A106', 'Concrete Smooth', 'Concrete Rough',
                        'Copper Tubing', 'Drawn Tube', 'Galvanized',
                        'Stainless Steel', 'Rubber Lined']
@@ -271,27 +271,27 @@ class PipeFrm(wx.Frame):
             if self.nb.GetPage(old).info1.GetValue() != '':
                 # convert the input diameter to inches
                 unt = self.nb.GetPage(old).unt1.GetSelection()
-                if unt == 1:
+                if unt == 0:
                     self.dia = float(self.nb.GetPage(old).info1.GetValue())
-                elif unt == 0:
-                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 12
-                elif unt == 2:
-                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 39.37
-                elif unt == 3:
-                    self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 2.54
+                    '''elif unt == 1:
+                        self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 12
+                    elif unt == 2:
+                        self.dia = float(self.nb.GetPage(old).info1.GetValue()) * 39.37
+                    elif unt == 3:
+                        self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 2.54'''
                 else:
                     self.dia = float(self.nb.GetPage(old).info1.GetValue()) / 25.4
 
                 # specify the coresponding e value in inches for the selected material
                 unt = self.nb.GetPage(old).unt3.GetSelection()
-                if unt == 1:
+                if unt == 0:
                     e = float(self.nb.GetPage(old).info3.GetValue())
-                elif unt == 0:
-                    e = float(self.nb.GetPage(old).info3.GetValue()) * 12
-                elif unt == 2:
-                    e = float(self.nb.GetPage(old).info3.GetValue()) * 39.37
-                elif unt == 3:
-                    e = float(self.nb.GetPage(old).info3.GetValue()) / 2.54
+                    '''elif unt == 1:
+                        e = float(self.nb.GetPage(old).info3.GetValue()) * 12
+                    elif unt == 2:
+                        e = float(self.nb.GetPage(old).info3.GetValue()) * 39.37
+                    elif unt == 3:
+                        e = float(self.nb.GetPage(old).info3.GetValue()) / 2.54'''
                 else:
                     e = float(self.nb.GetPage(old).info3.GetValue()) / 25.4
 
@@ -601,7 +601,13 @@ class General(wx.Panel):
         self.add_vlv = False
         self.vlv_chg = False
 
-        chcs_1 = self.parent.units
+        #  ==== For combo box drop down =====
+        SQL_Chk = 'SELECT Size, Sch, ID_inches, ID_mm FROM PipeDimensions'
+        self.tbl_data = DBase.Dbase(wx.GetTopLevelParent(self.parent).parent).Dsqldata(SQL_Chk)
+        # ===================================
+
+        chcs_1 = ['inches', 'mm']
+        chcs_2 = ['feet', 'meters']
         row_lst = [['Plastics', '0.0015', '0.00006'],
                    ['A53\nA106', '0.0610', '0.00240'],
                    ['Concrete\nSmooth', '0.0400', '0.00157'],
@@ -622,18 +628,27 @@ class General(wx.Panel):
         top2_sizer = wx.BoxSizer(wx.VERTICAL)
         grd = wx.FlexGridSizer(3,3,10,10)
 
-        hdr1 = wx.StaticText(self, label='Diameter',
+        hdr1 = wx.StaticText(self, label='Pipe ID',
                              style=wx.ALIGN_LEFT)
         hdr2 = wx.StaticText(self, label='Length',
                              style=wx.ALIGN_LEFT)
         hdr3 = wx.StaticText(self, label='Absolute\nRoughness',
                              style=wx.ALIGN_CENTER)
 
-        self.info1 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
         self.unt1 = wx.Choice(self, choices=chcs_1)
         self.unt1.SetSelection(0)
+        self.Bind(wx.EVT_CHOICE, self.DiaUnits, self.unt1)
+
+        self.info1 = wx.ComboCtrl(self, pos=(10, 10),
+                                   size=(100, -1), style=wx.CB_READONLY)
+        self.info1.SetPopupControl(
+            ListCtrlComboPopup(self.tbl_data, showcol=self.unt1.GetSelection()+3))
+        self.Bind(wx.EVT_COMBOBOX_CLOSEUP, self.WallThk, self.info1)
+
+#        self.info1 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
+
         self.info2 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
-        self.unt2 = wx.Choice(self, choices=chcs_1)
+        self.unt2 = wx.Choice(self, choices=chcs_2)
         self.unt2.SetSelection(1)
         self.info3 = wx.TextCtrl(self, value='', style=wx.TE_RIGHT)
         self.unt3 = wx.Choice(self, choices=chcs_1)
@@ -831,6 +846,14 @@ class General(wx.Panel):
         self.SetSizer(self.sizer)
         self.Layout()
         self.Refresh()
+
+    def WallThk(self, evt):
+        print('Selected NPS ' + str(self.info1.GetValue()))
+
+    def DiaUnits(self, evt):
+        self.info1.ChangeValue('')
+        self.info1.SetPopupControl(
+            ListCtrlComboPopup(self.tbl_data, showcol=self.unt1.GetSelection()+2))
 
 
 class ManVlv1(wx.ScrolledWindow):
@@ -1067,3 +1090,115 @@ class EntExt(wx.ScrolledWindow):
                     continue
                 if indx != lst_indx:
                     self.pg_chk[indx].SetValue(False)
+
+
+class ListCtrlComboPopup(wx.ComboPopup):
+
+    '''CLASS TO HANDLE THE CHANGES TO THE COMBO POPUP LIST'''
+    def __init__(self, tbl_data, showcol=0):
+
+        wx.ComboPopup.__init__(self)
+        self.tbl_data = tbl_data
+        self.showcol = showcol
+
+    def AddItem(self, txt):
+        self.lc.InsertItem(self.lc.GetItemCount(), txt)
+
+    def OnLeftDown(self, evt):
+        item, flags = self.lc.HitTest(evt.GetPosition())
+        if item == -1:
+            return
+        if item >= 0:
+            self.lc.Select(item, on=0)
+            self.curitem = item
+        self.value = self.curitem
+        self.Dismiss()
+
+    # This is called immediately after construction finishes.  You can
+    # use self.GetCombo if needed to get to the ComboCtrl instance.
+    def Init(self):
+        self.value = -1
+        self.curitem = -1
+
+    # Create the popup child control.  Return true for success.
+    def Create(self, parent):
+        self.index = 0
+
+        self.lc = wx.ListCtrl(parent, size=wx.DefaultSize,
+                              style=wx.LC_REPORT | wx.BORDER_SUNKEN
+                              | wx.LB_SINGLE)
+
+        # this looks up the data for
+        # the individual tables representing each combo box
+        self.lc.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
+        
+        name_list = ['NPS', 'Sch', 'ID inches', 'ID mm']
+        lstcolwdth = [108,45,81,72]
+
+        n = 0
+        for colname in name_list:
+            self.lc.InsertColumn(n, colname)
+            self.lc.SetColumnWidth(n, lstcolwdth[n])
+            n += 1
+
+        index = 0
+        for values in self.tbl_data:
+            col = 0
+            for value in values:
+                if col == 0:
+                    self.lc.InsertItem(index, str(value))
+                else:
+                    self.lc.SetItem(index, col, str(value))
+                col += 1
+            index += 1
+        return True
+
+    # Return the widget that is to be used for the popup
+    def GetControl(self):
+        return self.lc
+
+    # Return a string representation of the current item.
+    def GetStringValue(self):
+        if self.value == -1:
+            return
+        return self.lc.GetItemText(self.value, self.showcol)
+
+    # Called immediately after the popup is shown
+    def OnPopup(self):
+        # this provides the original combox value
+        # if self.value >= 0:
+        #    print('OnPopUp',self.lc.GetItemText(self.value))
+        wx.ComboPopup.OnPopup(self)
+
+    # Called when popup is dismissed
+    def OnDismiss(self):
+        # this provides the new combo value
+        # print('OnDismiss',self.lc.GetItemText(self.value))
+        wx.ComboPopup.OnDismiss(self)
+
+    def PaintComboControl(self, dc, rect):
+        # This is called to custom tube in the combo control itself
+        # (ie. not the popup).  Default implementation draws value as
+        # string.
+        wx.ComboPopup.PaintComboControl(self, dc, rect)
+
+    # Return final size of popup. Called on every popup, just prior to OnPopup.
+    # minWidth = preferred minimum width for window
+    # prefHeight = preferred height. Only applies if > 0,
+    # maxHeight = max height for window, as limited by screen size
+    #   and should only be rounded down, if necessary.
+    def GetAdjustedSize(self, minWidth, prefHeight, maxHeight):
+        minWidthNew = 0
+        for cl in range(0, self.lc.GetColumnCount()):
+            minWidthNew = self.lc.GetColumnWidth(cl) + minWidthNew
+        minWidth = minWidthNew
+        return wx.ComboPopup.GetAdjustedSize(self, minWidth, 150, 800)
+
+    # Return true if you want delay the call to Create until the popup
+    # is shown for the first time. It is more efficient, but note that
+    # it is often more convenient to have the contrminWidth
+    # immediately.
+    # Default returns false.
+    def LazyCreate(self):
+        return wx.ComboPopup.LazyCreate(self)
+
