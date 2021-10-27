@@ -6,7 +6,7 @@ import PDF_Rpt
     
 class Report_Data(object):
 
-    def __init__(self, parent, filename, Qs, D_e, density, kin_vis, abs_vis):
+    def __init__(self, parent, filename, Qs, D_e, density, kin_vis):
         self.parent = parent
 
         ttl = os.path.basename(filename)
@@ -17,7 +17,7 @@ class Report_Data(object):
         self.D_e = D_e
         self.density = density
         self.kin_vis = kin_vis
-        self.abs_vis = abs_vis
+        self.abs_vis = kin_vis * density
         self.head_loss = {}
 
     def tbl_data(self):

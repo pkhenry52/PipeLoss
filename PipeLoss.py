@@ -1982,13 +1982,13 @@ to a tank, pump or contain a control valve"
         DBase.Dbase(self).Daddrows(Insql, Indata)
 
     def OnCalc(self, evt):
-        Qs, D_e, density, kin_vis, abs_vis = Calc_Network.Calc(self, self.cursr, self.db).Evaluation()
+        Qs, D_e, density, kin_vis = Calc_Network.Calc(self, self.cursr, self.db).Evaluation()
         if Qs != {}:
             dlg = DataOut.DataOutPut(None, Qs)
             self.data_save = dlg.ShowModal()
             dlg.Destroy()
             if self.data_save:
-                Final_Rpt.Report_Data(self, self.file_name, Qs, D_e, density, kin_vis, abs_vis).tbl_data()
+                Final_Rpt.Report_Data(self, self.file_name, Qs, D_e, density, kin_vis).tbl_data()
 
                 msg1 = "The report data has been saved as\n"
                 msg2 = self.file_name[:-2] + 'pdf'
