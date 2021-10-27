@@ -3,11 +3,11 @@
 ## Bases
 This program is a GUI interface for the analysis of pipe networks based on the documentation by Roland W. Jeppson:
 January 1974
-### Steady Flow Analysis of Pipe Networks: An Instructional Manual
+#### Steady Flow Analysis of Pipe Networks: An Instructional Manual
 
 and the follow up book;
 
-### Hydraulics of Pipeline Systems
+#### Hydraulics of Pipeline Systems
 by;
 Bruce E. Larock
 Roland W. Jeppson
