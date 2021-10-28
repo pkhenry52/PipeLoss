@@ -3,7 +3,7 @@ import numpy as np
 import DBase
 from math import cos, pi, log10, log, exp
 
-# need to determine the correct number of loops to include in matrix
+
 class Calc(object):
         
     def __init__(self, parent, cursr, db):
@@ -25,8 +25,6 @@ class Calc(object):
         self.Q_old = {}
 
         self.dct = self.Kt_vals()
-
-#        self.density, self.kin_vis, self.abs_vis = self.Vis_Ro()
         self.density, self.kin_vis = self.Vis_Ro()
 
     def Kt_vals(self):
@@ -50,48 +48,59 @@ class Calc(object):
         qry = 'SELECT * FROM Fluid'
         tbldata = DBase.Dbase(self).Dsqldata(qry)
 
-        rho_mix = None
-        nu_mix = None
-#        eta_mix = None
+        rho_f = None
+        nu_f = None
 
         if tbldata == []:
             msg = "No fluid data has been specified."
             self.WarnData(msg)
-            return rho_mix, nu_mix #, eta_mix
+            return rho_f, nu_f #, eta_mix
         else:
             dt = tbldata[0]
 
-            if (dt[1] == '' and dt[6] == ''):
+            if (dt[1] == 0 and dt[6] == 0):
                 msg = "No fluid density has been specified."
                 self.WarnData(msg)
-                return rho_mix, nu_mix #, eta_mix
-            elif (dt[1] != '' and dt[13] == -1) or (dt[6] != '' 
-                  and dt[16] == -1):
+                return rho_f, nu_f
+            elif (dt[1] != 0 and dt[14] == -1) or (dt[6] != 0 
+                  and dt[17] == -1):
                 msg = "Fluid density units have not been specified"
                 self.WarnData(msg)
-                return rho_mix, nu_mix #, eta_mix
+                return rho_f, nu_f
 
-            if (dt[2] == '' and dt[3] == '' and dt[7] == '' and dt[8] == ''):
-                msg = "No fluid vicosity has been specified."
+            if (dt[1] != 0 and dt[2] == 0 and dt[3] == 0) or \
+             (dt[6] != 0 and dt[7] == 0 and dt[8] == 0):
+                msg = "Fluid vicosity has not been specified."
                 self.WarnData(msg)
-                return rho_mix, nu_mix #, eta_mix
-            elif (dt[2] != '' and dt[14] == -1 or dt[3] != ''
-                  and dt[15] == -1) or (dt[7] != '' and
-                  dt[17] == -1 or dt[8] != '' and dt[18] == -1):
+                return rho_f, nu_f
+            elif (dt[2] != 0 and dt[15] == -1 or dt[3] != 0
+                  and dt[16] == -1) or (dt[7] != 0 and
+                  dt[18] == -1 or dt[8] != 0 and dt[19] == -1):
                 msg = "Fluid vicosity units have not been specified."
                 self.WarnData(msg)
-                return rho_mix, nu_mix #, eta_mix
+                return rho_f, nu_f
 
-            if (dt[4] == '' and dt[5] == '' and dt[9] == '' and dt[10] == ''):
+            if (dt[1] != 0 and dt[4] == 0 and dt[5] == 0) or \
+             (dt[6] != 0 and dt[9] == 0 and dt[10] == 0):
                 msg = 'No fluid concentration has been specified.  If this is'
                 msg2 = ' a homogenous fluid specify "% by vol" as 100'
                 self.WarnData(msg + msg2)
-                return rho_mix, nu_mix #, eta_mix
+                return rho_f, nu_f
 
-            if dt[11] != '' and dt[19] == -1:
-                msg = "Solids density units have not been specified."
-                self.WarnData(msg)
-                return rho_mix, nu_mix #, eta_mix                
+            if dt[11] != 0:
+                if dt[20] == -1:
+                    msg = "Solids density units have not been specified."
+                    self.WarnData(msg)
+                    return rho_f, nu_f
+
+                if dt[12] == 0 and dt[13] == 0:
+                    msg1 = 'Either percent solids by weight'
+                    msg2 = ' or by volume need to be specified'
+                    self.WarnData(msg1 + msg2)
+                    return rho_f, nu_f
+
+        # this will calculate the liquid viscosity
+        # and density without any slurry present
 
         # collect the densities convert to lb/ft^3
         rho_1 = float(dt[1])
@@ -101,7 +110,7 @@ class Calc(object):
         if rho_1 == 0 and rho_2 == 0:
             msg = "Both fluid densities cannot be specified as zero."
             self.WarnData(msg)
-            return rho_mix, nu_mix #, eta_mix             
+            return rho_f, nu_f
 
         if dt[14] == 1:
             rho_1 *= 62.428
@@ -122,7 +131,7 @@ class Calc(object):
         Cw_1 = dt[5]
         Cv_2 = dt[9]
         Cw_2 = dt[10]
-        
+
         # if the volume of weight percent do not add up
         # to 100 then adjust based on given values
         if Cv_1 + Cv_2 != 100:
@@ -173,14 +182,14 @@ class Calc(object):
                 nu_1 = eta_1 / rho_1
             else:
                 eta_1 = nu_1 * rho_1
-            rho_mix = rho_1
+            rho_f = rho_1
         elif rho_1 == 0:
             rho_f = rho_2
             if nu_2 == 0:
                 nu_2 = eta_2 / rho_2
             else:
                 eta_2 = nu_2 * rho_2
-            rho_mix = rho_2
+            rho_f = rho_2
         else:
             # calculate the liquid mixture density
             if Cw_1 != 0 and Cw_2 != 0:
@@ -192,31 +201,23 @@ class Calc(object):
                 Cw_1 = Cv_1 * rho_1 / rho_f
                 Cw_2 = Cv_2 * rho_2 / rho_f
 
-        '''x_1 = (dt[5] * rho_1) /((dt[5] * rho_1) + (dt[10] * rho_2))
-        x_2 = (dt[10] * rho_2) /((dt[5] * rho_1) + (dt[10] * rho_2))
-        rho_mix = (x_1 / rho_1 + x_2 / rho_2) ** -1'''          
-
         # if there are solids present then calculate
         # the slurry vicosity and density
         if nu_1 == 0:
-#            eta_mix = nu_2 * rho_mix * 1487
             nu_f = nu_2
         elif nu_2 == 0:
-#            eta_mix = nu_1 * rho_mix * 1487
             nu_f = nu_1
         else:
-            # VBN_1 = log(nu_1/.00001076) / log(1000 * nu_1/.00001076)
             VBN_1 = 14.534 * log(log(nu_1/.00001076 + 0.8)) + 10.975
-            # VBN_2 = log(nu_2/.00001076) / log(1000 * nu_2/.00001076)
             VBN_2 = 14.534 * log(log(nu_2/.00001076 + 0.8)) + 10.975
 
-            # VBN_f = (Cv_1/100 * VBN_1) + (Cv_2/100 * VBN_2)
             VBN_f = (Cw_1/100 * VBN_1) + (Cw_2/100 * VBN_2)
 
             exp_1 = 2.71828**((VBN_f - 10.975) / 14.534)
             nu_f = (2.71828**(exp_1) - .8) * .00001076
-#            eta_mix = nu_mix * rho_mix * 1487
 
+        # if solids are present then recalc density and
+        # viscosity bsaed on slurry equations
         if dt[11] != 0:
             if dt[12] != 0:
                 rho_s = dt[11]
@@ -224,19 +225,26 @@ class Calc(object):
                     rho_s *= 62.428
                 elif dt[20] == 2:
                     rho_s *= .06243
-            
+
             Cw_m = dt[12]
-            rho_f = 100 / ((Cw_m / rho_s) + ((100 - Cw_m) / rho_f))
-            Cv_m = Cw_m * rho_f / rho_s
+            Cv_m = dt[13]
+            if Cw_m != 0:
+                rho_f = 100 / ((Cw_m / rho_s) + ((100 - Cw_m) / rho_f))
+                Cv_m = Cw_m * rho_f / rho_s
+            elif Cv_m !=0:
+                rho_f = Cv_m / 100 * (rho_s - rho_f) + rho_f
+                Cw_m = Cv_m * rho_s / rho_f
 
             if Cw_m <= 1:
                 nu_f = nu_f * (1 + 2.5 * Cv_m)
             elif Cw_m > 1 and Cw_m <= 20:
-                nu_f = nu_f * (1 + 2.5 * Cv_m / 100 + 14.1 * (Cw_m/100)**2)
+                nu_f = nu_f * (1 + 2.5 * Cv_m / 100 + 14.1 * (Cv_m/100)**2)
             elif Cw_m > 20:
-                nu_f = nu_f * (1 + 2.5 * Cv_m / 100 + 10.05 * (Cw_m/100)**2 + .00273 * exp**(16.6*Cw_m/100))
-
-        return rho_f, nu_f #, eta_mix
+                coef_1 = (1 + 2.5 * Cv_m / 100 + 10.05 * (Cv_m/100)**2 )
+                coef_2 = (.00273 * 2.71828**(16.6*Cv_m/100))
+                nu_f = nu_f * (coef_1 + coef_2)
+        print(rho_f, nu_f)
+        return rho_f, nu_f
 
     def Evaluation(self):
         Nl = 0
