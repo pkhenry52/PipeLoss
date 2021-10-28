@@ -243,7 +243,7 @@ class Calc(object):
                 coef_1 = (1 + 2.5 * Cv_m / 100 + 10.05 * (Cv_m/100)**2 )
                 coef_2 = (.00273 * 2.71828**(16.6*Cv_m/100))
                 nu_f = nu_f * (coef_1 + coef_2)
-        print(rho_f, nu_f)
+
         return rho_f, nu_f
 
     def Evaluation(self):
