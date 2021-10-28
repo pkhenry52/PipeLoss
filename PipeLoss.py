@@ -214,7 +214,7 @@ class InputForm(wx.Frame):
                              wx.FONTWEIGHT_BOLD))
         attr.SetAlignment(wx.ALIGN_CENTRE, wx.ALIGN_CENTRE)
         self.grd.SetColAttr(0, attr)
-        self.dflt_grd_clr = self.grd.GetCellBackgroundColour(1,1)
+        self.dflt_grd_clr = (211,211,211)
 
         #freeze the grid size
         self.grd.EnableDragGridSize(False)
@@ -225,7 +225,7 @@ class InputForm(wx.Frame):
         self.grd.SetColLabelValue(0, "Start\nPoint")
         self.grd.SetColLabelValue(1, "End\nX")
         self.grd.SetColLabelValue(2, "End\nY")
-        self.default_color = self.grd.GetLabelBackgroundColour()
+#        self.default_color = self.grd.GetLabelBackgroundColour()
         # set the left column lables alphabetic
         rowNum = 0
         for c in string.ascii_uppercase:
@@ -242,8 +242,8 @@ class InputForm(wx.Frame):
 
         btnsizer = wx.BoxSizer(wx.HORIZONTAL)
         drw = wx.Button(self, -1, label="Redraw\nLines")
-        self.loop = wx.Button(self, id=0, label="Select\nReal Loop\nLines")
-        self.pseudo = wx.Button(self, id=1, label="Select\nPseudo Loop\nLines")
+        self.loop = wx.Button(self, id=0, label="Select\nReal Loop")
+        self.pseudo = wx.Button(self, id=1, label="Select\nPseudo Loop")
         xit = wx.Button(self, -1, "Exit")
         btnsizer.Add(drw, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         btnsizer.Add(self.loop, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
@@ -256,9 +256,9 @@ class InputForm(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnLoop, self.pseudo)
         self.Bind(wx.EVT_BUTTON, self.OnExit, xit)
 
-        sizerL.Add((10, 20))
-        sizerL.Add(self.grd, 0, wx.EXPAND)
-        sizerL.Add(btnsizer, 1, wx.ALIGN_CENTER)
+#        sizerL.Add((10, 20))
+        sizerL.Add(self.grd, 1, wx.EXPAND)
+        sizerL.Add(btnsizer, 1, wx.ALIGN_CENTER, wx.EXPAND)
 
         sizerR = wx.BoxSizer(wx.VERTICAL)
         # add the draw panel
@@ -288,9 +288,9 @@ class InputForm(wx.Frame):
         self.grd.ClearGrid()
 
         for r in range(26):
-            self.grd.SetRowLabelRenderer(r, RowLblRndr((255,255,255,255)))
+            self.grd.SetRowLabelRenderer(r, RowLblRndr((245,245,245)))
             for c in range(3):
-                self.grd.SetCellBackgroundColour(r,c,(255,255,255,255))
+                self.grd.SetCellBackgroundColour(r,c,self.dflt_grd_clr)
 
         dlg = OpenFile(self)
         dlg.ShowModal()
@@ -450,7 +450,8 @@ class InputForm(wx.Frame):
         # lines in which they are an end point
 
         for lbl in nds:
-            bg_clr = 'green'
+#            bg_clr = 'green'
+            bg_clr = (124,252,0)
 
             if len(self.nodes[lbl]) == 1 \
                and lbl not in self.pumps \
@@ -479,8 +480,8 @@ class InputForm(wx.Frame):
             for ln,saved in tbl_data:
                 if saved == 1:
                     row = ord(ln) - 65
-                    self.grd.SetRowLabelRenderer(row,
-                    RowLblRndr('green'))
+                    self.grd.SetRowLabelRenderer(row, RowLblRndr((124,252,0)))
+#                    RowLblRndr('green'))
 
     def add_toolbar(self):
         self.toolbar = NavigationToolbar(self.canvas)
@@ -935,14 +936,14 @@ class InputForm(wx.Frame):
             self.grd.SetCellValue(row, 2, '')
             # reset the effected cell colors
 
-            self.grd.SetCellBackgroundColour(row, 1,
-            self.grd.GetDefaultCellBackgroundColour())
-            self.grd.SetCellBackgroundColour(row, 2,
-            self.grd.GetDefaultCellBackgroundColour())
+            self.grd.SetCellBackgroundColour(row, 1, self.dflt_grd_clr)
+#            self.grd.GetDefaultCellBackgroundColour())
+            self.grd.SetCellBackgroundColour(row, 2, self.dflt_grd_clr)
+#            self.grd.GetDefaultCellBackgroundColour())
             if row != 0:
                 self.grd.SetCellValue(row, 0, '')
-                self.grd.SetCellBackgroundColour(row, 0,
-                self.grd.GetDefaultCellBackgroundColour())
+                self.grd.SetCellBackgroundColour(row, 0, self.dflt_grd_clr)
+#                self.grd.GetDefaultCellBackgroundColour())
 
             # remove the line node from the graphic if it is the only line present
             if len(self.runs) == 1:
@@ -1020,8 +1021,8 @@ class InputForm(wx.Frame):
                 self.RemoveVlv(lbl)
 
             # revert the line cell color back to default
-            self.grd.SetRowLabelRenderer(row, RowLblRndr(
-                self.default_color))
+            self.grd.SetRowLabelRenderer(row, RowLblRndr(self.dflt_grd_clr))
+#                self.default_color))
         self.canvas.draw()
         self.Refresh()
         self.Update()

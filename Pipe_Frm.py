@@ -565,7 +565,7 @@ class PipeFrm(wx.Frame):
         if self.data_good is True:
             # color the line label on the grid line cell green
             row = ord(self.lbl) - 65
-            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr('green'))
+            self.parent.grd.SetRowLabelRenderer(row, RowLblRndr((124,252,0)))
             # check to see if a BPV or PRV has been added or removed if so
             # pass along to parent form to add or delete valve
             if self.nb.GetPage(0).add_vlv is True:
