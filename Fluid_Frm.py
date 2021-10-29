@@ -7,7 +7,7 @@ class FluidFrm(wx.Dialog):
 
         ttl = 'Fluid Information.'
 
-        super().__init__(parent, title=ttl, size = (1100, 240))
+        super().__init__(parent, title=ttl, size = (1100, 280))
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.parent = parent
@@ -88,6 +88,11 @@ class FluidFrm(wx.Dialog):
                     ])
 
         sizer.Add(grd, proportion = 2, flag = wx.ALL|wx.EXPAND, border = 15)
+
+        msg = 'Slurry calculations are valid only for Neutonian type liquids'
+        nt_txt = wx.StaticText(self, label = msg)
+        nt_txt.SetForegroundColour((255,0,0))
+        sizer.Add(nt_txt, 1, wx.CENTER)
         self.SetSizer(sizer)
 
         self.txt_arry = [self.density_1, self.kin_vis_1, self.dyn_vis_1, self.wgt_1,
@@ -96,18 +101,19 @@ class FluidFrm(wx.Dialog):
                     self.unit_11, self.unit_12, self.unit_13, self.unit_21,
                     self.unit_22, self.unit_23, self.unit_31]
 
-        # if data exists for the fluid page fill in the boxes
-        qry = 'SELECT * FROM Fluid'
-        frm_data = DBase.Dbase(self.parent).Dsqldata(qry)
+        if self.parent.cursr_set:
+            # if data exists for the fluid page fill in the boxes
+            qry = 'SELECT * FROM Fluid'
+            frm_data = DBase.Dbase(self.parent).Dsqldata(qry)
 
-        if frm_data != []:
-            data = frm_data[0]
-            if data != []:
-                for n in range(1, len(data)):
-                    if n <= 12:
-                        self.txt_arry[n-1].SetValue(str(data[n]))
-                    else:
-                        self.txt_arry[n-1].SetSelection(data[n])
+            if frm_data != []:
+                data = frm_data[0]
+                if data != []:
+                    for n in range(1, len(data)):
+                        if n <= 12:
+                            self.txt_arry[n-1].SetValue(str(data[n]))
+                        else:
+                            self.txt_arry[n-1].SetSelection(data[n])
         else:
             self.density_1.SetValue('62.3')
             self.unit_11.SetSelection(0)
@@ -125,30 +131,31 @@ class FluidFrm(wx.Dialog):
         self.Show()
 
     def OnSave(self, evt):
-        ValueList = ['1']
-        for n in range(19):
-            if n <= 11:
-                if self.txt_arry[n].GetValue() != '':
-                    ValueList.append(self.txt_arry[n].GetValue())
+        if self.parent.cursr_set:
+            ValueList = ['1']
+            for n in range(19):
+                if n <= 11:
+                    if self.txt_arry[n].GetValue() != '':
+                        ValueList.append(self.txt_arry[n].GetValue())
+                    else:
+                        ValueList.append('0')
                 else:
-                    ValueList.append('0')
+                    ValueList.append(self.txt_arry[n].GetSelection())
+
+            col_names = [name[1] for name in DBase.Dbase(self.parent).Dcolinfo('Fluid')]
+
+            SQL_Chk = 'SELECT ID FROM Fluid'
+            
+            if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
+                num_vals = ('?,'*len(col_names))[:-1]
+                UpQuery = 'INSERT INTO Fluid VALUES (' + num_vals + ')'
             else:
-                ValueList.append(self.txt_arry[n].GetSelection())
+                col_names.remove('ID')
+                del ValueList[0]
+                SQL_str = ','.join(["%s=?" % (name) for name in col_names])
+                UpQuery = 'UPDATE Fluid SET ' + SQL_str + ' WHERE ID = 1'
 
-        col_names = [name[1] for name in DBase.Dbase(self.parent).Dcolinfo('Fluid')]
-
-        SQL_Chk = 'SELECT ID FROM Fluid'
-        
-        if DBase.Dbase(self.parent).Dsqldata(SQL_Chk) == []:
-            num_vals = ('?,'*len(col_names))[:-1]
-            UpQuery = 'INSERT INTO Fluid VALUES (' + num_vals + ')'
-        else:
-            col_names.remove('ID')
-            del ValueList[0]
-            SQL_str = ','.join(["%s=?" % (name) for name in col_names])
-            UpQuery = 'UPDATE Fluid SET ' + SQL_str + ' WHERE ID = 1'
-
-        DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
+            DBase.Dbase(self.parent).TblEdit(UpQuery, ValueList)
         self.Destroy()
 
     def OnClose(self, evt):

@@ -49,8 +49,11 @@ class Calc(object):
         qry = 'SELECT * FROM Fluid'
         tbldata = DBase.Dbase(self).Dsqldata(qry)
 
+        # desity of mix
         rho_mix = None
+        # kinematic viscosity of mix
         nu_mix = None
+        # absolute viscosity of mix
         eta_mix = None
 
         if tbldata == []:
@@ -163,7 +166,7 @@ class Calc(object):
                 eta_2 = nu_2 * rho_2
             rho_mix = rho_2
         else:
-            # calculate the liquid mixture density and vicosity
+            # calculate the liquid mixture density
             x_1 = (dt[5] * rho_1) /((dt[5] * rho_1) + (dt[10] * rho_2))
             x_2 = (dt[10] * rho_2) /((dt[5] * rho_1) + (dt[10] * rho_2))
             rho_mix = (x_1 / rho_1 + x_2 / rho_2) ** -1           
