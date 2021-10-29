@@ -3,7 +3,7 @@ import numpy as np
 import DBase
 from math import cos, pi, log10, log, exp
 
-# need to determine the correct number of loops to include in matrix
+
 class Calc(object):
         
     def __init__(self, parent, cursr, db):
@@ -25,8 +25,7 @@ class Calc(object):
         self.Q_old = {}
 
         self.dct = self.Kt_vals()
-
-        self.density, self.kin_vis, self.abs_vis = self.Vis_Ro()
+        self.density, self.kin_vis = self.Vis_Ro()
 
     def Kt_vals(self):
         # get all the Kt values from the various
@@ -49,51 +48,59 @@ class Calc(object):
         qry = 'SELECT * FROM Fluid'
         tbldata = DBase.Dbase(self).Dsqldata(qry)
 
-        # desity of mix
-        rho_mix = None
-        # kinematic viscosity of mix
-        nu_mix = None
-        # absolute viscosity of mix
-        eta_mix = None
+        rho_f = None
+        nu_f = None
 
         if tbldata == []:
             msg = "No fluid data has been specified."
             self.WarnData(msg)
-            return rho_mix, nu_mix, eta_mix
+            return rho_f, nu_f #, eta_mix
         else:
             dt = tbldata[0]
 
-            if (dt[1] == '' and dt[6] == ''):
+            if (dt[1] == 0 and dt[6] == 0):
                 msg = "No fluid density has been specified."
                 self.WarnData(msg)
-                return rho_mix, nu_mix, eta_mix
-            elif (dt[1] != '' and dt[13] == -1) or (dt[6] != '' 
-                  and dt[16] == -1):
+                return rho_f, nu_f
+            elif (dt[1] != 0 and dt[14] == -1) or (dt[6] != 0 
+                  and dt[17] == -1):
                 msg = "Fluid density units have not been specified"
                 self.WarnData(msg)
-                return rho_mix, nu_mix, eta_mix
+                return rho_f, nu_f
 
-            if (dt[2] == '' and dt[3] == '' and dt[7] == '' and dt[8] == ''):
-                msg = "No fluid vicosity has been specified."
+            if (dt[1] != 0 and dt[2] == 0 and dt[3] == 0) or \
+             (dt[6] != 0 and dt[7] == 0 and dt[8] == 0):
+                msg = "Fluid vicosity has not been specified."
                 self.WarnData(msg)
-                return rho_mix, nu_mix, eta_mix
-            elif (dt[2] != '' and dt[14] == -1 or dt[3] != ''
-                  and dt[15] == -1) or (dt[7] != '' and
-                  dt[17] == -1 or dt[8] != '' and dt[18] == -1):
+                return rho_f, nu_f
+            elif (dt[2] != 0 and dt[15] == -1 or dt[3] != 0
+                  and dt[16] == -1) or (dt[7] != 0 and
+                  dt[18] == -1 or dt[8] != 0 and dt[19] == -1):
                 msg = "Fluid vicosity units have not been specified."
                 self.WarnData(msg)
-                return rho_mix, nu_mix, eta_mix
+                return rho_f, nu_f
 
-            if (dt[4] == '' and dt[5] == '' and dt[9] == '' and dt[10] == ''):
+            if (dt[1] != 0 and dt[4] == 0 and dt[5] == 0) or \
+             (dt[6] != 0 and dt[9] == 0 and dt[10] == 0):
                 msg = 'No fluid concentration has been specified.  If this is'
                 msg2 = ' a homogenous fluid specify "% by vol" as 100'
                 self.WarnData(msg + msg2)
-                return rho_mix, nu_mix, eta_mix
+                return rho_f, nu_f
 
-            if dt[11] != '' and dt[19] == -1:
-                msg = "Solids density units have not been specified."
-                self.WarnData(msg)
-                return rho_mix, nu_mix, eta_mix                
+            if dt[11] != 0:
+                if dt[20] == -1:
+                    msg = "Solids density units have not been specified."
+                    self.WarnData(msg)
+                    return rho_f, nu_f
+
+                if dt[12] == 0 and dt[13] == 0:
+                    msg1 = 'Either percent solids by weight'
+                    msg2 = ' or by volume need to be specified'
+                    self.WarnData(msg1 + msg2)
+                    return rho_f, nu_f
+
+        # this will calculate the liquid viscosity
+        # and density without any slurry present
 
         # collect the densities convert to lb/ft^3
         rho_1 = float(dt[1])
@@ -103,37 +110,53 @@ class Calc(object):
         if rho_1 == 0 and rho_2 == 0:
             msg = "Both fluid densities cannot be specified as zero."
             self.WarnData(msg)
-            return rho_mix, nu_mix, eta_mix             
+            return rho_f, nu_f
 
-        if dt[13] == 1:
-            rho_1 = rho_1 * 62.428
-        elif dt[13] == 2:
-            rho_1 = rho_1 * .06243
-        if dt[16] == 1:
-            rho_2 = rho_2 * 62.428
-        elif dt[16] == 2:
-            rho_2 = rho_2 * .06243
-        if dt[19] == 1:
-            rho = rho * 62.428
-        elif dt[19] == 2:
-            rho = rho * .06243
+        if dt[14] == 1:
+            rho_1 *= 62.428
+        elif dt[14] == 2:
+            rho_1 *= .06243
 
-        # collect the dynamic vicosity convert to centipoise
+        if dt[17] == 1:
+            rho_2 *= 62.428
+        elif dt[17] == 2:
+            rho_2 *= .06243
+
+        if dt[20] == 1:
+            rho *= 62.428
+        elif dt[20] == 2:
+            rho *= .06243
+
+        Cv_1 = dt[4]
+        Cw_1 = dt[5]
+        Cv_2 = dt[9]
+        Cw_2 = dt[10]
+
+        # if the volume of weight percent do not add up
+        # to 100 then adjust based on given values
+        if Cv_1 + Cv_2 != 100:
+            Cv_1 += (Cv_1 * (100-Cv_1-Cv_2))
+            Cv_2 += (Cv_2 * (100-Cv_2-Cv_1))
+        elif Cw_1 + Cw_2 != 100:
+            Cw_1 += (Cw_1 * (100-Cw_1-Cw_2))
+            Cw_2 += (Cw_2 * (100-Cw_2-Cw_1))
+
+        # collect the absolute (dynamic) vicosity convert to centipoise
         # ['lbm/ft-sec', 'g/cm-s\n(poise)', 'centipoise']
         eta_1 = float(dt[3])
         eta_2 = float(dt[8])
 
         # units speced as lbm/ft-sec
-        if dt[15] == 0:
-            eta_1 = eta_1 * 1488.164
+        if dt[16] == 0:
+            eta_1 *= 1488.164
         # units speced as g/cm-s\n(poise)
-        elif dt[15] == 1:
-            eta_1 = eta_1 * 100
+        elif dt[16] == 1:
+            eta_1 *= 100
 
-        if dt[18] == 0:
-            eta_2 = eta_2 * 1488.164
-        elif dt[18] == 1:
-            eta_2 = eta_2 * 100
+        if dt[19] == 0:
+            eta_2 *= 1488.164
+        elif dt[19] == 1:
+            eta_2 *= 100
 
         # convert the kinematic viscostiy to ft^2/s
         # ['ft^2/s', 'cm^2/s\n(stokes)', 'centistokes']
@@ -141,56 +164,87 @@ class Calc(object):
         nu_2 = float(dt[7])
 
         # units speced as cm^2/s\n(stokes)
-        if dt[14] == 1:
-            nu_1 = nu_1 * .001076
+        if dt[15] == 1:
+            nu_1 *= .001076
         # units speced as centistokes
-        elif dt[14] == 2:
-            nu_1 = nu_1 * .00001076
+        elif dt[15] == 2:
+            nu_1 *= .00001076
 
-        if dt[17] == 1:
-            nu_2 = nu_2 * .001076
-        elif dt[17] == 2:
-            nu_2 = nu_2 * .00001076
+        if dt[18] == 1:
+            nu_2 *= .001076
+        elif dt[18] == 2:
+            nu_2 *= .00001076
 
         # depending on which viscosity is provided calculate the other
         if rho_2 == 0:
+            rho_f = rho_1
             if nu_1 == 0:
                 nu_1 = eta_1 / rho_1
             else:
                 eta_1 = nu_1 * rho_1
-            rho_mix = rho_1
+            rho_f = rho_1
         elif rho_1 == 0:
+            rho_f = rho_2
             if nu_2 == 0:
                 nu_2 = eta_2 / rho_2
             else:
                 eta_2 = nu_2 * rho_2
-            rho_mix = rho_2
+            rho_f = rho_2
         else:
             # calculate the liquid mixture density
-            x_1 = (dt[5] * rho_1) /((dt[5] * rho_1) + (dt[10] * rho_2))
-            x_2 = (dt[10] * rho_2) /((dt[5] * rho_1) + (dt[10] * rho_2))
-            rho_mix = (x_1 / rho_1 + x_2 / rho_2) ** -1           
+            if Cw_1 != 0 and Cw_2 != 0:
+                rho_f = 100/(Cw_1/rho_1 + Cw_2/rho_2)
+                Cv_1 = Cw_1 * rho_f / rho_1
+                Cv_2 = Cw_2 * rho_f / rho_2
+            elif Cv_1 != 0 and Cv_2 != 0:
+                rho_f = (Cv_1 * rho_1 + Cv_2 * rho_2)/100
+                Cw_1 = Cv_1 * rho_1 / rho_f
+                Cw_2 = Cv_2 * rho_2 / rho_f
 
         # if there are solids present then calculate
         # the slurry vicosity and density
         if nu_1 == 0:
-            eta_mix = nu_2 * rho_mix * 1487
-            nu_mix = nu_2
+            nu_f = nu_2
         elif nu_2 == 0:
-            eta_mix = nu_1 * rho_mix * 1487
-            nu_mix = nu_1
+            nu_f = nu_1
         else:
-            VBN_1 = log(nu_1) / log(1000 * nu_1)
-            VBN_2 = log(nu_2) / log(1000 * nu_2)
+            VBN_1 = 14.534 * log(log(nu_1/.00001076 + 0.8)) + 10.975
+            VBN_2 = 14.534 * log(log(nu_2/.00001076 + 0.8)) + 10.975
 
-            VBN_mix = (dt[5] * VBN_1) + (dt[10] * VBN_2)
-            exp_1 = (VBN_mix - 10.975) / 14.534
-            part_1 = exp(exp_1)
-            exp_2 = 1/ (part_1 ** 0.8)
-            nu_mix = exp(exp_2)
-            eta_mix = nu_mix * rho_mix * 1487
+            VBN_f = (Cw_1/100 * VBN_1) + (Cw_2/100 * VBN_2)
 
-        return rho_mix, nu_mix, eta_mix
+            exp_1 = 2.71828**((VBN_f - 10.975) / 14.534)
+            nu_f = (2.71828**(exp_1) - .8) * .00001076
+
+        # if solids are present then recalc density and
+        # viscosity bsaed on slurry equations
+        if dt[11] != 0:
+            if dt[12] != 0:
+                rho_s = dt[11]
+                if dt[20] == 1:
+                    rho_s *= 62.428
+                elif dt[20] == 2:
+                    rho_s *= .06243
+
+            Cw_m = dt[12]
+            Cv_m = dt[13]
+            if Cw_m != 0:
+                rho_f = 100 / ((Cw_m / rho_s) + ((100 - Cw_m) / rho_f))
+                Cv_m = Cw_m * rho_f / rho_s
+            elif Cv_m !=0:
+                rho_f = Cv_m / 100 * (rho_s - rho_f) + rho_f
+                Cw_m = Cv_m * rho_s / rho_f
+
+            if Cw_m <= 1:
+                nu_f = nu_f * (1 + 2.5 * Cv_m)
+            elif Cw_m > 1 and Cw_m <= 20:
+                nu_f = nu_f * (1 + 2.5 * Cv_m / 100 + 14.1 * (Cv_m/100)**2)
+            elif Cw_m > 20:
+                coef_1 = (1 + 2.5 * Cv_m / 100 + 10.05 * (Cv_m/100)**2 )
+                coef_2 = (.00273 * 2.71828**(16.6*Cv_m/100))
+                nu_f = nu_f * (coef_1 + coef_2)
+
+        return rho_f, nu_f
 
     def Evaluation(self):
         Nl = 0
@@ -251,7 +305,7 @@ class Calc(object):
 
         if procd is False:
             self.Q_old = {}
-            return self.Q_old, self.D_e, self.density, self.kin_vis, self.abs_vis
+            return self.Q_old, self.D_e, self.density, self.kin_vis #, self.abs_vis
 
         while Nu < Nn + Np + Ncl + Npl:
             if Nu < Nn + Np + Ncl + Npl:
@@ -278,9 +332,7 @@ class Calc(object):
 
         # Array values for the lines ['B', 'D', 'E', 'F', 'G', 'H', 'I']
         Ar = np.array(self.var_arry)
-#        print(f'\nvariable array {self.var_arry}')
         Cof = np.array(self.coef_arry)
-#        print(f'coefficient array {self.coef_arry}')
 
         # STEP 3 solve for the initial flow values
         try:
@@ -320,7 +372,7 @@ class Calc(object):
             self.WarnData(msg1 + msg2 + msg3)
             self.Q_old = {}
 
-        return self.Q_old, self.D_e, self.density, self.kin_vis, self.abs_vis
+        return self.Q_old, self.D_e, self.density, self.kin_vis #, self.abs_vis
 
     def Iterate_Flow(self, Flows, iter_num):
         # percentage variation in range of flow estimates
@@ -701,7 +753,6 @@ class Calc(object):
 
             m = 0
             for pt in alpha_poly_pts[::len(alpha_poly_pts)-1]:
-#                print(f'\npoint of review {pt}')
                 # when m = 0 or the last point is at a tank or pump
                 # if it is the first point then the elevation is +
                 if (m == 0 and skip_0 is False) or \
@@ -716,30 +767,24 @@ class Calc(object):
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-#                        print(f'pseudo loop end node elevation {float(self.parent.elevs[pt][0]) * cnvrt} in ft')
                         Elev = Elev + float(self.parent.elevs[pt][0]) * cnvrt * sgn
-#                        print(f'final pseudo loop node elevation change {Elev}')
                     # convert the pump elevation to feet
                     if pt in self.parent.pumps:
                         if self.parent.pumps[pt][0] == 2:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-#                        print(f'pump tank fluid elev {float(self.parent.pumps[pt][1]) * cnvrt} in ft')
                         Elev = Elev + float(self.parent.pumps[pt][1]) * cnvrt * sgn
                         k_matx[A_var[pt][1]] = A_var[pt][0] * sgn * -1
-#                        print(f'pump ho value {ho_cof[pt][0]} in ft')
                         Elev = Elev + ho_cof[pt][0] * sgn
-#                        print(f'final pump elevation {Elev}')
                     elif pt in self.parent.tanks:
                         if int(self.parent.tanks[pt][1]) == 1:
                             cnvrt = 3.28
                         else:
                             cnvrt = 1
-#                        print(f'tank elevation {self.parent.tanks[pt][0] * cnvrt} in ft')
                         Elev = Elev + float(self.parent.tanks[pt][0]) * cnvrt * sgn
                 m += 1
-#            print(f'final pseud loop elevation change {Elev}')
+
             # run through the matrix of all the lines mapped
             # in the plot as specified as part of a node in order to specify
             # the index location for the Kp vaiable in the loop equations
